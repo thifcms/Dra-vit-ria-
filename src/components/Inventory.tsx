@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { InventoryItem } from '../types';
@@ -45,15 +45,15 @@ export default function Inventory({ user }: { user: User }) {
     return unsubscribe;
   }, [user.uid]);
 
-  const filteredItems = items.filter(item => 
+  const filteredItems = useMemo(() => items.filter(item => 
     item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     item.category?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  ), [items, searchTerm]);
 
-  const lowStockItems = items.filter(item => item.quantity <= item.minThreshold);
+  const lowStockItems = useMemo(() => items.filter(item => item.quantity <= item.minThreshold), [items]);
 
   // Prepare chart data
-  const categoryData = items.reduce((acc: any[], item) => {
+  const categoryData = useMemo(() => items.reduce((acc: any[], item) => {
     const catName = item.category || 'Geral';
     const existing = acc.find(a => a.name === catName);
     if (existing) {
@@ -62,7 +62,7 @@ export default function Inventory({ user }: { user: User }) {
       acc.push({ name: catName, value: 1 });
     }
     return acc;
-  }, []);
+  }, []), [items]);
 
   const handleDelete = async (id: string) => {
     if (!window.confirm('Excluir este item do estoque?')) return;

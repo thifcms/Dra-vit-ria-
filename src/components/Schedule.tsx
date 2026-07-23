@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, where, orderBy } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Appointment, Patient } from '../types';
@@ -61,7 +61,10 @@ export default function Schedule({ user }: { user: FirebaseUser }) {
   const [prefillTime, setPrefillTime] = useState<string | null>(null);
 
   const dateStr = selectedDate.toISOString().split('T')[0];
-  const dayAppointments = appointments.filter(a => a.date === dateStr);
+  const dayAppointments = useMemo(
+    () => appointments.filter(a => a.date === dateStr),
+    [appointments, dateStr]
+  );
 
   const hours = Array.from({ length: 14 }, (_, i) => {
     const h = i + 8;

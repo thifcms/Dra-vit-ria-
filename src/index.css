@@ -22,6 +22,11 @@ body {
   font-family: var(--font-serif);
 }
 
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 .card-shadow {
   box-shadow: 0 10px 30px -10px rgba(180, 160, 140, 0.15);
 }

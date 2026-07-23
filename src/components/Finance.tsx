@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, onSnapshot, addDoc, deleteDoc, doc, where, orderBy, Timestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Transaction } from '../types';
@@ -45,17 +45,15 @@ export default function Finance({ user }: { user: User }) {
     return unsubscribe;
   }, [user.uid]);
 
-  const filteredTransactions = transactions.filter(t => 
-    filter === 'all' ? true : t.type === filter
+  const filteredTransactions = useMemo(
+    () => transactions.filter(t => filter === 'all' ? true : t.type === filter),
+    [transactions, filter]
   );
 
-  const totalIncome = transactions
-    .filter(t => t.type === 'income')
-    .reduce((acc, t) => acc + t.amount, 0);
-
-  const totalExpense = transactions
-    .filter(t => t.type === 'expense')
-    .reduce((acc, t) => acc + t.amount, 0);
+  const { totalIncome, totalExpense } = useMemo(() => ({
+    totalIncome: transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0),
+    totalExpense: transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0),
+  }), [transactions]);
 
   const balance = totalIncome - totalExpense;
 

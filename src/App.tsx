@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { auth, signInWithGoogle } from './lib/firebase';
+import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
+import { auth, signInWithGoogle, db } from './lib/firebase';
+import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { onAuthStateChanged, User as FirebaseUser, signOut } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
 import { ToastHost } from './lib/toast';
+import type { ClinicSettings, Patient } from './types';
 import { 
   Users, 
   Calendar, 
@@ -18,13 +20,13 @@ import {
   CreditCard
 } from 'lucide-react';
 
-// Views
-import Dashboard from './components/Dashboard';
-import Patients from './components/Patients';
-import Schedule from './components/Schedule';
-import Inventory from './components/Inventory';
-import Finance from './components/Finance';
-import Settings from './components/Settings';
+// Views — carregadas sob demanda (code-splitting), só a tela ativa entra no bundle inicial
+const Dashboard = lazy(() => import('./components/Dashboard'));
+const Patients = lazy(() => import('./components/Patients'));
+const Schedule = lazy(() => import('./components/Schedule'));
+const Inventory = lazy(() => import('./components/Inventory'));
+const Finance = lazy(() => import('./components/Finance'));
+const Settings = lazy(() => import('./components/Settings'));
 
 type View = 'dashboard' | 'patients' | 'schedule' | 'inventory' | 'finance' | 'settings';
 
@@ -33,22 +35,39 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [activeView, setActiveView] = useState<View>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [clinicSettings, setClinicSettings] = useState<ClinicSettings | null>(null);
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [sidebarSearch, setSidebarSearch] = useState('');
+  const [jumpToPatientId, setJumpToPatientId] = useState<string | null>(null);
+
+  const professionalName = clinicSettings?.professionalName || user?.displayName || 'Minha Conta';
+
+  const searchResults = useMemo(() => {
+    if (!sidebarSearch.trim()) return [];
+    const q = sidebarSearch.toLowerCase();
+    return patients.filter(p => p.name.toLowerCase().includes(q) || (p.cpf || '').includes(q)).slice(0, 6);
+  }, [sidebarSearch, patients]);
 
   useEffect(() => {
-    // Implementing a splash screen delay as requested in previous turn but keeping it consistent with the new structure
-    const minSplashTime = new Promise(resolve => setTimeout(resolve, 3500));
-    const authCheck = new Promise(resolve => {
-      const unsubscribe = onAuthStateChanged(auth, (u) => {
-        setUser(u);
-        resolve(u);
-        unsubscribe();
-      });
-    });
-
-    Promise.all([minSplashTime, authCheck]).then(() => {
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUser(u);
       setLoading(false);
     });
+    return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    if (!user) { setClinicSettings(null); setPatients([]); return; }
+    getDoc(doc(db, 'settings', user.uid)).then(snap => {
+      if (snap.exists()) setClinicSettings(snap.data() as ClinicSettings);
+    }).catch(() => {});
+
+    const unsubPatients = onSnapshot(
+      query(collection(db, 'patients'), where('userId', '==', user.uid)),
+      snap => setPatients(snap.docs.map(d => ({ id: d.id, ...d.data() } as Patient)))
+    );
+    return unsubPatients;
+  }, [user]);
 
   if (loading) {
     return (
@@ -118,9 +137,9 @@ export default function App() {
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-[#D1C7BD] rounded-2xl flex items-center justify-center shadow-sm">
-                    <span className="text-white font-serif text-xl">V</span>
+                    <span className="text-white font-serif text-xl">{professionalName.trim().charAt(0).toUpperCase() || '?'}</span>
                   </div>
-                  <span className="serif text-xl tracking-tight">Dra. Vitória Oliveira</span>
+                  <span className="serif text-xl tracking-tight">{professionalName}</span>
                 </div>
                 <button 
                   onClick={() => setIsSidebarOpen(false)}
@@ -136,8 +155,23 @@ export default function App() {
                 <input 
                   type="text" 
                   placeholder="Pesquisar pacientes..."
+                  value={sidebarSearch}
+                  onChange={(e) => setSidebarSearch(e.target.value)}
                   className="w-full bg-[#FAF7F2] border border-[#EBE3DB] rounded-2xl py-3 pl-12 pr-4 outline-none focus:border-[#B4A08C] focus:bg-white transition-all text-sm font-light"
                 />
+                {searchResults.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-[#EBE3DB] rounded-2xl shadow-lg overflow-hidden z-10">
+                    {searchResults.map(p => (
+                      <button
+                        key={p.id}
+                        onClick={() => { setActiveView('patients'); setJumpToPatientId(p.id!); setIsSidebarOpen(false); setSidebarSearch(''); }}
+                        className="w-full text-left px-4 py-3 text-sm text-[#4A4644] hover:bg-[#FAF7F2] border-b border-[#F2EEE9] last:border-0"
+                      >
+                        {p.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               
               <div className="flex flex-col gap-2">
@@ -181,12 +215,16 @@ export default function App() {
 
               <div className="mt-auto pt-8 border-t border-[#F2EEE9]">
                 <div className="flex items-center gap-4 mb-6 px-2">
-                  <div className="w-12 h-12 rounded-full border-2 border-[#D1C7BD] p-0.5 shadow-sm bg-white flex items-center justify-center overflow-hidden shrink-0">
-                    <UserIcon size={24} className="text-[#D1C7BD]" />
+                  <div className="w-12 h-12 rounded-full border-2 border-[#D1C7BD] shadow-sm bg-white flex items-center justify-center overflow-hidden shrink-0">
+                    {user.photoURL ? (
+                      <img src={user.photoURL} alt={professionalName} className="w-full h-full object-cover" />
+                    ) : (
+                      <UserIcon size={24} className="text-[#D1C7BD]" />
+                    )}
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-[#4A4644] truncate">Dra. Vitória Oliveira</p>
-                    <p className="text-[10px] text-[#B4A08C] font-bold uppercase tracking-widest">Especialista</p>
+                    <p className="text-sm font-semibold text-[#4A4644] truncate">{professionalName}</p>
+                    <p className="text-[10px] text-[#B4A08C] font-bold uppercase tracking-widest">{clinicSettings?.registrationNumber ? `CRO/CRM ${clinicSettings.registrationNumber}` : 'Especialista'}</p>
                   </div>
                 </div>
                 <button 
@@ -216,7 +254,7 @@ export default function App() {
                  activeView === 'finance' ? 'Financeiro' : 'Configurações'}
               </h1>
               {activeView === 'dashboard' && (
-                <span className="serif text-xl md:text-2xl text-[#8D6B6B] leading-none">Dra. Vitória Oliveira</span>
+                <span className="serif text-xl md:text-2xl text-[#8D6B6B] leading-none">{professionalName}</span>
               )}
             </div>
             <p className="text-[10px] md:text-xs text-[#B4A08C] font-semibold uppercase tracking-[0.2em] mt-2">
@@ -242,12 +280,19 @@ export default function App() {
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2 }}
             >
-              {activeView === 'dashboard' && <Dashboard user={user} onNavigate={setActiveView} />}
-              {activeView === 'patients' && <Patients user={user} />}
-              {activeView === 'schedule' && <Schedule user={user} />}
-              {activeView === 'inventory' && <Inventory user={user} />}
-              {activeView === 'finance' && <Finance user={user} />}
-              {activeView === 'settings' && <Settings user={user} />}
+              <Suspense fallback={<ViewLoadingFallback />}>
+                {activeView === 'dashboard' && <Dashboard user={user} onNavigate={setActiveView} />}
+                {activeView === 'patients' && (
+                  <Patients
+                    user={user}
+                    initialPatientId={jumpToPatientId}
+                  />
+                )}
+                {activeView === 'schedule' && <Schedule user={user} />}
+                {activeView === 'inventory' && <Inventory user={user} />}
+                {activeView === 'finance' && <Finance user={user} />}
+                {activeView === 'settings' && <Settings user={user} />}
+              </Suspense>
             </motion.div>
           </AnimatePresence>
         </div>
@@ -271,5 +316,13 @@ function NavItemExpanded({ active, onClick, icon, label }: { active: boolean, on
       </div>
       <span>{label}</span>
     </button>
+  );
+}
+
+function ViewLoadingFallback() {
+  return (
+    <div className="flex items-center justify-center py-24">
+      <div className="w-8 h-8 border-2 border-[#D1C7BD] border-t-transparent rounded-full animate-spin" />
+    </div>
   );
 }

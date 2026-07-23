@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { collection, query, onSnapshot, addDoc, updateDoc, getDoc, doc, where, orderBy } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, storage } from '../lib/firebase';
@@ -89,7 +89,7 @@ function exportPatientRecord(patient: Patient) {
   showToast('Prontuário exportado com sucesso');
 }
 
-export default function Patients({ user }: { user: User }) {
+export default function Patients({ user, initialPatientId }: { user: User, initialPatientId?: string | null }) {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [isAdding, setIsAdding] = useState(false);
@@ -110,9 +110,20 @@ export default function Patients({ user }: { user: User }) {
     return unsubscribe;
   }, [user.uid]);
 
-  const filteredPatients = patients.filter(p => 
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    p.cpf?.includes(searchTerm)
+  useEffect(() => {
+    if (initialPatientId) {
+      const p = patients.find(p => p.id === initialPatientId);
+      if (p) setSelectedPatient(p);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialPatientId, patients.length]);
+
+  const filteredPatients = useMemo(
+    () => patients.filter(p => 
+      p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      p.cpf?.includes(searchTerm)
+    ),
+    [patients, searchTerm]
   );
 
   if (selectedPatient) {
