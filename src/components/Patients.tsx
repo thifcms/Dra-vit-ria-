@@ -128,6 +128,15 @@ export default function Patients({ user, initialPatientId }: { user: User, initi
     [patients, searchTerm]
   );
 
+  const PAGE_SIZE = 20;
+  const [page, setPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(filteredPatients.length / PAGE_SIZE));
+  useEffect(() => { setPage(1); }, [searchTerm]);
+  const pagedPatients = useMemo(
+    () => filteredPatients.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [filteredPatients, page]
+  );
+
   if (selectedPatient) {
     // We fetch a fresh copy or use real-time sync for the detail view
     const patientSync = patients.find(p => p.id === selectedPatient.id) || selectedPatient;
@@ -182,7 +191,7 @@ export default function Patients({ user, initialPatientId }: { user: User, initi
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#F2EEE9]">
-                {filteredPatients.map(patient => (
+                {pagedPatients.map(patient => (
                   <tr 
                     key={patient.id} 
                     className="hover:bg-[#FDFBF9] cursor-pointer transition-colors group"
@@ -225,6 +234,29 @@ export default function Patients({ user, initialPatientId }: { user: User, initi
             </table>
           )}
         </div>
+        {!loading && filteredPatients.length > PAGE_SIZE && (
+          <div className="flex items-center justify-between px-8 py-5 border-t border-[#F2EEE9] bg-[#FDFBF9]">
+            <p className="text-[10px] font-bold text-[#B4A08C] uppercase tracking-widest">
+              Página {page} de {totalPages} — {filteredPatients.length} pacientes
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="px-4 py-2 rounded-xl border border-[#EBE3DB] text-xs font-bold text-[#B4A08C] uppercase tracking-widest disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white transition-colors"
+              >
+                Anterior
+              </button>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="px-4 py-2 rounded-xl border border-[#EBE3DB] text-xs font-bold text-[#B4A08C] uppercase tracking-widest disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white transition-colors"
+              >
+                Próxima
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <AnimatePresence>

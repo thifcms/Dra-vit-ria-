@@ -58,6 +58,7 @@ export default function Schedule({ user }: { user: FirebaseUser }) {
   }, [user.uid]);
 
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
   const [prefillTime, setPrefillTime] = useState<string | null>(null);
 
   const dateStr = selectedDate.toISOString().split('T')[0];
@@ -225,6 +226,7 @@ export default function Schedule({ user }: { user: FirebaseUser }) {
                                   exit={{ opacity: 0, y: 10 }}
                                   className="absolute right-0 top-12 z-20 bg-white rounded-2xl border border-[#F2EEE9] shadow-xl py-3 w-52 overflow-hidden"
                                 >
+                                  <MenuOption onClick={() => { setEditingAppointment(appt); setOpenMenuId(null); }} label="Editar" color="text-[#4A4644]" />
                                   <MenuOption onClick={() => handleSetStatus(appt.id!, 'confirmed')} label="Confirmar" color="text-[#D1C7BD]" />
                                   <MenuOption onClick={() => handleSetStatus(appt.id!, 'completed')} label="Marcar como realizado" color="text-[#4F634F]" />
                                   <MenuOption onClick={() => handleSetStatus(appt.id!, 'cancelled')} label="Cancelar" color="text-[#8D6B6B]" />
@@ -264,6 +266,17 @@ export default function Schedule({ user }: { user: FirebaseUser }) {
             appointments={appointments}
             initialDate={dateStr}
             initialTime={prefillTime || '08:00'}
+          />
+        )}
+        {editingAppointment && (
+          <AddAppointmentModal 
+            user={user}
+            onClose={() => setEditingAppointment(null)} 
+            patients={patients}
+            appointments={appointments}
+            initialDate={editingAppointment.date}
+            initialTime={editingAppointment.time}
+            appointment={editingAppointment}
           />
         )}
       </AnimatePresence>
@@ -308,19 +321,21 @@ function MenuOption({ onClick, label, color }: any) {
   );
 }
 
-function AddAppointmentModal({ user, onClose, patients, appointments, initialDate, initialTime }: any) {
-  const [patientId, setPatientId] = useState('');
-  const [date, setDate] = useState(initialDate);
-  const [time, setTime] = useState(initialTime || '08:00');
-  const [notes, setNotes] = useState('');
+function AddAppointmentModal({ user, onClose, patients, appointments, initialDate, initialTime, appointment }: any) {
+  const [patientId, setPatientId] = useState(appointment?.patientId || '');
+  const [date, setDate] = useState(appointment?.date || initialDate);
+  const [time, setTime] = useState(appointment?.time || initialTime || '08:00');
+  const [notes, setNotes] = useState(appointment?.notes || '');
   const [saving, setSaving] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (saving) return;
 
-    // Bloqueio de conflito
-    const conflict = appointments.find((a: any) => a.date === date && a.time === time && a.status !== 'cancelled');
+    // Bloqueio de conflito (ignora o próprio agendamento ao editar)
+    const conflict = appointments.find((a: any) =>
+      a.date === date && a.time === time && a.status !== 'cancelled' && a.id !== appointment?.id
+    );
     if (conflict) {
       showToast('Este horário já está ocupado!', 'error');
       return;
@@ -329,20 +344,31 @@ function AddAppointmentModal({ user, onClose, patients, appointments, initialDat
     setSaving(true);
     const patient = patients.find((p: any) => p.id === patientId);
     try {
-      await addDoc(collection(db, 'appointments'), {
-        userId: user.uid,
-        patientId,
-        patientName: patient?.name || 'Unknown',
-        date,
-        time,
-        notes,
-        status: 'scheduled',
-        createdAt: new Date().toISOString()
-      });
-      showToast('Agendamento realizado');
+      if (appointment?.id) {
+        await updateDoc(doc(db, 'appointments', appointment.id), {
+          patientId,
+          patientName: patient?.name || appointment.patientName || 'Unknown',
+          date,
+          time,
+          notes,
+        });
+        showToast('Agendamento atualizado');
+      } else {
+        await addDoc(collection(db, 'appointments'), {
+          userId: user.uid,
+          patientId,
+          patientName: patient?.name || 'Unknown',
+          date,
+          time,
+          notes,
+          status: 'scheduled',
+          createdAt: new Date().toISOString()
+        });
+        showToast('Agendamento realizado');
+      }
       onClose();
     } catch (err) {
-      showToast('Erro ao agendar', 'error');
+      showToast(appointment?.id ? 'Erro ao atualizar agendamento' : 'Erro ao agendar', 'error');
     } finally {
       setSaving(false);
     }
@@ -357,7 +383,7 @@ function AddAppointmentModal({ user, onClose, patients, appointments, initialDat
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
         className="bg-white w-full max-w-lg rounded-[40px] p-10 shadow-2xl"
       >
-        <h2 className="serif text-2xl text-[#4A4644] mb-8">Novo Agendamento</h2>
+        <h2 className="serif text-2xl text-[#4A4644] mb-8">{appointment ? 'Editar Agendamento' : 'Novo Agendamento'}</h2>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label className="block text-[10px] font-bold text-[#B4A08C] uppercase tracking-widest mb-2 ml-1">Paciente</label>
@@ -419,7 +445,7 @@ function AddAppointmentModal({ user, onClose, patients, appointments, initialDat
               type="submit" 
               className="flex-1 py-4 bg-[#D1C7BD] text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-[#D1C7BD]/90 transition-all"
             >
-              {saving ? 'Agendando...' : 'Confirmar Agenda'}
+              {saving ? 'Salvando...' : appointment ? 'Salvar Alterações' : 'Confirmar Agenda'}
             </button>
           </div>
         </form>
