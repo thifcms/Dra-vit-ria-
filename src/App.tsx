@@ -71,11 +71,11 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-[#FDFBF9]">
+      <div className="h-screen w-screen flex items-center justify-center bg-white">
         <motion.div 
-          animate={{ scale: [1, 1.1, 1] }} 
+          animate={{ scale: [1, 1.05, 1] }} 
           transition={{ repeat: Infinity, duration: 2 }}
-          className="text-[#B4A08C] font-light text-xl tracking-widest serif text-center"
+          className="text-[#D1C7BD] font-light text-xl tracking-[0.3em] serif text-center"
         >
           DRA. VITÓRIA OLIVEIRA
         </motion.div>
@@ -85,33 +85,33 @@ export default function App() {
 
   if (!user) {
     return (
-      <div className="h-screen w-screen flex flex-col items-center justify-center bg-[#FDFBF9] p-6">
+      <div className="h-screen w-screen flex flex-col items-center justify-center bg-[#F8F9FA] p-6">
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-md bg-white p-10 rounded-[32px] card-shadow border border-[#EBE3DB] text-center"
+          className="w-full max-w-md bg-white p-10 rounded-[32px] shadow-sm border border-[#F1F3F5] text-center"
         >
-          <div className="w-20 h-20 bg-[#D1C7BD]/20 rounded-full flex items-center justify-center mx-auto mb-8">
+          <div className="w-20 h-20 bg-[#D1C7BD]/10 rounded-full flex items-center justify-center mx-auto mb-8">
             <UserIcon className="text-[#D1C7BD] w-10 h-10" />
           </div>
-          <h1 className="text-3xl font-normal text-[#4A4644] mb-2 serif">Bem-vindo</h1>
-          <p className="text-[#B4A08C] mb-10 font-light italic">Gestão moderna e delicada</p>
+          <h1 className="text-3xl font-light text-[#374151] mb-2 serif">Bem-vindo</h1>
+          <p className="text-[#9CA3AF] mb-10 font-light italic">Gestão moderna e delicada</p>
           
           <button 
             onClick={signInWithGoogle}
-            className="w-full py-4 px-6 bg-[#D1C7BD] text-white rounded-2xl flex items-center justify-center gap-3 hover:bg-[#D1C7BD]/90 transition-all shadow-sm active:scale-[0.98] font-medium"
+            className="w-full py-4 px-6 bg-[#D1C7BD] text-white rounded-2xl flex items-center justify-center gap-3 hover:bg-[#C5B9AD] transition-all shadow-sm active:scale-[0.98] font-medium"
           >
             <span className="tracking-wide">Entrar com Google</span>
           </button>
           
-          <p className="mt-8 text-xs text-[#B4A08C] font-light uppercase tracking-[0.2em]">Acesso Seguro & Criptografado</p>
+          <p className="mt-8 text-xs text-[#9CA3AF] font-light uppercase tracking-[0.2em]">Acesso Seguro & Criptografado</p>
         </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen bg-[#FDFBF9] text-[#4A4644] overflow-hidden relative">
+    <div className="flex h-screen bg-[#F8F9FA] text-[#374151] overflow-hidden relative">
       <ToastHost />
       {/* Sidebar - Retractable Drawer */}
       <AnimatePresence>
@@ -123,7 +123,7 @@ export default function App() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsSidebarOpen(false)}
-              className="fixed inset-0 bg-black/5 backdrop-blur-[2px] z-[50]"
+              className="fixed inset-0 bg-black/10 backdrop-blur-[1px] z-[50]"
             />
             
             {/* Drawer */}
@@ -132,18 +132,18 @@ export default function App() {
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed left-0 top-0 bottom-0 w-80 bg-white border-r border-[#EBE3DB] shadow-2xl z-[60] flex flex-col p-8"
+              className="fixed left-0 top-0 bottom-0 w-80 bg-white border-r border-[#F1F3F5] shadow-2xl z-[60] flex flex-col p-8"
             >
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-[#D1C7BD] rounded-2xl flex items-center justify-center shadow-sm">
                     <span className="text-white font-serif text-xl">{professionalName.trim().charAt(0).toUpperCase() || '?'}</span>
                   </div>
-                  <span className="serif text-xl tracking-tight">{professionalName}</span>
+                  <span className="serif text-xl tracking-tight text-[#374151]">{professionalName}</span>
                 </div>
                 <button 
                   onClick={() => setIsSidebarOpen(false)}
-                  className="p-2 text-[#B4A08C] hover:text-[#8D6B6B] transition-colors"
+                  className="p-2 text-[#9CA3AF] hover:text-[#D1C7BD] transition-colors"
                 >
                   <X size={24} />
                 </button>
@@ -151,21 +151,21 @@ export default function App() {
 
               {/* Search in Sidebar */}
               <div className="mb-8 relative group">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#B4A08C] transition-colors group-focus-within:text-[#D1C7BD]" size={18} />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9CA3AF] transition-colors group-focus-within:text-[#D1C7BD]" size={18} />
                 <input 
                   type="text" 
                   placeholder="Pesquisar pacientes..."
                   value={sidebarSearch}
                   onChange={(e) => setSidebarSearch(e.target.value)}
-                  className="w-full bg-[#FAF7F2] border border-[#EBE3DB] rounded-2xl py-3 pl-12 pr-4 outline-none focus:border-[#B4A08C] focus:bg-white transition-all text-sm font-light"
+                  className="w-full bg-[#F8F9FA] border border-[#F1F3F5] rounded-2xl py-3 pl-12 pr-4 outline-none focus:border-[#D1C7BD]/30 focus:bg-white transition-all text-sm font-light"
                 />
                 {searchResults.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-[#EBE3DB] rounded-2xl shadow-lg overflow-hidden z-10">
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-[#F1F3F5] rounded-2xl shadow-lg overflow-hidden z-10">
                     {searchResults.map(p => (
                       <button
                         key={p.id}
                         onClick={() => { setActiveView('patients'); setJumpToPatientId(p.id!); setIsSidebarOpen(false); setSidebarSearch(''); }}
-                        className="w-full text-left px-4 py-3 text-sm text-[#4A4644] hover:bg-[#FAF7F2] border-b border-[#F2EEE9] last:border-0"
+                        className="w-full text-left px-4 py-3 text-sm text-[#374151] hover:bg-[#F8F9FA] border-b border-[#F1F3F5] last:border-0"
                       >
                         {p.name}
                       </button>
@@ -213,9 +213,9 @@ export default function App() {
                 />
               </div>
 
-              <div className="mt-auto pt-8 border-t border-[#F2EEE9]">
+              <div className="mt-auto pt-8 border-t border-[#F1F3F5]">
                 <div className="flex items-center gap-4 mb-6 px-2">
-                  <div className="w-12 h-12 rounded-full border-2 border-[#D1C7BD] shadow-sm bg-white flex items-center justify-center overflow-hidden shrink-0">
+                  <div className="w-12 h-12 rounded-full border border-[#F1F3F5] shadow-sm bg-[#F8F9FA] flex items-center justify-center overflow-hidden shrink-0">
                     {user.photoURL ? (
                       <img src={user.photoURL} alt={professionalName} className="w-full h-full object-cover" />
                     ) : (
@@ -223,13 +223,13 @@ export default function App() {
                     )}
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-[#4A4644] truncate">{professionalName}</p>
-                    <p className="text-[10px] text-[#B4A08C] font-bold uppercase tracking-widest">{clinicSettings?.registrationNumber ? `CRO/CRM ${clinicSettings.registrationNumber}` : 'Especialista'}</p>
+                    <p className="text-sm font-semibold text-[#374151] truncate">{professionalName}</p>
+                    <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest">{clinicSettings?.registrationNumber ? `CRO/CRM ${clinicSettings.registrationNumber}` : 'Especialista'}</p>
                   </div>
                 </div>
                 <button 
                   onClick={() => signOut(auth)}
-                  className="w-full flex items-center gap-4 px-6 py-4 text-[#B4A08C] hover:text-[#8D6B6B] hover:bg-[#FAF7F2] rounded-2xl transition-all font-medium text-sm group"
+                  className="w-full flex items-center gap-4 px-6 py-4 text-[#9CA3AF] hover:text-red-400 hover:bg-red-50/30 rounded-2xl transition-all font-medium text-sm group"
                 >
                   <LogOut size={20} className="group-hover:translate-x-1 transition-transform" />
                   <span>Sair do Sistema</span>
@@ -243,10 +243,10 @@ export default function App() {
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
         {/* Header */}
-        <header className="h-auto min-h-28 bg-[#FDFBF9] flex items-center justify-between px-6 md:px-10 py-6 z-10 border-b border-[#F2EEE9]">
+        <header className="h-auto min-h-28 bg-white flex items-center justify-between px-6 md:px-10 py-6 z-10 border-b border-[#F1F3F5]">
           <div className="space-y-1">
             <div className="flex items-center gap-x-3 gap-y-1 whitespace-nowrap">
-              <h1 className="serif text-xl md:text-2xl text-[#4A4644] leading-none">
+              <h1 className="serif text-xl md:text-2xl text-[#374151] leading-none">
                 {activeView === 'dashboard' ? '' : 
                  activeView === 'patients' ? 'Pacientes' :
                  activeView === 'schedule' ? 'Agenda' :
@@ -254,17 +254,17 @@ export default function App() {
                  activeView === 'finance' ? 'Financeiro' : 'Configurações'}
               </h1>
               {activeView === 'dashboard' && (
-                <span className="serif text-xl md:text-2xl text-[#8D6B6B] leading-none">{professionalName}</span>
+                <span className="serif text-xl md:text-2xl text-[#D1C7BD] leading-none">{professionalName}</span>
               )}
             </div>
-            <p className="text-[10px] md:text-xs text-[#B4A08C] font-semibold uppercase tracking-[0.2em] mt-2">
+            <p className="text-[10px] md:text-xs text-[#9CA3AF] font-semibold uppercase tracking-[0.2em] mt-2">
               {activeView === 'dashboard' ? 'Gestão Clínica & Financeira' : 'Consultório Digital'}
             </p>
           </div>
           
           <button 
             onClick={() => setIsSidebarOpen(true)}
-            className="p-4 bg-white border border-[#EBE3DB] text-[#B4A08C] rounded-2xl shadow-sm hover:border-[#B4A08C] hover:text-[#8D6B6B] transition-all group shrink-0"
+            className="p-4 bg-white border border-[#F1F3F5] text-[#9CA3AF] rounded-2xl shadow-sm hover:border-[#D1C7BD]/30 hover:text-[#D1C7BD] transition-all group shrink-0"
           >
             <MoreVertical size={24} className="group-hover:scale-110 transition-transform" />
           </button>
@@ -307,11 +307,11 @@ function NavItemExpanded({ active, onClick, icon, label }: { active: boolean, on
       onClick={onClick}
       className={`flex items-center gap-4 px-6 py-4 rounded-2xl transition-all font-medium text-sm ${
         active 
-          ? 'bg-[#FAF7F2] text-[#8D6B6B] shadow-inner' 
-          : 'text-[#B4A08C] hover:bg-[#FAF7F2]/50 hover:translate-x-1'
+          ? 'bg-[#F8F9FA] text-[#D1C7BD] shadow-sm' 
+          : 'text-[#9CA3AF] hover:bg-[#F8F9FA]/50 hover:translate-x-1'
       }`}
     >
-      <div className={`${active ? 'text-[#8D6B6B]' : 'text-[#B4A08C]'}`}>
+      <div className={`${active ? 'text-[#D1C7BD]' : 'text-[#9CA3AF]'}`}>
         {icon}
       </div>
       <span>{label}</span>

@@ -139,22 +139,22 @@ export default function Finance({ user }: { user: User }) {
           label="Saldo Disponível" 
           value={balance} 
           icon={<DollarSign size={20} />} 
-          color="text-[#4A4644]" 
-          bg="bg-[#FAF7F2]"
+          color="text-[#374151]" 
+          bg="bg-[#F8F9FA]"
         />
         <BalanceCard 
           label="Entradas do Mês" 
           value={totalIncome} 
           icon={<ArrowUpCircle size={20} />} 
           color="text-[#4F634F]" 
-          bg="bg-[#D4E2D4]/30"
+          bg="bg-[#E8F5E9]"
         />
         <BalanceCard 
           label="Saídas do Mês" 
           value={totalExpense} 
           icon={<ArrowDownCircle size={20} />} 
-          color="text-[#8D6B6B]" 
-          bg="bg-[#F5E6E8]/40"
+          color="text-red-400" 
+          bg="bg-red-50"
         />
       </div>
 
@@ -162,11 +162,11 @@ export default function Finance({ user }: { user: User }) {
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-white rounded-[48px] border border-[#F2EEE9] p-10 card-shadow"
+        className="bg-white rounded-[48px] border border-[#F1F3F5] p-10 shadow-sm"
       >
         <div className="mb-10">
-          <h3 className="serif text-2xl text-[#4A4644]">Fluxo de Caixa</h3>
-          <p className="text-[10px] text-[#B4A08C] font-bold uppercase tracking-widest mt-1">Comparativo de Entradas e Saídas • Últimos 6 meses</p>
+          <h3 className="serif text-2xl text-[#374151]">Fluxo de Caixa</h3>
+          <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest mt-1">Comparativo de Entradas e Saídas • Últimos 6 meses</p>
         </div>
         <div className="h-[300px] w-full">
           <ResponsiveContainer width="100%" height="100%">
@@ -177,22 +177,22 @@ export default function Finance({ user }: { user: User }) {
                   <stop offset="95%" stopColor="#4F634F" stopOpacity={0}/>
                 </linearGradient>
                 <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#8D6B6B" stopOpacity={0.1}/>
-                  <stop offset="95%" stopColor="#8D6B6B" stopOpacity={0}/>
+                  <stop offset="5%" stopColor="#ef4444" stopOpacity={0.1}/>
+                  <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F2EEE9" />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
               <XAxis 
                 dataKey="name" 
                 axisLine={false} 
                 tickLine={false} 
-                tick={{ fill: '#B4A08C', fontSize: 10, fontWeight: 700 }}
+                tick={{ fill: '#9CA3AF', fontSize: 10, fontWeight: 700 }}
                 dy={10}
               />
               <YAxis 
                 axisLine={false} 
                 tickLine={false} 
-                tick={{ fill: '#B4A08C', fontSize: 10 }}
+                tick={{ fill: '#9CA3AF', fontSize: 10 }}
                 tickFormatter={(v) => `R$ ${v >= 1000 ? (v/1000).toFixed(0) + 'k' : v}`}
               />
               <Tooltip 
@@ -216,7 +216,7 @@ export default function Finance({ user }: { user: User }) {
               <Area 
                 type="monotone" 
                 dataKey="Saídas" 
-                stroke="#8D6B6B" 
+                stroke="#ef4444" 
                 strokeWidth={3}
                 fillOpacity={1} 
                 fill="url(#colorExpense)" 
@@ -229,7 +229,7 @@ export default function Finance({ user }: { user: User }) {
 
       {/* Toolbar */}
       <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="flex bg-white rounded-2xl p-1 border border-[#F2EEE9] shadow-sm">
+        <div className="flex bg-white rounded-2xl p-1 border border-[#F1F3F5] shadow-sm">
           <FilterButton active={filter === 'all'} onClick={() => setFilter('all')} label="Todos" />
           <FilterButton active={filter === 'income'} onClick={() => setFilter('income')} label="Entradas" />
           <FilterButton active={filter === 'expense'} onClick={() => setFilter('expense')} label="Saídas" />
@@ -238,14 +238,14 @@ export default function Finance({ user }: { user: User }) {
         <div className="flex items-center gap-4 w-full md:w-auto">
           <button 
             onClick={handleExportCSV}
-            className="flex-1 md:flex-none p-4 bg-white border border-[#EBE3DB] text-[#B4A08C] rounded-2xl hover:border-[#B4A08C] transition-all flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-widest"
+            className="flex-1 md:flex-none p-4 bg-white border border-[#F1F3F5] text-[#9CA3AF] rounded-2xl hover:border-[#D1C7BD] transition-all flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-widest"
           >
             <Download size={18} />
             Relatório
           </button>
           <button 
             onClick={() => setIsAdding(true)}
-            className="flex-1 md:flex-none p-4 bg-[#D1C7BD] text-white rounded-2xl hover:bg-[#D1C7BD]/90 transition-all flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-widest shadow-md"
+            className="flex-1 md:flex-none p-4 bg-[#D1C7BD] text-white rounded-2xl hover:bg-[#C5B9AD] transition-all flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-widest shadow-md"
           >
             <Plus size={18} />
             Lançar Fluxo
@@ -254,38 +254,38 @@ export default function Finance({ user }: { user: User }) {
       </div>
 
       {/* Transactions List */}
-      <div className="bg-white rounded-[40px] border border-[#F2EEE9] shadow-sm overflow-hidden min-h-[400px]">
+      <div className="bg-white rounded-[40px] border border-[#F1F3F5] shadow-sm overflow-hidden min-h-[400px]">
         {loading ? (
-          <div className="p-20 text-center text-[#B4A08C] font-light">Carregando...</div>
+          <div className="p-20 text-center text-[#9CA3AF] font-light">Carregando...</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-[#FAF7F2] border-b border-[#F2EEE9]">
-                  <th className="p-6 text-[10px] font-bold uppercase tracking-widest text-[#B4A08C]">Data</th>
-                  <th className="p-6 text-[10px] font-bold uppercase tracking-widest text-[#B4A08C]">Descrição</th>
-                  <th className="p-6 text-[10px] font-bold uppercase tracking-widest text-[#B4A08C]">Categoria</th>
-                  <th className="p-6 text-[10px] font-bold uppercase tracking-widest text-[#B4A08C]">Valor</th>
+                <tr className="bg-[#F8F9FA] border-b border-[#F1F3F5]">
+                  <th className="p-6 text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF]">Data</th>
+                  <th className="p-6 text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF]">Descrição</th>
+                  <th className="p-6 text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF]">Categoria</th>
+                  <th className="p-6 text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF]">Valor</th>
                   <th className="p-6"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#F2EEE9]">
+              <tbody className="divide-y divide-[#F1F3F5]">
                 {filteredTransactions.map((t) => (
-                  <tr key={t.id} className="hover:bg-[#FDFBF9] transition-colors group">
-                    <td className="p-6 text-sm font-light text-[#B4A08C]">{new Date(t.date).toLocaleDateString('pt-BR')}</td>
-                    <td className="p-6 font-medium text-[#4A4644]">{t.description}</td>
+                  <tr key={t.id} className="hover:bg-[#F8F9FA] transition-colors group">
+                    <td className="p-6 text-sm font-light text-[#9CA3AF]">{new Date(t.date).toLocaleDateString('pt-BR')}</td>
+                    <td className="p-6 font-medium text-[#374151]">{t.description}</td>
                     <td className="p-6">
-                      <span className="px-3 py-1 bg-[#FAF7F2] text-[#B4A08C] text-[10px] font-bold uppercase tracking-widest rounded-lg border border-[#EBE3DB]">
+                      <span className="px-3 py-1 bg-[#F8F9FA] text-[#9CA3AF] text-[10px] font-bold uppercase tracking-widest rounded-lg border border-[#F1F3F5]">
                         {t.category}
                       </span>
                     </td>
-                    <td className={`p-6 font-semibold ${t.type === 'income' ? 'text-[#4F634F]' : 'text-[#8D6B6B]'}`}>
+                    <td className={`p-6 font-semibold ${t.type === 'income' ? 'text-[#4F634F]' : 'text-red-400'}`}>
                       {t.type === 'income' ? '+' : '-'} R$ {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </td>
                     <td className="p-6 text-right">
                       <button 
                         onClick={() => handleDelete(t.id!)}
-                        className="p-2 text-[#EBE3DB] hover:text-[#8D6B6B] opacity-0 group-hover:opacity-100 transition-all"
+                        className="p-2 text-[#F1F3F5] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
                       >
                         <Trash2 size={18} />
                       </button>
@@ -319,10 +319,10 @@ export default function Finance({ user }: { user: User }) {
 
 function BalanceCard({ label, value, icon, color, bg }: any) {
   return (
-    <div className={`${bg} p-8 rounded-[32px] border border-[#F2EEE9] shadow-sm`}>
+    <div className={`${bg} p-8 rounded-[32px] border border-[#F1F3F5] shadow-sm`}>
       <div className="flex items-center gap-3 mb-4">
         <div className={`p-2 bg-white rounded-xl ${color} shadow-sm`}>{icon}</div>
-        <p className="text-[10px] font-bold text-[#B4A08C] uppercase tracking-widest">{label}</p>
+        <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest">{label}</p>
       </div>
       <p className={`text-3xl font-light serif ${color}`}>
         R$ {value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -336,7 +336,7 @@ function FilterButton({ active, onClick, label }: any) {
     <button 
       onClick={onClick}
       className={`px-6 py-3 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${
-        active ? 'bg-[#D1C7BD] text-white shadow-md' : 'text-[#B4A08C] hover:bg-[#FAF7F2]'
+        active ? 'bg-[#D1C7BD] text-white shadow-md' : 'text-[#9CA3AF] hover:bg-[#F8F9FA]'
       }`}
     >
       {label}
@@ -386,7 +386,7 @@ function AddTransactionModal({ user, onClose }: any) {
   };
 
   return (
-    <div className="fixed inset-0 bg-[#4A443F]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+    <div className="fixed inset-0 bg-[#374151]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
       <motion.div 
         initial={{ y: 30, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -394,18 +394,18 @@ function AddTransactionModal({ user, onClose }: any) {
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
         className="bg-white w-full max-w-lg rounded-[40px] p-10 shadow-2xl"
       >
-        <h2 className="serif text-2xl text-[#4A4644] mb-8">Novo Lançamento</h2>
+        <h2 className="serif text-2xl text-[#374151] mb-8">Novo Lançamento</h2>
         
-        <div className="flex gap-4 mb-8 bg-[#FAF7F2] p-2 rounded-2xl">
+        <div className="flex gap-4 mb-8 bg-[#F8F9FA] p-2 rounded-2xl">
           <button 
             onClick={() => setType('income')}
-            className={`flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${type === 'income' ? 'bg-[#D4E2D4] text-[#4F634F] shadow-sm' : 'text-[#B4A08C]'}`}
+            className={`flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${type === 'income' ? 'bg-[#E8F5E9] text-[#4F634F] shadow-sm' : 'text-[#9CA3AF]'}`}
           >
             Entrada
           </button>
           <button 
             onClick={() => setType('expense')}
-            className={`flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${type === 'expense' ? 'bg-[#F5E6E8] text-[#8D6B6B] shadow-sm' : 'text-[#B4A08C]'}`}
+            className={`flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${type === 'expense' ? 'bg-red-50 text-red-400 shadow-sm' : 'text-[#9CA3AF]'}`}
           >
             Saída
           </button>
@@ -413,28 +413,28 @@ function AddTransactionModal({ user, onClose }: any) {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="block text-[10px] font-bold text-[#B4A08C] uppercase tracking-widest mb-2 ml-1">Valor (R$)</label>
+            <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Valor (R$)</label>
             <input 
               required
               type="text"
               placeholder="0,00"
-              className="w-full bg-[#FDFBF9] border border-[#F2EEE9] rounded-2xl p-4 text-2xl serif outline-none focus:border-[#D1C7BD] transition-all"
+              className="w-full bg-[#F8F9FA] border border-[#F1F3F5] rounded-2xl p-4 text-2xl serif outline-none focus:border-[#D1C7BD]/30 transition-all"
               value={amount}
               onChange={e => setAmount(e.target.value)}
             />
           </div>
           <div>
-            <label className="block text-[10px] font-bold text-[#B4A08C] uppercase tracking-widest mb-2 ml-1">Descrição</label>
+            <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Descrição</label>
             <input 
               required
-              className="w-full bg-[#FDFBF9] border border-[#F2EEE9] rounded-2xl p-4 outline-none focus:border-[#D1C7BD] transition-all font-light"
+              className="w-full bg-[#F8F9FA] border border-[#F1F3F5] rounded-2xl p-4 outline-none focus:border-[#D1C7BD]/30 transition-all font-light"
               value={description}
               onChange={e => setDescription(e.target.value)}
               placeholder="Ex: Pagamento Consulta, Compra Insumos..."
             />
           </div>
           <div>
-            <label className="block text-[10px] font-bold text-[#B4A08C] uppercase tracking-widest mb-2 ml-1">Categoria</label>
+            <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Categoria</label>
             <div className="flex flex-wrap gap-2 mb-3">
               {categories.map(cat => (
                 <button 
@@ -442,7 +442,7 @@ function AddTransactionModal({ user, onClose }: any) {
                   type="button"
                   onClick={() => setCategory(cat)}
                   className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all border ${
-                    category === cat ? 'bg-[#D1C7BD] border-[#D1C7BD] text-white' : 'bg-white border-[#F2EEE9] text-[#B4A08C] hover:border-[#D1C7BD]'
+                    category === cat ? 'bg-[#D1C7BD] border-[#D1C7BD] text-white' : 'bg-white border-[#F1F3F5] text-[#9CA3AF] hover:border-[#D1C7BD]'
                   }`}
                 >
                   {cat}
@@ -451,7 +451,7 @@ function AddTransactionModal({ user, onClose }: any) {
             </div>
             <input 
               required
-              className="w-full bg-[#FDFBF9] border border-[#F2EEE9] rounded-2xl p-4 outline-none focus:border-[#D1C7BD] transition-all font-light"
+              className="w-full bg-[#F8F9FA] border border-[#F1F3F5] rounded-2xl p-4 outline-none focus:border-[#D1C7BD]/30 transition-all font-light"
               value={category}
               onChange={e => setCategory(e.target.value)}
               placeholder="Ou digite outra categoria..."
@@ -459,11 +459,11 @@ function AddTransactionModal({ user, onClose }: any) {
           </div>
 
           <div className="flex gap-4 pt-4">
-            <button type="button" onClick={onClose} className="flex-1 py-4 text-[#B4A08C] font-bold text-[10px] uppercase">Cancelar</button>
+            <button type="button" onClick={onClose} className="flex-1 py-4 text-[#9CA3AF] font-bold text-[10px] uppercase">Cancelar</button>
             <button 
               disabled={saving}
               type="submit" 
-              className="flex-1 py-4 bg-[#D1C7BD] text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-[#D1C7BD]/90 transition-all"
+              className="flex-1 py-4 bg-[#D1C7BD] text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-[#C5B9AD] transition-all"
             >
               {saving ? 'Salvando...' : 'Confirmar Lançamento'}
             </button>

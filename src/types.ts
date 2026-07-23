@@ -12,10 +12,32 @@ export interface Patient {
     mainComplaint: string;
     expectations: string;
     
-    // Histórico Médico
-    medicalHistory: string;
-    allergies: string;
-    medications: string;
+    // Histórico Médico (Condições Fixas)
+    conditions: {
+      diabetes: boolean;
+      hypertension: boolean;
+      heartProblems: boolean;
+      autoimmune: boolean;
+      cancerHistory: boolean;
+      keloid: boolean;
+      herpes: boolean;
+      epilepsy: boolean;
+      hivHepatitis: boolean;
+      pacemaker: boolean;
+      pregnant: boolean;
+      breastfeeding: boolean;
+      anticoagulant: boolean;
+      isotretinoin: boolean;
+      contraceptive: boolean;
+    };
+    otherConditions: string;
+    
+    // Alergias e Medicações (Estruturadas)
+    hasAllergies: boolean;
+    allergiesDetails: string;
+    hasContinuousMedication: boolean;
+    medicationsDetails: string;
+    
     familyHistory: string;
     
     // Hábitos
@@ -23,10 +45,13 @@ export interface Patient {
       smoking: boolean;
       alcohol: boolean;
       exercise: boolean;
+      sunExposure: boolean;
+      sunscreen: boolean;
       diet: string;
     };
     
     // Avaliação Clínica
+    fitzpatrickType: 'I' | 'II' | 'III' | 'IV' | 'V' | 'VI' | '';
     skinEvaluation: string;
     faceEvaluation: string;
   };

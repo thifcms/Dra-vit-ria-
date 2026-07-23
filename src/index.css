@@ -6,10 +6,10 @@
   --font-sans: 'Inter', sans-serif;
   --font-serif: 'Playfair Display', serif;
   
-  --color-primary: #4A4644;
-  --color-secondary: #B4A08C;
+  --color-primary: #374151;
+  --color-secondary: #9CA3AF;
   --color-tertiary: #D1C7BD;
-  --color-bg-light: #FDFBF9;
+  --color-bg-light: #F8F9FA;
 }
 
 body {
@@ -28,5 +28,5 @@ body {
 }
 
 .card-shadow {
-  box-shadow: 0 10px 30px -10px rgba(180, 160, 140, 0.15);
+  box-shadow: 0 10px 30px -10px rgba(156, 163, 175, 0.15);
 }

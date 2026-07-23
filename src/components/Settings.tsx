@@ -97,30 +97,30 @@ export default function Settings({ user }: { user: User }) {
   };
 
   if (loading) return (
-    <div className="py-20 text-center text-[#B4A08C] font-light italic">Carregando configurações...</div>
+    <div className="py-20 text-center text-[#9CA3AF] font-light italic">Carregando configurações...</div>
   );
 
   return (
     <div className="max-w-5xl mx-auto space-y-10">
       <div className="flex items-center gap-6">
-        <div className="p-4 bg-[#FAF7F2] rounded-3xl text-[#D1C7BD] border border-[#F2EEE9]">
+        <div className="p-4 bg-[#F8F9FA] rounded-3xl text-[#D1C7BD] border border-[#F1F3F5]">
           <SettingsIcon className="w-8 h-8" />
         </div>
         <div>
-          <h1 className="text-3xl font-light text-[#4A4644] serif">Configurações</h1>
-          <p className="text-[#B4A08C] font-light text-xs uppercase tracking-widest mt-1">Personalização & Segurança da Clínica</p>
+          <h1 className="text-3xl font-light text-[#374151] serif">Configurações</h1>
+          <p className="text-[#9CA3AF] font-light text-xs uppercase tracking-widest mt-1">Personalização & Segurança da Clínica</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
           {/* Professional Profile */}
-          <section className="bg-white rounded-[40px] p-10 border border-[#F2EEE9] card-shadow">
+          <section className="bg-white rounded-[40px] p-10 border border-[#F1F3F5] shadow-sm">
             <div className="flex items-center gap-4 mb-8">
-              <div className="p-3 bg-[#FAF7F2] rounded-2xl text-[#B4A08C]">
+              <div className="p-3 bg-[#F8F9FA] rounded-2xl text-[#9CA3AF]">
                 <UserIcon size={24} />
               </div>
-              <h3 className="text-xl font-light text-[#4A4644] serif">Identificação Profissional</h3>
+              <h3 className="text-xl font-light text-[#374151] serif">Identificação Profissional</h3>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -140,12 +140,12 @@ export default function Settings({ user }: { user: User }) {
           </section>
 
           {/* Clinic Info */}
-          <section className="bg-white rounded-[40px] p-10 border border-[#F2EEE9] card-shadow">
+          <section className="bg-white rounded-[40px] p-10 border border-[#F1F3F5] shadow-sm">
             <div className="flex items-center gap-4 mb-8">
-              <div className="p-3 bg-[#FAF7F2] rounded-2xl text-[#B4A08C]">
+              <div className="p-3 bg-[#F8F9FA] rounded-2xl text-[#9CA3AF]">
                 <Building2 size={24} />
               </div>
-              <h3 className="text-xl font-light text-[#4A4644] serif">Sobre o Consultório</h3>
+              <h3 className="text-xl font-light text-[#374151] serif">Sobre o Consultório</h3>
             </div>
             
             <div className="space-y-8">
@@ -165,17 +165,17 @@ export default function Settings({ user }: { user: User }) {
           </section>
 
           {/* Consent Templates */}
-          <section className="bg-white rounded-[40px] p-10 border border-[#F2EEE9] card-shadow">
+          <section className="bg-white rounded-[40px] p-10 border border-[#F1F3F5] shadow-sm">
             <div className="flex items-center justify-between mb-8">
               <div className="flex items-center gap-4">
-                <div className="p-3 bg-[#FAF7F2] rounded-2xl text-[#B4A08C]">
+                <div className="p-3 bg-[#F8F9FA] rounded-2xl text-[#9CA3AF]">
                   <FileText size={24} />
                 </div>
-                <h3 className="text-xl font-light text-[#4A4644] serif">Modelos de Consentimento</h3>
+                <h3 className="text-xl font-light text-[#374151] serif">Modelos de Consentimento</h3>
               </div>
               <button 
                 onClick={() => setIsAddingTemplate(true)}
-                className="text-[#D1C7BD] text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 hover:text-[#B4A08C] transition-colors"
+                className="text-[#D1C7BD] text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 hover:text-[#9CA3AF] transition-colors"
               >
                 <Plus size={16} /> Adicionar Modelo
               </button>
@@ -183,19 +183,19 @@ export default function Settings({ user }: { user: User }) {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {(settings.consentTemplates || []).map(template => (
-                <div key={template.id} className="p-6 bg-[#FAF7F2] border border-[#F2EEE9] rounded-2xl flex items-center justify-between group">
+                <div key={template.id} className="p-6 bg-[#F8F9FA] border border-[#F1F3F5] rounded-2xl flex items-center justify-between group">
                   <div className="flex items-center gap-3">
-                    <FileText size={18} className="text-[#B4A08C]" />
-                    <span className="text-sm font-medium text-[#4A4644]">{template.title}</span>
+                    <FileText size={18} className="text-[#9CA3AF]" />
+                    <span className="text-sm font-medium text-[#374151]">{template.title}</span>
                   </div>
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                    <button onClick={() => setEditingTemplate(template)} className="p-2 text-[#B4A08C] hover:text-[#4A4644]"><Edit2 size={16} /></button>
-                    <button onClick={() => handleDeleteTemplate(template.id!)} className="p-2 text-[#B4A08C] hover:text-[#8D6B6B]"><Trash2 size={16} /></button>
+                    <button onClick={() => setEditingTemplate(template)} className="p-2 text-[#9CA3AF] hover:text-[#374151]"><Edit2 size={16} /></button>
+                    <button onClick={() => handleDeleteTemplate(template.id!)} className="p-2 text-[#9CA3AF] hover:text-red-400"><Trash2 size={16} /></button>
                   </div>
                 </div>
               ))}
               {(!settings.consentTemplates || settings.consentTemplates.length === 0) && (
-                <p className="col-span-2 text-center py-10 text-sm text-[#B4A08C] font-light italic">Nenhum modelo de termo cadastrado.</p>
+                <p className="col-span-2 text-center py-10 text-sm text-[#9CA3AF] font-light italic">Nenhum modelo de termo cadastrado.</p>
               )}
             </div>
           </section>
@@ -203,7 +203,7 @@ export default function Settings({ user }: { user: User }) {
 
         {/* Sidebar Actions */}
         <div className="space-y-6">
-          <div className="bg-[#4A4644] text-white rounded-[40px] p-10 shadow-xl relative overflow-hidden">
+          <div className="bg-[#374151] text-white rounded-[40px] p-10 shadow-xl relative overflow-hidden">
             <div className="relative z-10">
               <div className="flex items-center gap-3 mb-8">
                 <Shield size={20} className="text-[#D1C7BD]" />
@@ -231,7 +231,7 @@ export default function Settings({ user }: { user: User }) {
           <button 
             onClick={handleSaveAll}
             disabled={saving}
-            className="w-full py-5 bg-[#D1C7BD] text-white rounded-[28px] font-medium flex items-center justify-center gap-3 hover:bg-[#D1C7BD]/90 transition-all shadow-lg active:scale-95 disabled:opacity-50"
+            className="w-full py-5 bg-[#D1C7BD] text-white rounded-[28px] font-medium flex items-center justify-center gap-3 hover:bg-[#C5B9AD] transition-all shadow-lg active:scale-95 disabled:opacity-50"
           >
             <Save size={20} />
             <span>{saving ? 'Gravando...' : 'Salvar Alterações'}</span>
@@ -241,7 +241,7 @@ export default function Settings({ user }: { user: User }) {
 
       <AnimatePresence>
         {(isAddingTemplate || editingTemplate) && (
-          <div className="fixed inset-0 bg-[#4A443F]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+          <div className="fixed inset-0 bg-[#374151]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
             <motion.div 
               initial={{ y: 30, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
@@ -250,8 +250,8 @@ export default function Settings({ user }: { user: User }) {
               className="bg-white w-full max-w-2xl rounded-[40px] p-10 shadow-2xl"
             >
               <div className="flex items-center justify-between mb-8">
-                <h2 className="serif text-2xl text-[#4A4644]">{editingTemplate ? 'Editar Modelo' : 'Novo Modelo de Termo'}</h2>
-                <button onClick={() => { setIsAddingTemplate(false); setEditingTemplate(null); }} className="text-[#B4A08C] hover:text-[#4A4644]"><X size={24} /></button>
+                <h2 className="serif text-2xl text-[#374151]">{editingTemplate ? 'Editar Modelo' : 'Novo Modelo de Termo'}</h2>
+                <button onClick={() => { setIsAddingTemplate(false); setEditingTemplate(null); }} className="text-[#9CA3AF] hover:text-[#374151]"><X size={24} /></button>
               </div>
               <TemplateForm 
                 template={editingTemplate} 
@@ -276,7 +276,7 @@ function ToggleButton({ active, onClick, label, icon }: any) {
         <div className="text-white/40 group-hover:text-white/60 transition-colors">{icon}</div>
         <span className="text-sm font-light">{label}</span>
       </div>
-      <div className={`w-10 h-5 rounded-full relative transition-colors ${active ? 'bg-[#D4E2D4]' : 'bg-white/20'}`}>
+      <div className={`w-10 h-5 rounded-full relative transition-colors ${active ? 'bg-[#E8F5E9]' : 'bg-white/20'}`}>
         <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${active ? 'right-1' : 'left-1'}`} />
       </div>
     </button>
@@ -290,28 +290,28 @@ function TemplateForm({ template, onSave, onCancel }: any) {
   return (
     <div className="space-y-6">
       <div>
-        <label className="block text-[10px] font-bold text-[#B4A08C] uppercase tracking-widest mb-2 ml-1">Título do Documento</label>
+        <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Título do Documento</label>
         <input 
-          className="w-full bg-[#FAF7F2] border border-[#F2EEE9] rounded-2xl p-4 outline-none focus:border-[#D1C7BD] transition-all font-light text-[#4A4644]"
+          className="w-full bg-[#F8F9FA] border border-[#F1F3F5] rounded-2xl p-4 outline-none focus:border-[#D1C7BD]/30 transition-all font-light text-[#374151]"
           value={title}
           onChange={e => setTitle(e.target.value)}
           placeholder="ex: Termo de Consentimento - Preenchimento"
         />
       </div>
       <div>
-        <label className="block text-[10px] font-bold text-[#B4A08C] uppercase tracking-widest mb-2 ml-1">Texto do Modelo</label>
+        <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Texto do Modelo</label>
         <textarea 
-          className="w-full bg-[#FAF7F2] border border-[#F2EEE9] rounded-2xl p-4 outline-none focus:border-[#D1C7BD] transition-all font-light text-[#4A4644] min-h-[250px] resize-none"
+          className="w-full bg-[#F8F9FA] border border-[#F1F3F5] rounded-2xl p-4 outline-none focus:border-[#D1C7BD]/30 transition-all font-light text-[#374151] min-h-[250px] resize-none"
           value={content}
           onChange={e => setContent(e.target.value)}
           placeholder="Digite o texto. Use [NOME DO PACIENTE] para substituição automática."
         />
       </div>
       <div className="flex gap-4 pt-4">
-        <button onClick={onCancel} className="flex-1 py-4 text-[#B4A08C] font-bold text-[10px] uppercase tracking-widest">Cancelar</button>
+        <button onClick={onCancel} className="flex-1 py-4 text-[#9CA3AF] font-bold text-[10px] uppercase tracking-widest">Cancelar</button>
         <button 
           onClick={() => onSave({ ...template, title, content })}
-          className="flex-1 py-4 bg-[#D1C7BD] text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest shadow-md hover:bg-[#D1C7BD]/90"
+          className="flex-1 py-4 bg-[#D1C7BD] text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest shadow-md hover:bg-[#C5B9AD]"
         >
           Salvar Modelo
         </button>
@@ -323,11 +323,11 @@ function TemplateForm({ template, onSave, onCancel }: any) {
 function SettingField({ label, value, onChange, icon }: any) {
   return (
     <div className="space-y-2">
-      <label className="block text-[10px] font-bold text-[#B4A08C] uppercase tracking-widest ml-1">{label}</label>
+      <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest ml-1">{label}</label>
       <div className="relative flex items-center">
-        <div className="absolute left-4 text-[#B4A08C]">{icon}</div>
+        <div className="absolute left-4 text-[#9CA3AF]">{icon}</div>
         <input 
-          className="w-full bg-[#FAF7F2] border border-[#F2EEE9] rounded-2xl p-4 pl-12 outline-none focus:border-[#D1C7BD] transition-all font-light text-[#4A4644] shadow-inner"
+          className="w-full bg-[#F8F9FA] border border-[#F1F3F5] rounded-2xl p-4 pl-12 outline-none focus:border-[#D1C7BD]/30 transition-all font-light text-[#374151] shadow-sm"
           value={value}
           onChange={e => onChange(e.target.value)}
         />

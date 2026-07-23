@@ -151,7 +151,7 @@ export default function Dashboard({ user, onNavigate }: { user: User, onNavigate
         <motion.div 
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="lg:col-span-2 bg-[#4A4644] rounded-[48px] p-12 text-white relative overflow-hidden flex flex-col justify-between min-h-[300px] shadow-2xl"
+          className="lg:col-span-2 bg-[#374151] rounded-[48px] p-12 text-white relative overflow-hidden flex flex-col justify-between min-h-[300px] shadow-2xl"
         >
           <div className="relative z-10">
             <h2 className="text-4xl font-light mb-4 serif">
@@ -165,7 +165,7 @@ export default function Dashboard({ user, onNavigate }: { user: User, onNavigate
           <div className="relative z-10 flex gap-4 mt-8">
             <button 
               onClick={() => onNavigate('schedule')}
-              className="px-10 py-5 bg-[#D1C7BD] text-white rounded-2xl hover:bg-[#D1C7BD]/90 transition-all shadow-lg font-bold text-[10px] uppercase tracking-widest flex items-center gap-3"
+              className="px-10 py-5 bg-[#D1C7BD] text-white rounded-2xl hover:bg-[#C5B9AD] transition-all shadow-lg font-bold text-[10px] uppercase tracking-widest flex items-center gap-3"
             >
               Agenda de Hoje <ArrowRight size={16} />
             </button>
@@ -180,24 +180,24 @@ export default function Dashboard({ user, onNavigate }: { user: User, onNavigate
             <motion.div 
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="bg-white rounded-[48px] p-10 border border-[#F2EEE9] flex flex-col justify-between shadow-xl relative group overflow-hidden"
+              className="bg-white rounded-[48px] p-10 border border-[#F1F3F5] flex flex-col justify-between shadow-xl relative group overflow-hidden"
             >
-              <div className="absolute top-0 right-0 p-8 text-[#FAF7F2] group-hover:text-[#D1C7BD]/10 transition-colors">
+              <div className="absolute top-0 right-0 p-8 text-[#F8F9FA] group-hover:text-[#D1C7BD]/10 transition-colors">
                 <Clock size={80} />
               </div>
               
               <div className="relative z-10">
-                <span className="bg-[#FAF7F2] text-[#B4A08C] px-4 py-2 rounded-xl text-[9px] font-bold uppercase tracking-[0.2em] border border-[#F2EEE9]">
+                <span className="bg-[#F8F9FA] text-[#9CA3AF] px-4 py-2 rounded-xl text-[9px] font-bold uppercase tracking-[0.2em] border border-[#F1F3F5]">
                   Próximo Atendimento
                 </span>
-                <h3 className="text-4xl font-light text-[#4A4644] serif mt-8 mb-2">{nextAppointment.time}</h3>
-                <p className="text-xl text-[#4A4644] font-medium">{nextAppointment.patientName}</p>
-                <p className="text-[#B4A08C] font-light text-sm mt-1">{nextAppointment.notes || 'Procedimento Estético'}</p>
+                <h3 className="text-4xl font-light text-[#374151] serif mt-8 mb-2">{nextAppointment.time}</h3>
+                <p className="text-xl text-[#374151] font-medium">{nextAppointment.patientName}</p>
+                <p className="text-[#9CA3AF] font-light text-sm mt-1">{nextAppointment.notes || 'Procedimento Estético'}</p>
               </div>
 
               <button 
                 onClick={() => onNavigate('patients')}
-                className="relative z-10 w-full mt-10 py-5 bg-[#FAF7F2] text-[#B4A08C] rounded-[24px] font-bold text-[10px] uppercase tracking-widest border border-[#F2EEE9] hover:bg-[#D1C7BD] hover:text-white hover:border-[#D1C7BD] transition-all flex items-center justify-center gap-2"
+                className="relative z-10 w-full mt-10 py-5 bg-[#F8F9FA] text-[#9CA3AF] rounded-[24px] font-bold text-[10px] uppercase tracking-widest border border-[#F1F3F5] hover:bg-[#D1C7BD] hover:text-white hover:border-[#D1C7BD] transition-all flex items-center justify-center gap-2"
               >
                 Abrir Prontuário <Play size={14} fill="currentColor" />
               </button>
@@ -223,12 +223,12 @@ export default function Dashboard({ user, onNavigate }: { user: User, onNavigate
         <StatCard 
           label="Consultas Hoje" 
           value={stats.todayAppointments} 
-          icon={<Calendar className="text-[#B4A08C]" size={20} />} 
+          icon={<Calendar className="text-[#9CA3AF]" size={20} />} 
         />
         <StatCard 
           label="Alerta de Estoque" 
           value={stats.lowStock} 
-          icon={<AlertCircle className={stats.lowStock > 0 ? "text-red-400" : "text-[#B4A08C]"} size={20} />} 
+          icon={<AlertCircle className={stats.lowStock > 0 ? "text-red-400" : "text-[#9CA3AF]"} size={20} />} 
           variant={stats.lowStock > 0 ? "danger" : "default"}
           trend={stats.lowStock > 0 ? "Revisar" : "Normal"}
         />
@@ -238,41 +238,41 @@ export default function Dashboard({ user, onNavigate }: { user: User, onNavigate
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <motion.div 
           whileHover={{ scale: 1.01 }}
-          className="md:col-span-1 bg-[#FDFBF9] border border-[#EBE3DB] rounded-[40px] p-10 flex flex-col justify-between group cursor-pointer"
+          className="md:col-span-1 bg-[#F8F9FA] border border-[#F1F3F5] rounded-[40px] p-10 flex flex-col justify-between group cursor-pointer"
           onClick={() => onNavigate('patients')}
         >
           <div>
             <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-[#D1C7BD] shadow-sm mb-6 group-hover:bg-[#D1C7BD] group-hover:text-white transition-all">
               <Plus size={24} />
             </div>
-            <h3 className="serif text-2xl text-[#4A4644] mb-2">Novo Cadastro</h3>
-            <p className="text-xs text-[#B4A08C] font-light leading-relaxed">Adicione um novo paciente à sua base de dados em segundos.</p>
+            <h3 className="serif text-2xl text-[#374151] mb-2">Novo Cadastro</h3>
+            <p className="text-xs text-[#9CA3AF] font-light leading-relaxed">Adicione um novo paciente à sua base de dados em segundos.</p>
           </div>
-          <ArrowRight className="mt-8 text-[#EBE3DB] group-hover:text-[#D1C7BD] group-hover:translate-x-2 transition-all" />
+          <ArrowRight className="mt-8 text-[#F1F3F5] group-hover:text-[#D1C7BD] group-hover:translate-x-2 transition-all" />
         </motion.div>
 
         <motion.div 
           whileHover={{ scale: 1.01 }}
-          className="md:col-span-1 bg-[#FAF7F2] border border-[#EBE3DB] rounded-[40px] p-10 flex flex-col justify-between group cursor-pointer"
+          className="md:col-span-1 bg-[#F8F9FA] border border-[#F1F3F5] rounded-[40px] p-10 flex flex-col justify-between group cursor-pointer"
           onClick={() => onNavigate('finance')}
         >
           <div>
             <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-[#4F634F] shadow-sm mb-6 group-hover:bg-[#4F634F] group-hover:text-white transition-all">
               <TrendingUp size={24} />
             </div>
-            <h3 className="serif text-2xl text-[#4A4644] mb-2">Fluxo de Caixa</h3>
-            <p className="text-xs text-[#B4A08C] font-light leading-relaxed">Visualize a saúde financeira do seu consultório em tempo real.</p>
+            <h3 className="serif text-2xl text-[#374151] mb-2">Fluxo de Caixa</h3>
+            <p className="text-xs text-[#9CA3AF] font-light leading-relaxed">Visualize a saúde financeira do seu consultório em tempo real.</p>
           </div>
-          <ArrowRight className="mt-8 text-[#EBE3DB] group-hover:text-[#4F634F] group-hover:translate-x-2 transition-all" />
+          <ArrowRight className="mt-8 text-[#F1F3F5] group-hover:text-[#4F634F] group-hover:translate-x-2 transition-all" />
         </motion.div>
 
         <motion.div 
           whileHover={{ scale: 1.01 }}
-          className="md:col-span-1 bg-[#4A4644] rounded-[40px] p-10 flex flex-col justify-between group cursor-pointer text-white"
+          className="md:col-span-1 bg-[#374151] rounded-[40px] p-10 flex flex-col justify-between group cursor-pointer text-white"
           onClick={() => onNavigate('settings')}
         >
           <div>
-            <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center text-[#D1C7BD] shadow-sm mb-6 group-hover:bg-white group-hover:text-[#4A4644] transition-all">
+            <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center text-[#D1C7BD] shadow-sm mb-6 group-hover:bg-white group-hover:text-[#374151] transition-all">
               <SettingsIcon size={24} />
             </div>
             <h3 className="serif text-2xl mb-2">Configurações</h3>
@@ -286,17 +286,17 @@ export default function Dashboard({ user, onNavigate }: { user: User, onNavigate
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-white rounded-[48px] border border-[#F2EEE9] p-12 card-shadow"
+        className="bg-white rounded-[48px] border border-[#F1F3F5] p-12 card-shadow"
       >
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-12 gap-4">
           <div>
-            <h3 className="serif text-2xl text-[#4A4644] mb-1">Crescimento Mensal</h3>
-            <p className="text-[10px] text-[#B4A08C] font-bold uppercase tracking-widest">Acompanhamento de Receita • Últimos 6 meses</p>
+            <h3 className="serif text-2xl text-[#374151] mb-1">Crescimento Mensal</h3>
+            <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest">Acompanhamento de Receita • Últimos 6 meses</p>
           </div>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-[#D1C7BD]" />
-              <span className="text-xs text-[#B4A08C]">Receita Bruta</span>
+              <span className="text-xs text-[#9CA3AF]">Receita Bruta</span>
             </div>
           </div>
         </div>
@@ -310,18 +310,18 @@ export default function Dashboard({ user, onNavigate }: { user: User, onNavigate
                   <stop offset="95%" stopColor="#D1C7BD" stopOpacity={0}/>
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F2EEE9" />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
               <XAxis 
                 dataKey="name" 
                 axisLine={false} 
                 tickLine={false} 
-                tick={{ fill: '#B4A08C', fontSize: 10, fontWeight: 700 }}
+                tick={{ fill: '#9CA3AF', fontSize: 10, fontWeight: 700 }}
                 dy={10}
               />
               <YAxis 
                 axisLine={false} 
                 tickLine={false} 
-                tick={{ fill: '#B4A08C', fontSize: 10 }}
+                tick={{ fill: '#9CA3AF', fontSize: 10 }}
                 tickFormatter={(v) => `R$ ${v/1000}k`}
               />
               <Tooltip 
@@ -331,8 +331,8 @@ export default function Dashboard({ user, onNavigate }: { user: User, onNavigate
                   boxShadow: '0 10px 30px rgba(0,0,0,0.05)',
                   padding: '15px 20px'
                 }}
-                itemStyle={{ color: '#4A4644', fontWeight: 600, fontSize: '14px' }}
-                labelStyle={{ fontSize: '10px', color: '#B4A08C', fontWeight: 700, textTransform: 'uppercase', marginBottom: '5px' }}
+                itemStyle={{ color: '#374151', fontWeight: 600, fontSize: '14px' }}
+                labelStyle={{ fontSize: '10px', color: '#9CA3AF', fontWeight: 700, textTransform: 'uppercase', marginBottom: '5px' }}
               />
               <Area 
                 type="monotone" 
@@ -350,23 +350,23 @@ export default function Dashboard({ user, onNavigate }: { user: User, onNavigate
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Today's Schedule List */}
-        <div className="bg-white rounded-[40px] border border-[#F2EEE9] p-10 card-shadow">
+        <div className="bg-white rounded-[40px] border border-[#F1F3F5] p-10 card-shadow">
           <div className="flex items-center justify-between mb-10">
-            <h3 className="serif text-2xl text-[#4A4644]">Agenda de Hoje</h3>
-            <button onClick={() => onNavigate('schedule')} className="text-[10px] font-bold text-[#B4A08C] uppercase tracking-widest hover:text-[#8D6B6B] transition-colors flex items-center gap-2">
+            <h3 className="serif text-2xl text-[#374151]">Agenda de Hoje</h3>
+            <button onClick={() => onNavigate('schedule')} className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest hover:text-red-400 transition-colors flex items-center gap-2">
               Agenda Completa <ChevronRight size={14} />
             </button>
           </div>
           <div className="space-y-6">
             {todaySchedule.map((appt) => (
-              <div key={appt.id} className="flex items-center gap-6 p-6 rounded-3xl border border-transparent hover:border-[#F2EEE9] hover:bg-[#FAF7F2]/40 transition-all group">
-                <div className="text-xs font-bold text-[#B4A08C] uppercase w-12 text-center py-2 bg-[#FAF7F2] rounded-xl">{appt.time}</div>
+              <div key={appt.id} className="flex items-center gap-6 p-6 rounded-3xl border border-transparent hover:border-[#F1F3F5] hover:bg-[#F8F9FA]/40 transition-all group">
+                <div className="text-xs font-bold text-[#9CA3AF] uppercase w-12 text-center py-2 bg-[#F8F9FA] rounded-xl">{appt.time}</div>
                 <div className="flex-1">
-                  <p className="text-base font-semibold text-[#4A4644]">{appt.patientName}</p>
-                  <p className="text-[10px] text-[#B4A08C] font-bold uppercase tracking-widest mt-1">{appt.notes || 'Avaliação Clínica'}</p>
+                  <p className="text-base font-semibold text-[#374151]">{appt.patientName}</p>
+                  <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest mt-1">{appt.notes || 'Avaliação Clínica'}</p>
                 </div>
                 <div className={`px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest ${
-                  appt.status === 'confirmed' ? 'bg-[#D4E2D4] text-[#4F634F]' : 'bg-[#FAF7F2] text-[#B4A08C]'
+                  appt.status === 'confirmed' ? 'bg-[#E8F5E9] text-[#4F634F]' : 'bg-[#F8F9FA] text-[#9CA3AF]'
                 }`}>
                   {appt.status === 'confirmed' ? 'Confirmado' : 'Pendente'}
                 </div>
@@ -374,44 +374,44 @@ export default function Dashboard({ user, onNavigate }: { user: User, onNavigate
             ))}
             {todaySchedule.length === 0 && (
               <div className="text-center py-16 space-y-4">
-                <div className="p-4 bg-[#FAF7F2] rounded-full inline-block text-[#D1C7BD]">
+                <div className="p-4 bg-[#F8F9FA] rounded-full inline-block text-[#D1C7BD]">
                   <Calendar size={32} />
                 </div>
-                <p className="text-sm text-[#B4A08C] font-light italic">Sem compromissos hoje.</p>
+                <p className="text-sm text-[#9CA3AF] font-light italic">Sem compromissos hoje.</p>
               </div>
             )}
           </div>
         </div>
 
         {/* Recent Activity / Patients */}
-        <div className="bg-white rounded-[40px] border border-[#F2EEE9] p-10 card-shadow">
+        <div className="bg-white rounded-[40px] border border-[#F1F3F5] p-10 card-shadow">
           <div className="flex items-center justify-between mb-10">
-            <h3 className="serif text-2xl text-[#4A4644]">Novos Pacientes</h3>
-            <button onClick={() => onNavigate('patients')} className="text-[10px] font-bold text-[#B4A08C] uppercase tracking-widest hover:text-[#8D6B6B] transition-colors flex items-center gap-2">
+            <h3 className="serif text-2xl text-[#374151]">Novos Pacientes</h3>
+            <button onClick={() => onNavigate('patients')} className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest hover:text-red-400 transition-colors flex items-center gap-2">
               Ver Todos <ChevronRight size={14} />
             </button>
           </div>
           <div className="space-y-4">
             {recentPatients.map((p) => (
-              <div key={p.id} className="flex items-center justify-between p-6 bg-[#FAF7F2]/50 rounded-3xl border border-[#F2EEE9] hover:border-[#D1C7BD] transition-all group">
+              <div key={p.id} className="flex items-center justify-between p-6 bg-[#F8F9FA]/50 rounded-3xl border border-[#F1F3F5] hover:border-[#D1C7BD] transition-all group">
                 <div className="flex items-center gap-5">
-                  <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center border border-[#F2EEE9] text-[#B4A08C] group-hover:bg-[#D1C7BD] group-hover:text-white transition-all">
+                  <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center border border-[#F1F3F5] text-[#9CA3AF] group-hover:bg-[#D1C7BD] group-hover:text-white transition-all">
                     <Users size={20} />
                   </div>
                   <div>
-                    <p className="text-base font-semibold text-[#4A4644]">{p.name}</p>
-                    <p className="text-[10px] text-[#B4A08C] font-bold uppercase tracking-widest">Prontuário Ativo</p>
+                    <p className="text-base font-semibold text-[#374151]">{p.name}</p>
+                    <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest">Prontuário Ativo</p>
                   </div>
                 </div>
-                <ChevronRight size={20} className="text-[#EBE3DB] group-hover:text-[#B4A08C] transition-colors" />
+                <ChevronRight size={20} className="text-[#F1F3F5] group-hover:text-[#9CA3AF] transition-colors" />
               </div>
             ))}
             {recentPatients.length === 0 && (
               <div className="text-center py-16 space-y-4">
-                <div className="p-4 bg-[#FAF7F2] rounded-full inline-block text-[#D1C7BD]">
+                <div className="p-4 bg-[#F8F9FA] rounded-full inline-block text-[#D1C7BD]">
                   <Users size={32} />
                 </div>
-                <p className="text-sm text-[#B4A08C] font-light italic">Nenhum paciente novo.</p>
+                <p className="text-sm text-[#9CA3AF] font-light italic">Nenhum paciente novo.</p>
               </div>
             )}
           </div>
@@ -425,21 +425,21 @@ function StatCard({ label, value, icon, trend, variant = "default" }: any) {
   return (
     <motion.div 
       whileHover={{ y: -5 }}
-      className={`p-10 bg-white border border-[#F2EEE9] rounded-[40px] card-shadow relative overflow-hidden group ${variant === 'danger' ? 'bg-red-50/20' : ''}`}
+      className={`p-10 bg-white border border-[#F1F3F5] rounded-[40px] shadow-sm relative overflow-hidden group ${variant === 'danger' ? 'bg-red-50/20' : ''}`}
     >
       <div className="flex items-center justify-between mb-8">
-        <div className={`p-4 rounded-2xl transition-all ${variant === 'danger' ? 'bg-red-100/50 text-red-500' : 'bg-[#FAF7F2] text-[#B4A08C] group-hover:bg-[#D1C7BD] group-hover:text-white'}`}>
+        <div className={`p-4 rounded-2xl transition-all ${variant === 'danger' ? 'bg-red-100/50 text-red-500' : 'bg-[#F8F9FA] text-[#9CA3AF] group-hover:bg-[#D1C7BD] group-hover:text-white'}`}>
           {icon}
         </div>
         {trend && (
-          <span className={`text-[9px] font-bold uppercase tracking-[0.2em] px-3 py-1 rounded-full ${variant === 'danger' ? 'bg-red-100 text-red-500' : 'bg-[#FAF7F2] text-[#4F634F]'}`}>
+          <span className={`text-[9px] font-bold uppercase tracking-[0.2em] px-3 py-1 rounded-full ${variant === 'danger' ? 'bg-red-100 text-red-500' : 'bg-[#F8F9FA] text-[#4F634F]'}`}>
             {trend}
           </span>
         )}
       </div>
       <div>
-        <p className="text-[10px] font-bold text-[#B4A08C] uppercase tracking-[0.2em] mb-2 ml-1">{label}</p>
-        <p className="text-3xl font-light text-[#4A4644] serif leading-tight">{value}</p>
+        <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-[0.2em] mb-2 ml-1">{label}</p>
+        <p className="text-3xl font-light text-[#374151] serif leading-tight">{value}</p>
       </div>
       <div className="absolute right-0 bottom-0 w-24 h-24 bg-[#D1C7BD]/5 rounded-full translate-x-1/2 translate-y-1/2" />
     </motion.div>
