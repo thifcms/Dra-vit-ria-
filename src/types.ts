@@ -51,6 +51,12 @@ export interface Patient {
     signedAt: string;
     signatureUrl: string; // Base64 or URL
   }[];
+  prescriptions?: {
+    id: string;
+    date: string;
+    content: string;
+    medicines: { name: string, dosage: string, instructions: string }[];
+  }[];
   updatedAt?: string;
 }
 

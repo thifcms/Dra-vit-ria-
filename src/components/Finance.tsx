@@ -17,6 +17,16 @@ import {
   DollarSign
 } from 'lucide-react';
 import { showToast } from '../lib/toast';
+import { 
+  AreaChart, 
+  Area, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  Legend
+} from 'recharts';
 
 export default function Finance({ user }: { user: User }) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -50,10 +60,46 @@ export default function Finance({ user }: { user: User }) {
     [transactions, filter]
   );
 
-  const { totalIncome, totalExpense } = useMemo(() => ({
-    totalIncome: transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0),
-    totalExpense: transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0),
-  }), [transactions]);
+  const { totalIncome, totalExpense, chartData } = useMemo(() => {
+    const income = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
+    const expense = transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
+
+    // Prepare chart data for last 6 months
+    const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    const lastSix = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date();
+      d.setMonth(d.getMonth() - i);
+      const m = d.getMonth();
+      const y = d.getFullYear();
+      
+      const mIncome = transactions
+        .filter(t => {
+          const dt = new Date(t.date);
+          return dt.getMonth() === m && dt.getFullYear() === y && t.type === 'income';
+        })
+        .reduce((sum, item) => sum + item.amount, 0);
+
+      const mExpense = transactions
+        .filter(t => {
+          const dt = new Date(t.date);
+          return dt.getMonth() === m && dt.getFullYear() === y && t.type === 'expense';
+        })
+        .reduce((sum, item) => sum + item.amount, 0);
+
+      lastSix.push({
+        name: months[m],
+        Entradas: mIncome,
+        Saídas: mExpense
+      });
+    }
+
+    return { 
+      totalIncome: income, 
+      totalExpense: expense,
+      chartData: lastSix
+    };
+  }, [transactions]);
 
   const balance = totalIncome - totalExpense;
 
@@ -111,6 +157,75 @@ export default function Finance({ user }: { user: User }) {
           bg="bg-[#F5E6E8]/40"
         />
       </div>
+
+      {/* Financial Flow Chart */}
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white rounded-[48px] border border-[#F2EEE9] p-10 card-shadow"
+      >
+        <div className="mb-10">
+          <h3 className="serif text-2xl text-[#4A4644]">Fluxo de Caixa</h3>
+          <p className="text-[10px] text-[#B4A08C] font-bold uppercase tracking-widest mt-1">Comparativo de Entradas e Saídas • Últimos 6 meses</p>
+        </div>
+        <div className="h-[300px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={chartData}>
+              <defs>
+                <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#4F634F" stopOpacity={0.2}/>
+                  <stop offset="95%" stopColor="#4F634F" stopOpacity={0}/>
+                </linearGradient>
+                <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#8D6B6B" stopOpacity={0.1}/>
+                  <stop offset="95%" stopColor="#8D6B6B" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F2EEE9" />
+              <XAxis 
+                dataKey="name" 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{ fill: '#B4A08C', fontSize: 10, fontWeight: 700 }}
+                dy={10}
+              />
+              <YAxis 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{ fill: '#B4A08C', fontSize: 10 }}
+                tickFormatter={(v) => `R$ ${v >= 1000 ? (v/1000).toFixed(0) + 'k' : v}`}
+              />
+              <Tooltip 
+                contentStyle={{ 
+                  borderRadius: '20px', 
+                  border: 'none', 
+                  boxShadow: '0 10px 30px rgba(0,0,0,0.05)',
+                  padding: '15px 20px'
+                }}
+              />
+              <Legend verticalAlign="top" height={36} iconType="circle" />
+              <Area 
+                type="monotone" 
+                dataKey="Entradas" 
+                stroke="#4F634F" 
+                strokeWidth={3}
+                fillOpacity={1} 
+                fill="url(#colorIncome)" 
+                animationDuration={1500}
+              />
+              <Area 
+                type="monotone" 
+                dataKey="Saídas" 
+                stroke="#8D6B6B" 
+                strokeWidth={3}
+                fillOpacity={1} 
+                fill="url(#colorExpense)" 
+                animationDuration={1500}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </motion.div>
 
       {/* Toolbar */}
       <div className="flex flex-col md:flex-row items-center justify-between gap-4">

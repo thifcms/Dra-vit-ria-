@@ -20,7 +20,9 @@ import {
   Paperclip,
   CheckCircle2,
   X,
-  FileDown
+  FileDown,
+  Pill,
+  Printer
 } from 'lucide-react';
 import SignaturePad from 'react-signature-canvas';
 import { showToast } from '../lib/toast';
@@ -337,7 +339,7 @@ function AddPatientModal({ user, onClose }: { user: User, onClose: () => void })
 }
 
 function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient, onBack: () => void }) {
-  const [activeTab, setActiveTab] = useState<'anamnesis' | 'evolution' | 'photos' | 'files' | 'consent'>('anamnesis');
+  const [activeTab, setActiveTab] = useState<'anamnesis' | 'evolution' | 'photos' | 'files' | 'consent' | 'prescriptions'>('anamnesis');
   const [anamnesis, setAnamnesis] = useState(patient.anamnesis!);
   const [savingAnamnesis, setSavingAnamnesis] = useState(false);
 
@@ -486,6 +488,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
           <nav className="space-y-2">
             <TabButton active={activeTab === 'anamnesis'} onClick={() => setActiveTab('anamnesis')} icon={<FileText size={20} />} label="Anamnese" />
             <TabButton active={activeTab === 'evolution'} onClick={() => setActiveTab('evolution')} icon={<History size={20} />} label="Evolução Clínica" />
+            <TabButton active={activeTab === 'prescriptions'} onClick={() => setActiveTab('prescriptions')} icon={<Pill size={20} />} label="Receituários" />
             <TabButton active={activeTab === 'consent'} onClick={() => setActiveTab('consent')} icon={<CheckCircle2 size={20} />} label="Termos & Assinaturas" />
             <TabButton active={activeTab === 'photos'} onClick={() => setActiveTab('photos')} icon={<Camera size={20} />} label="Galeria de Fotos" />
             <TabButton active={activeTab === 'files'} onClick={() => setActiveTab('files')} icon={<Paperclip size={20} />} label="Exames e Anexos" />
@@ -702,6 +705,12 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
             {activeTab === 'consent' && (
               <motion.div key="consent" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                 <ConsentTermsModule user={user} patient={patient} />
+              </motion.div>
+            )}
+
+            {activeTab === 'prescriptions' && (
+              <motion.div key="prescriptions" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <PrescriptionModule user={user} patient={patient} />
               </motion.div>
             )}
 
@@ -1002,5 +1011,191 @@ function HabitToggle({ label, active, onClick }: { label: string, active: boolea
       <div className={`w-2.5 h-2.5 rounded-full ${active ? 'bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]' : 'bg-gray-200'}`} />
       {label}
     </button>
+  );
+}
+
+function PrescriptionModule({ user, patient }: { user: User, patient: Patient }) {
+  const [isAdding, setIsAdding] = useState(false);
+  const [medicines, setMedicines] = useState<{ name: string, dosage: string, instructions: string }[]>([{ name: '', dosage: '', instructions: '' }]);
+  const [notes, setNotes] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const addMedicine = () => setMedicines([...medicines, { name: '', dosage: '', instructions: '' }]);
+  const updateMedicine = (index: number, field: string, value: string) => {
+    const updated = [...medicines];
+    (updated[index] as any)[field] = value;
+    setMedicines(updated);
+  };
+  const removeMedicine = (index: number) => setMedicines(medicines.filter((_, i) => i !== index));
+
+  const handleSave = async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const newPrescription = {
+        id: Date.now().toString(),
+        date: new Date().toISOString(),
+        medicines: medicines.filter(m => m.name.trim()),
+        content: notes
+      };
+      const updated = [newPrescription, ...(patient.prescriptions || [])];
+      await updateDoc(doc(db, 'patients', patient.id!), { 
+        prescriptions: updated,
+        updatedAt: new Date().toISOString()
+      });
+      setIsAdding(false);
+      setMedicines([{ name: '', dosage: '', instructions: '' }]);
+      setNotes('');
+      showToast('Receituário salvo');
+    } catch (err) {
+      showToast('Erro ao salvar', 'error');
+    }
+    setSaving(false);
+  };
+
+  const handleExport = (prescription: any) => {
+    const lines = [
+      `RECEITUÁRIO MÉDICO`,
+      `Paciente: ${patient.name}`,
+      `Data: ${new Date(prescription.date).toLocaleDateString('pt-BR')}`,
+      '',
+      'MEDICAMENTOS:',
+      '--------------------------------------------------',
+      ...prescription.medicines.map((m: any, i: number) => `${i + 1}. ${m.name} - ${m.dosage}\n   Instruções: ${m.instructions}\n`),
+      '',
+      'ORIENTAÇÕES GERAIS:',
+      '--------------------------------------------------',
+      prescription.content || 'Nenhuma orientação adicional.',
+      '',
+      '',
+      '__________________________________________________',
+      'Assinatura e Carimbo Profissional'
+    ];
+
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `receituario-${patient.name.replace(/\s+/g, '-').toLowerCase()}-${new Date(prescription.date).toISOString().split('T')[0]}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="space-y-10">
+      <div className="flex items-center justify-between pb-6 border-b border-[#F2EEE9]">
+        <h3 className="serif text-2xl text-[#4A4644]">Receituários & Prescrições</h3>
+        <button 
+          onClick={() => setIsAdding(true)}
+          className="bg-[#D1C7BD] text-white px-8 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest shadow-md hover:bg-[#D1C7BD]/90 transition-all flex items-center gap-2"
+        >
+          <Plus size={18} /> Novo Receituário
+        </button>
+      </div>
+
+      <AnimatePresence>
+        {isAdding && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0 }} 
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="p-10 bg-[#FAF7F2] rounded-[40px] border border-[#EBE3DB] space-y-8 shadow-inner overflow-hidden"
+          >
+            <div className="flex items-center justify-between">
+              <h4 className="serif text-2xl text-[#4A4644]">Prescrever Medicamentos</h4>
+              <button onClick={() => setIsAdding(false)} className="text-[#B4A08C] hover:text-[#8D6B6B]">
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              {medicines.map((med, i) => (
+                <div key={i} className="bg-white p-8 rounded-3xl border border-[#F2EEE9] relative group">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <FormField label="Nome do Medicamento" value={med.name} onChange={v => updateMedicine(i, 'name', v)} />
+                    <FormField label="Dosagem / Frequência" value={med.dosage} onChange={v => updateMedicine(i, 'dosage', v)} />
+                  </div>
+                  <div className="mt-4">
+                    <FormField label="Instruções de Uso" value={med.instructions} onChange={v => updateMedicine(i, 'instructions', v)} textarea />
+                  </div>
+                  {medicines.length > 1 && (
+                    <button 
+                      onClick={() => removeMedicine(i)}
+                      className="absolute -top-3 -right-3 w-8 h-8 bg-white border border-[#EBE3DB] text-[#8D6B6B] rounded-full flex items-center justify-center shadow-sm opacity-0 group-hover:opacity-100 transition-all hover:bg-red-50"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
+              ))}
+              
+              <button 
+                onClick={addMedicine}
+                className="w-full py-4 border-2 border-dashed border-[#D1C7BD] text-[#D1C7BD] rounded-3xl font-bold text-[10px] uppercase tracking-widest hover:bg-white transition-all flex items-center justify-center gap-2"
+              >
+                <Plus size={18} /> Adicionar outro item
+              </button>
+            </div>
+
+            <FormField label="Orientações Gerais" value={notes} onChange={setNotes} textarea />
+
+            <div className="flex gap-4 pt-4">
+              <button onClick={() => setIsAdding(false)} className="flex-1 py-4 text-[#B4A08C] font-bold text-[10px] uppercase">Cancelar</button>
+              <button 
+                disabled={saving}
+                onClick={handleSave} 
+                className="flex-1 py-4 bg-[#D1C7BD] text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-[#D1C7BD]/90 transition-all"
+              >
+                {saving ? 'Gravando...' : 'Finalizar Receituário'}
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="grid grid-cols-1 gap-6">
+        {patient.prescriptions?.map((p, i) => (
+          <div key={p.id} className="p-8 bg-white border border-[#F2EEE9] rounded-[32px] hover:border-[#B4A08C] transition-all group flex flex-col md:flex-row gap-8 shadow-sm">
+            <div className="flex-1">
+              <div className="flex items-center gap-4 mb-6">
+                <div className="w-12 h-12 bg-[#FAF7F2] rounded-2xl flex items-center justify-center text-[#B4A08C] group-hover:bg-[#D1C7BD] group-hover:text-white transition-all shadow-inner">
+                  <Printer size={20} />
+                </div>
+                <div>
+                  <h4 className="text-lg font-normal text-[#4A4644] serif leading-tight">Receituário #{p.id.slice(-4)}</h4>
+                  <p className="text-[9px] text-[#B4A08C] font-bold uppercase tracking-[0.2em] mt-1">Prescrito em {new Date(p.date).toLocaleDateString('pt-BR')}</p>
+                </div>
+              </div>
+              
+              <div className="space-y-4 ml-2">
+                {p.medicines.map((m, idx) => (
+                  <div key={idx} className="flex items-start gap-3">
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#D1C7BD] mt-2 shrink-0" />
+                    <div>
+                      <p className="text-sm font-semibold text-[#4A4644]">{m.name} <span className="font-light text-[#B4A08C]">({m.dosage})</span></p>
+                      <p className="text-[10px] text-[#B4A08C] font-medium leading-relaxed mt-0.5">{m.instructions}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-3 md:border-l border-[#F2EEE9] md:pl-8">
+              <button 
+                onClick={() => handleExport(p)}
+                className="flex items-center gap-2 px-6 py-4 bg-[#FAF7F2] text-[#B4A08C] rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-[#D1C7BD] hover:text-white transition-all shadow-sm"
+              >
+                <Download size={18} /> Baixar
+              </button>
+            </div>
+          </div>
+        ))}
+        {(!patient.prescriptions || patient.prescriptions.length === 0) && (
+          <div className="p-20 text-center text-[#B4A08C] font-light italic border-2 border-dashed border-[#F2EEE9] rounded-[40px] bg-[#FAF7F2]/30">
+            Nenhum receituário emitido para este paciente.
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

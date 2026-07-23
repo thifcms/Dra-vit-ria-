@@ -12,7 +12,9 @@ import {
   TrendingUp,
   AlertCircle,
   Play,
-  ArrowRight
+  ArrowRight,
+  Settings as SettingsIcon,
+  Plus
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -230,6 +232,54 @@ export default function Dashboard({ user, onNavigate }: { user: User, onNavigate
           variant={stats.lowStock > 0 ? "danger" : "default"}
           trend={stats.lowStock > 0 ? "Revisar" : "Normal"}
         />
+      </div>
+
+      {/* Quick Actions & Bento Section */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <motion.div 
+          whileHover={{ scale: 1.01 }}
+          className="md:col-span-1 bg-[#FDFBF9] border border-[#EBE3DB] rounded-[40px] p-10 flex flex-col justify-between group cursor-pointer"
+          onClick={() => onNavigate('patients')}
+        >
+          <div>
+            <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-[#D1C7BD] shadow-sm mb-6 group-hover:bg-[#D1C7BD] group-hover:text-white transition-all">
+              <Plus size={24} />
+            </div>
+            <h3 className="serif text-2xl text-[#4A4644] mb-2">Novo Cadastro</h3>
+            <p className="text-xs text-[#B4A08C] font-light leading-relaxed">Adicione um novo paciente à sua base de dados em segundos.</p>
+          </div>
+          <ArrowRight className="mt-8 text-[#EBE3DB] group-hover:text-[#D1C7BD] group-hover:translate-x-2 transition-all" />
+        </motion.div>
+
+        <motion.div 
+          whileHover={{ scale: 1.01 }}
+          className="md:col-span-1 bg-[#FAF7F2] border border-[#EBE3DB] rounded-[40px] p-10 flex flex-col justify-between group cursor-pointer"
+          onClick={() => onNavigate('finance')}
+        >
+          <div>
+            <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-[#4F634F] shadow-sm mb-6 group-hover:bg-[#4F634F] group-hover:text-white transition-all">
+              <TrendingUp size={24} />
+            </div>
+            <h3 className="serif text-2xl text-[#4A4644] mb-2">Fluxo de Caixa</h3>
+            <p className="text-xs text-[#B4A08C] font-light leading-relaxed">Visualize a saúde financeira do seu consultório em tempo real.</p>
+          </div>
+          <ArrowRight className="mt-8 text-[#EBE3DB] group-hover:text-[#4F634F] group-hover:translate-x-2 transition-all" />
+        </motion.div>
+
+        <motion.div 
+          whileHover={{ scale: 1.01 }}
+          className="md:col-span-1 bg-[#4A4644] rounded-[40px] p-10 flex flex-col justify-between group cursor-pointer text-white"
+          onClick={() => onNavigate('settings')}
+        >
+          <div>
+            <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center text-[#D1C7BD] shadow-sm mb-6 group-hover:bg-white group-hover:text-[#4A4644] transition-all">
+              <SettingsIcon size={24} />
+            </div>
+            <h3 className="serif text-2xl mb-2">Configurações</h3>
+            <p className="text-xs text-white/50 font-light leading-relaxed">Personalize os termos de consentimento e dados da clínica.</p>
+          </div>
+          <ArrowRight className="mt-8 text-white/20 group-hover:text-[#D1C7BD] group-hover:translate-x-2 transition-all" />
+        </motion.div>
       </div>
 
       {/* Chart Section */}
