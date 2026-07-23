@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { auth, signInWithGoogle } from './lib/firebase';
 import { onAuthStateChanged, User as FirebaseUser, signOut } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
+import { ToastHost } from './lib/toast';
 import { 
   Users, 
   Calendar, 
@@ -34,11 +35,19 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u);
+    // Implementing a splash screen delay as requested in previous turn but keeping it consistent with the new structure
+    const minSplashTime = new Promise(resolve => setTimeout(resolve, 3500));
+    const authCheck = new Promise(resolve => {
+      const unsubscribe = onAuthStateChanged(auth, (u) => {
+        setUser(u);
+        resolve(u);
+        unsubscribe();
+      });
+    });
+
+    Promise.all([minSplashTime, authCheck]).then(() => {
       setLoading(false);
     });
-    return unsubscribe;
   }, []);
 
   if (loading) {
@@ -47,9 +56,9 @@ export default function App() {
         <motion.div 
           animate={{ scale: [1, 1.1, 1] }} 
           transition={{ repeat: Infinity, duration: 2 }}
-          className="text-[#B4A08C] font-light text-xl tracking-widest serif"
+          className="text-[#B4A08C] font-light text-xl tracking-widest serif text-center"
         >
-          CLÍNICA DIGITAL
+          DRA. VITÓRIA OLIVEIRA
         </motion.div>
       </div>
     );
@@ -84,6 +93,7 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-[#FDFBF9] text-[#4A4644] overflow-hidden relative">
+      <ToastHost />
       {/* Sidebar - Retractable Drawer */}
       <AnimatePresence>
         {isSidebarOpen && (
@@ -108,9 +118,9 @@ export default function App() {
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-[#D1C7BD] rounded-2xl flex items-center justify-center shadow-sm">
-                    <span className="text-white font-serif text-xl">C</span>
+                    <span className="text-white font-serif text-xl">V</span>
                   </div>
-                  <span className="serif text-xl tracking-tight">Clínica Digital</span>
+                  <span className="serif text-xl tracking-tight">Dra. Vitória Oliveira</span>
                 </div>
                 <button 
                   onClick={() => setIsSidebarOpen(false)}

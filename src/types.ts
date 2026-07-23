@@ -42,6 +42,7 @@ export interface Patient {
     procedure: string;
     notes: string;
     bucoMaxiloNotes?: string;
+    numericValue?: number;
     professionalId?: string;
   }[];
   consentTerms?: {
@@ -98,4 +99,7 @@ export interface ClinicSettings {
   clinicName: string;
   clinicAddress: string;
   contactEmail?: string;
+  consentTemplates?: ConsentTemplate[];
+  biometricEnabled?: boolean;
+  cloudBackupEnabled?: boolean;
 }

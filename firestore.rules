@@ -19,15 +19,23 @@ service cloud.firestore {
       return request.resource.data;
     }
 
+    function isOwner() {
+      return isSignedIn() && incoming().userId == request.auth.uid;
+    }
+
+    function ownsExisting() {
+      return isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
     // Patient Validation
     function isValidPatient(data) {
-      return data.name is string && data.name.size() > 0 && data.name.size() <= 200
+      return data.userId is string && data.userId == request.auth.uid
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 200
         && (!('email' in data) || data.email is string)
         && (!('phone' in data) || data.phone is string)
         && (!('birthDate' in data) || data.birthDate is string)
         && (!('address' in data) || data.address is string)
         && (!('cpf' in data) || data.cpf is string)
-        && (!('userId' in data) || data.userId is string)
         && (!('photoHistory' in data) || data.photoHistory is list)
         && (!('files' in data) || data.files is list)
         && (!('evolution' in data) || data.evolution is list)
@@ -36,7 +44,8 @@ service cloud.firestore {
 
     // Appointment Validation
     function isValidAppointment(data) {
-      return data.patientId is string && isValidId(data.patientId)
+      return data.userId is string && data.userId == request.auth.uid
+        && data.patientId is string && isValidId(data.patientId)
         && data.date is string
         && data.time is string
         && (!('status' in data) || data.status in ['scheduled', 'confirmed', 'completed', 'cancelled']);
@@ -44,7 +53,8 @@ service cloud.firestore {
 
     // Inventory Validation
     function isValidInventory(data) {
-      return data.name is string && data.name.size() > 0
+      return data.userId is string && data.userId == request.auth.uid
+        && data.name is string && data.name.size() > 0
         && data.quantity is number
         && data.minThreshold is number
         && (!('category' in data) || data.category is string);
@@ -52,47 +62,47 @@ service cloud.firestore {
 
     // Transaction Validation
     function isValidTransaction(data) {
-      return data.amount is number
+      return data.userId is string && data.userId == request.auth.uid
+        && data.amount is number
         && data.type in ['income', 'expense']
         && data.date is timestamp;
     }
 
-    // Rules for Patients
+    // Rules for Patients — só o dono do dado (userId) pode ler/escrever
     match /patients/{patientId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() && isValidPatient(incoming()) && isValidId(patientId);
-      allow update: if isSignedIn() && isValidPatient(incoming());
-      allow delete: if isSignedIn();
+      allow read: if ownsExisting();
+      allow create: if isValidPatient(incoming()) && isValidId(patientId);
+      allow update: if ownsExisting() && isValidPatient(incoming()) && incoming().userId == resource.data.userId;
+      allow delete: if ownsExisting();
     }
 
     // Rules for Appointments
     match /appointments/{appointmentId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() && isValidAppointment(incoming()) && isValidId(appointmentId);
-      allow update: if isSignedIn() && isValidAppointment(incoming());
-      allow delete: if isSignedIn();
+      allow read: if ownsExisting();
+      allow create: if isValidAppointment(incoming()) && isValidId(appointmentId);
+      allow update: if ownsExisting() && isValidAppointment(incoming()) && incoming().userId == resource.data.userId;
+      allow delete: if ownsExisting();
     }
 
     // Rules for Inventory
     match /inventory/{itemId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() && isValidInventory(incoming()) && isValidId(itemId);
-      allow update: if isSignedIn() && isValidInventory(incoming());
-      allow delete: if isSignedIn();
+      allow read: if ownsExisting();
+      allow create: if isValidInventory(incoming()) && isValidId(itemId);
+      allow update: if ownsExisting() && isValidInventory(incoming()) && incoming().userId == resource.data.userId;
+      allow delete: if ownsExisting();
     }
 
     // Rules for Transactions
     match /transactions/{transactionId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() && isValidTransaction(incoming()) && isValidId(transactionId);
-      allow update: if isSignedIn() && isValidTransaction(incoming());
-      allow delete: if isSignedIn();
+      allow read: if ownsExisting();
+      allow create: if isValidTransaction(incoming()) && isValidId(transactionId);
+      allow update: if ownsExisting() && isValidTransaction(incoming()) && incoming().userId == resource.data.userId;
+      allow delete: if ownsExisting();
     }
 
-    // Rules for Settings
-    match /settings/{docId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn();
+    // Rules for Settings — um documento por usuário (settings/{uid}), não mais um doc global compartilhado
+    match /settings/{uid} {
+      allow read, write: if isSignedIn() && uid == request.auth.uid;
     }
   }
 }

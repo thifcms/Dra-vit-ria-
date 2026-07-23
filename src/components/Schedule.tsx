@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, onSnapshot, addDoc, where, orderBy } from 'firebase/firestore';
+import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, where, orderBy } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Appointment, Patient } from '../types';
 import { User as FirebaseUser } from 'firebase/auth';
@@ -13,136 +13,241 @@ import {
   MoreHorizontal,
   CheckCircle2,
   XCircle,
-  AlertCircle
+  AlertCircle,
+  CalendarDays
 } from 'lucide-react';
+import { showToast } from '../lib/toast';
 
 export default function Schedule({ user }: { user: FirebaseUser }) {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Sincronizar agendamentos
     const q = query(
       collection(db, 'appointments'), 
       where('userId', '==', user.uid),
       orderBy('time', 'asc')
     );
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubscribeAppts = onSnapshot(q, (snapshot) => {
       const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Appointment));
       setAppointments(list);
+      setLoading(false);
+    }, (err) => {
+      console.error("Erro no listener de appointments:", err);
+      showToast('Erro ao carregar agenda', 'error');
     });
 
+    // Sincronizar pacientes para o modal
     const pQ = query(
       collection(db, 'patients'),
       where('userId', '==', user.uid)
     );
-    onSnapshot(pQ, (snapshot) => {
+    const unsubscribePatients = onSnapshot(pQ, (snapshot) => {
       const pList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Patient));
       setPatients(pList);
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribeAppts();
+      unsubscribePatients();
+    };
   }, [user.uid]);
+
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [prefillTime, setPrefillTime] = useState<string | null>(null);
 
   const dateStr = selectedDate.toISOString().split('T')[0];
   const dayAppointments = appointments.filter(a => a.date === dateStr);
 
-  const hours = Array.from({ length: 14 }, (_, i) => `${i + 8}:00`);
+  const hours = Array.from({ length: 14 }, (_, i) => {
+    const h = i + 8;
+    return `${h < 10 ? '0' + h : h}:00`;
+  });
+
+  const handleSetStatus = async (id: string, status: string) => {
+    try {
+      await updateDoc(doc(db, 'appointments', id), { status });
+      showToast('Status atualizado');
+    } catch (err) {
+      showToast('Erro ao atualizar status', 'error');
+    } finally {
+      setOpenMenuId(null);
+    }
+  };
+
+  const handleDeleteAppointment = async (id: string) => {
+    if (!window.confirm('Excluir este agendamento?')) return;
+    try {
+      await deleteDoc(doc(db, 'appointments', id));
+      showToast('Agendamento excluído');
+    } catch (err) {
+      showToast('Erro ao excluir', 'error');
+    } finally {
+      setOpenMenuId(null);
+    }
+  };
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-extralight text-[#4A4644]">Agenda</h1>
-          <p className="text-[#B4A08C] font-light mt-1">Gerencie horários e atendimentos.</p>
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-[#FAF7F2] rounded-2xl text-[#D1C7BD] border border-[#F2EEE9]">
+            <CalendarDays size={28} />
+          </div>
+          <div>
+            <h1 className="text-3xl font-light text-[#4A4644] serif">Agenda Clínica</h1>
+            <p className="text-[#B4A08C] font-light text-xs uppercase tracking-widest mt-1">Gestão de Consultas & Disponibilidade</p>
+          </div>
         </div>
         <button 
           onClick={() => setIsAdding(true)}
-          className="bg-[#D1C7BD] text-white px-6 py-3 rounded-2xl flex items-center gap-2 hover:bg-[#D1C7BD]/90 transition-all shadow-md active:scale-95"
+          className="bg-[#D1C7BD] text-white px-8 py-4 rounded-2xl flex items-center gap-2 hover:bg-[#D1C7BD]/90 transition-all shadow-md active:scale-95 font-medium"
         >
           <Plus size={20} />
-          <span className="font-light">Novo Horário</span>
+          <span>Novo Agendamento</span>
         </button>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-8">
-        {/* Calendar Picker */}
+        {/* Calendar Sidebar */}
         <div className="w-full lg:w-80 space-y-6">
-          <div className="bg-white rounded-[32px] p-6 border border-[#F2EEE9] shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-medium text-[#4A4644]">{selectedDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</h3>
-              <div className="flex gap-2">
-                <button onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() - 1)))} className="p-1 text-[#B4A08C] hover:text-[#4A4644]"><ChevronLeft size={20}/></button>
-                <button onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() + 1)))} className="p-1 text-[#B4A08C] hover:text-[#4A4644]"><ChevronRight size={20}/></button>
+          <div className="bg-white rounded-[32px] p-8 border border-[#F2EEE9] shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="font-semibold text-[#4A4644] serif">{selectedDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</h3>
+              <div className="flex gap-1">
+                <button 
+                  onClick={() => setSelectedDate(new Date())}
+                  className="px-4 py-2 text-[10px] font-bold text-[#D1C7BD] uppercase tracking-widest hover:bg-[#FAF7F2] rounded-xl transition-all mr-2"
+                >
+                  Hoje
+                </button>
+                <button 
+                  onClick={() => {
+                    const d = new Date(selectedDate);
+                    d.setDate(d.getDate() - 1);
+                    setSelectedDate(d);
+                  }} 
+                  className="p-2 text-[#B4A08C] hover:text-[#4A4644] hover:bg-[#FAF7F2] rounded-xl transition-all"
+                >
+                  <ChevronLeft size={20}/>
+                </button>
+                <button 
+                  onClick={() => {
+                    const d = new Date(selectedDate);
+                    d.setDate(d.getDate() + 1);
+                    setSelectedDate(d);
+                  }} 
+                  className="p-2 text-[#B4A08C] hover:text-[#4A4644] hover:bg-[#FAF7F2] rounded-xl transition-all"
+                >
+                  <ChevronRight size={20}/>
+                </button>
               </div>
             </div>
-            {/* Simple Calendar Grid would go here */}
-            <div className="text-center py-4 text-sm text-[#B4A08C] font-light border-t border-[#F2EEE9]">
-              {selectedDate.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric' })}
+            
+            <div className="text-center py-6 bg-[#FAF7F2] rounded-2xl border border-[#F2EEE9]">
+              <p className="text-[10px] font-bold text-[#B4A08C] uppercase tracking-[0.2em] mb-1">{selectedDate.toLocaleDateString('pt-BR', { weekday: 'long' })}</p>
+              <p className="text-4xl font-light text-[#4A4644] serif">{selectedDate.getDate()}</p>
             </div>
           </div>
 
-          <div className="bg-[#FAF7F2] rounded-[32px] p-6 border border-[#EBE3DB]">
-            <h4 className="text-xs font-medium text-[#B4A08C] uppercase tracking-wider mb-4">Legenda</h4>
-            <div className="space-y-3">
+          <div className="bg-[#FAF7F2] rounded-[32px] p-8 border border-[#EBE3DB]">
+            <h4 className="text-[10px] font-bold text-[#B4A08C] uppercase tracking-[0.2em] mb-6">Legenda de Status</h4>
+            <div className="space-y-4">
               <LegendItem color="bg-[#D1C7BD]" label="Confirmado" />
-              <LegendItem color="bg-[#B4A08C]" label="Agendado" />
+              <LegendItem color="bg-[#4A4644]" label="Agendado" />
               <LegendItem color="bg-[#8D6B6B]" label="Cancelado" />
+              <LegendItem color="bg-[#D4E2D4]" label="Realizado" />
             </div>
           </div>
         </div>
 
-        {/* Daily View */}
-        <div className="flex-1 bg-white rounded-[32px] border border-[#F2EEE9] shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-[#F2EEE9] bg-[#FDFBF9] flex items-center justify-between">
-            <span className="text-sm font-medium text-[#4A4644]">Cronograma do Dia</span>
-            <span className="text-xs text-[#B4A08C] font-light italic">{dayAppointments.length} atendimentos</span>
+        {/* Timeline View */}
+        <div className="flex-1 bg-white rounded-[40px] border border-[#F2EEE9] shadow-sm overflow-hidden min-h-[600px]">
+          <div className="p-8 border-b border-[#F2EEE9] bg-[#FDFBF9] flex items-center justify-between">
+            <span className="text-sm font-semibold text-[#4A4644]">Linha do Tempo</span>
+            <span className="text-xs text-[#B4A08C] font-bold uppercase tracking-widest">{dayAppointments.length} atendimentos hoje</span>
           </div>
           
-          <div className="p-4 space-y-1">
-            {hours.map(hour => {
-              const appt = dayAppointments.find(a => a.time === hour);
-              return (
-                <div key={hour} className="flex gap-4 group">
-                  <div className="w-16 py-4 text-xs font-medium text-[#B4A08C] text-right">{hour}</div>
-                  <div className="flex-1 border-l border-[#F2EEE9] pl-6 py-2">
-                    {appt ? (
-                      <motion.div 
-                        initial={{ opacity: 0, x: 10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        className={`p-4 rounded-[20px] shadow-sm flex items-center justify-between ${
-                          appt.status === 'confirmed' ? 'bg-[#D1C7BD]/20 border border-[#D1C7BD]/30' :
-                          appt.status === 'cancelled' ? 'bg-[#F5E6E8] border border-[#E8D3D3]' :
-                          'bg-[#FAF7F2] border border-[#EBE3DB]'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#B4A08C]">
-                            <User size={18} />
+          <div className="p-8 space-y-2">
+            {loading ? (
+              <div className="py-20 text-center text-[#B4A08C] font-light italic">Carregando agenda...</div>
+            ) : (
+              hours.map(hour => {
+                const appt = dayAppointments.find(a => a.time === hour);
+                return (
+                  <div key={hour} className="flex gap-8 group">
+                    <div className="w-16 py-4 text-xs font-bold text-[#B4A08C] text-right tracking-widest">{hour}</div>
+                    <div className="flex-1 border-l border-[#F2EEE9] pl-8 py-4 relative">
+                      <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-[#EBE3DB] group-hover:bg-[#B4A08C] transition-colors" />
+                      
+                      {appt ? (
+                        <motion.div 
+                          initial={{ opacity: 0, x: 10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          className={`p-6 rounded-[24px] shadow-sm flex items-center justify-between group/card transition-all ${
+                            appt.status === 'confirmed' ? 'bg-[#D1C7BD]/10 border border-[#D1C7BD]/20' :
+                            appt.status === 'completed' ? 'bg-[#D4E2D4]/20 border border-[#D4E2D4]/30' :
+                            appt.status === 'cancelled' ? 'bg-[#F5E6E8]/40 border border-[#E8D3D3]' :
+                            'bg-[#FAF7F2] border border-[#EBE3DB]'
+                          }`}
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center text-[#B4A08C] border border-[#F2EEE9] shadow-sm">
+                              <User size={20} />
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold text-[#4A4644]">{appt.patientName}</p>
+                              <p className="text-[10px] text-[#B4A08C] font-bold uppercase tracking-widest mt-1">{appt.notes || 'Procedimento Estético'}</p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-sm font-medium text-[#4A4644]">{appt.patientName}</p>
-                            <p className="text-xs text-[#B4A08C] font-light">{appt.notes || 'Consulta Geral'}</p>
+                          
+                          <div className="flex items-center gap-4 relative">
+                            <StatusBadge status={appt.status} />
+                            <button
+                              onClick={() => setOpenMenuId(openMenuId === appt.id ? null : appt.id!)}
+                              className="p-2 text-[#B4A08C] hover:text-[#4A4644] transition-colors"
+                            >
+                              <MoreHorizontal size={20} />
+                            </button>
+                            
+                            <AnimatePresence>
+                              {openMenuId === appt.id && (
+                                <motion.div 
+                                  initial={{ opacity: 0, y: 10 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  exit={{ opacity: 0, y: 10 }}
+                                  className="absolute right-0 top-12 z-20 bg-white rounded-2xl border border-[#F2EEE9] shadow-xl py-3 w-52 overflow-hidden"
+                                >
+                                  <MenuOption onClick={() => handleSetStatus(appt.id!, 'confirmed')} label="Confirmar" color="text-[#D1C7BD]" />
+                                  <MenuOption onClick={() => handleSetStatus(appt.id!, 'completed')} label="Marcar como realizado" color="text-[#4F634F]" />
+                                  <MenuOption onClick={() => handleSetStatus(appt.id!, 'cancelled')} label="Cancelar" color="text-[#8D6B6B]" />
+                                  <div className="h-px bg-[#F2EEE9] my-2" />
+                                  <MenuOption onClick={() => handleDeleteAppointment(appt.id!)} label="Excluir agendamento" color="text-red-500" />
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
                           </div>
+                        </motion.div>
+                      ) : (
+                        <div className="h-20 flex items-center px-6 rounded-2xl border border-dashed border-transparent hover:border-[#EBE3DB] hover:bg-[#FDFBF9] transition-all">
+                          <button
+                            onClick={() => { setPrefillTime(hour); setIsAdding(true); }}
+                            className="text-[#EBE3DB] group-hover:text-[#B4A08C] flex items-center gap-3 text-xs font-bold uppercase tracking-widest transition-all"
+                          >
+                            <Plus size={18} />
+                            <span>Horário Livre</span>
+                          </button>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <StatusIcon status={appt.status} />
-                          <button className="p-2 text-[#B4A08C] hover:text-[#4A4644] transition-colors"><MoreHorizontal size={18} /></button>
-                        </div>
-                      </motion.div>
-                    ) : (
-                      <div className="h-16 flex items-center group-hover:bg-[#FDFBF9] rounded-2xl px-4 transition-colors">
-                        <button className="text-[#F2EEE9] group-hover:text-[#B4A08C] flex items-center gap-2 text-sm font-light transition-colors">
-                          <Plus size={16} />
-                          <span>Disponível</span>
-                        </button>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </div>
       </div>
@@ -151,9 +256,11 @@ export default function Schedule({ user }: { user: FirebaseUser }) {
         {isAdding && (
           <AddAppointmentModal 
             user={user}
-            onClose={() => setIsAdding(false)} 
+            onClose={() => { setIsAdding(false); setPrefillTime(null); }} 
             patients={patients}
+            appointments={appointments}
             initialDate={dateStr}
+            initialTime={prefillTime || '08:00'}
           />
         )}
       </AnimatePresence>
@@ -164,26 +271,59 @@ export default function Schedule({ user }: { user: FirebaseUser }) {
 function LegendItem({ color, label }: any) {
   return (
     <div className="flex items-center gap-3">
-      <div className={`w-3 h-3 rounded-full ${color}`} />
-      <span className="text-xs font-light text-[#4A4644]">{label}</span>
+      <div className={`w-2.5 h-2.5 rounded-full ${color}`} />
+      <span className="text-xs font-medium text-[#4A4644]">{label}</span>
     </div>
   );
 }
 
-function StatusIcon({ status }: { status: string }) {
-  if (status === 'confirmed') return <CheckCircle2 size={18} className="text-[#D1C7BD]" />;
-  if (status === 'cancelled') return <XCircle size={18} className="text-[#8D6B6B]" />;
-  return <Clock size={18} className="text-[#B4A08C]" />;
+function StatusBadge({ status }: { status: string }) {
+  const styles: any = {
+    confirmed: 'bg-[#D1C7BD] text-white',
+    completed: 'bg-[#D4E2D4] text-[#4F634F]',
+    cancelled: 'bg-[#F5E6E8] text-[#8D6B6B]',
+    scheduled: 'bg-[#FAF7F2] text-[#B4A08C] border border-[#EBE3DB]'
+  };
+  const labels: any = {
+    confirmed: 'Confirmado',
+    completed: 'Realizado',
+    cancelled: 'Cancelado',
+    scheduled: 'Agendado'
+  };
+  return (
+    <span className={`px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest ${styles[status] || styles.scheduled}`}>
+      {labels[status] || 'Agendado'}
+    </span>
+  );
 }
 
-function AddAppointmentModal({ user, onClose, patients, initialDate }: any) {
+function MenuOption({ onClick, label, color }: any) {
+  return (
+    <button onClick={onClick} className={`w-full text-left px-5 py-2.5 text-xs font-medium hover:bg-[#FAF7F2] transition-colors ${color}`}>
+      {label}
+    </button>
+  );
+}
+
+function AddAppointmentModal({ user, onClose, patients, appointments, initialDate, initialTime }: any) {
   const [patientId, setPatientId] = useState('');
   const [date, setDate] = useState(initialDate);
-  const [time, setTime] = useState('08:00');
+  const [time, setTime] = useState(initialTime || '08:00');
   const [notes, setNotes] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (saving) return;
+
+    // Bloqueio de conflito
+    const conflict = appointments.find((a: any) => a.date === date && a.time === time && a.status !== 'cancelled');
+    if (conflict) {
+      showToast('Este horário já está ocupado!', 'error');
+      return;
+    }
+
+    setSaving(true);
     const patient = patients.find((p: any) => p.id === patientId);
     try {
       await addDoc(collection(db, 'appointments'), {
@@ -193,34 +333,34 @@ function AddAppointmentModal({ user, onClose, patients, initialDate }: any) {
         date,
         time,
         notes,
-        status: 'scheduled'
+        status: 'scheduled',
+        createdAt: new Date().toISOString()
       });
+      showToast('Agendamento realizado');
       onClose();
     } catch (err) {
-      console.error(err);
+      showToast('Erro ao agendar', 'error');
+    } finally {
+      setSaving(false);
     }
   };
 
   return (
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-[#4A443F]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6"
-    >
+    <div className="fixed inset-0 bg-[#4A443F]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
       <motion.div 
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
-        className="bg-white w-full max-w-lg rounded-[32px] p-10 shadow-2xl"
+        initial={{ y: 30, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 30, opacity: 0 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+        className="bg-white w-full max-w-lg rounded-[40px] p-10 shadow-2xl"
       >
-        <h2 className="text-2xl font-light mb-8 text-[#4A4644]">Novo Agendamento</h2>
+        <h2 className="serif text-2xl text-[#4A4644] mb-8">Novo Agendamento</h2>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="block text-xs font-medium text-[#B4A08C] uppercase tracking-wider mb-2">Paciente</label>
+            <label className="block text-[10px] font-bold text-[#B4A08C] uppercase tracking-widest mb-2 ml-1">Paciente</label>
             <select 
               required
-              className="w-full bg-[#FDFCFB] border border-[#EBE3DB] rounded-2xl p-4 outline-none focus:border-[#D1C7BD] transition-colors font-light appearance-none"
+              className="w-full bg-[#FDFBF9] border border-[#F2EEE9] rounded-2xl p-4 outline-none focus:border-[#D1C7BD] transition-all font-light appearance-none text-sm"
               value={patientId}
               onChange={e => setPatientId(e.target.value)}
             >
@@ -230,58 +370,57 @@ function AddAppointmentModal({ user, onClose, patients, initialDate }: any) {
               ))}
             </select>
           </div>
+          
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-[#B4A08C] uppercase tracking-wider mb-2">Data</label>
+              <label className="block text-[10px] font-bold text-[#B4A08C] uppercase tracking-widest mb-2 ml-1">Data</label>
               <input 
                 type="date"
                 required
-                className="w-full bg-[#FDFCFB] border border-[#EBE3DB] rounded-2xl p-4 outline-none focus:border-[#D1C7BD] transition-colors font-light"
+                className="w-full bg-[#FDFBF9] border border-[#F2EEE9] rounded-2xl p-4 outline-none focus:border-[#D1C7BD] transition-all font-light text-sm"
                 value={date}
                 onChange={e => setDate(e.target.value)}
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-[#B4A08C] uppercase tracking-wider mb-2">Horário</label>
+              <label className="block text-[10px] font-bold text-[#B4A08C] uppercase tracking-widest mb-2 ml-1">Horário</label>
               <select 
                 required
-                className="w-full bg-[#FDFCFB] border border-[#EBE3DB] rounded-2xl p-4 outline-none focus:border-[#D1C7BD] transition-colors font-light appearance-none"
+                className="w-full bg-[#FDFBF9] border border-[#F2EEE9] rounded-2xl p-4 outline-none focus:border-[#D1C7BD] transition-all font-light appearance-none text-sm"
                 value={time}
                 onChange={e => setTime(e.target.value)}
               >
-                {Array.from({ length: 14 }, (_, i) => `${i + 8}:00`).map(h => (
-                  <option key={h} value={h}>{h}</option>
-                ))}
+                {Array.from({ length: 14 }, (_, i) => {
+                  const h = i + 8;
+                  const timeStr = `${h < 10 ? '0' + h : h}:00`;
+                  return <option key={timeStr} value={timeStr}>{timeStr}</option>;
+                })}
               </select>
             </div>
           </div>
+          
           <div>
-            <label className="block text-xs font-medium text-[#B4A08C] uppercase tracking-wider mb-2">Procedimento / Notas</label>
+            <label className="block text-[10px] font-bold text-[#B4A08C] uppercase tracking-widest mb-2 ml-1">Procedimento</label>
             <input 
-              className="w-full bg-[#FDFCFB] border border-[#EBE3DB] rounded-2xl p-4 outline-none focus:border-[#D1C7BD] transition-colors font-light"
+              className="w-full bg-[#FDFBF9] border border-[#F2EEE9] rounded-2xl p-4 outline-none focus:border-[#D1C7BD] transition-all font-light text-sm"
               value={notes}
               onChange={e => setNotes(e.target.value)}
-              placeholder="ex: Botox, Preenchimento..."
+              placeholder="ex: Harmonização Facial, Botox..."
             />
           </div>
           
           <div className="flex gap-4 pt-4">
+            <button type="button" onClick={onClose} className="flex-1 py-4 text-[#B4A08C] font-bold text-[10px] uppercase">Cancelar</button>
             <button 
-              type="button" 
-              onClick={onClose}
-              className="flex-1 py-4 border border-[#EBE3DB] text-[#B4A08C] rounded-2xl font-light hover:bg-[#FAF7F2] transition-all"
+              disabled={saving}
+              type="submit" 
+              className="flex-1 py-4 bg-[#D1C7BD] text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-[#D1C7BD]/90 transition-all"
             >
-              Cancelar
-            </button>
-            <button 
-              type="submit"
-              className="flex-1 py-4 bg-[#D1C7BD] text-white rounded-2xl font-light hover:bg-[#D1C7BD]/90 transition-all shadow-md"
-            >
-              Agendar
+              {saving ? 'Agendando...' : 'Confirmar Agenda'}
             </button>
           </div>
         </form>
       </motion.div>
-    </motion.div>
+    </div>
   );
 }

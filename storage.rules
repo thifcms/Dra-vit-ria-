@@ -1,0 +1,15 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Fotos e arquivos de pacientes ficam em: patients/{uid}/{patientId}/...
+    // Só o dono (uid == usuário logado) pode ler ou escrever sua própria pasta.
+    match /patients/{uid}/{allPaths=**} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Qualquer outro caminho: negado por padrão.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
