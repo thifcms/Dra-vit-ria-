@@ -1,0 +1,98 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    // Patient Validation
+    function isValidPatient(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() <= 200
+        && (!('email' in data) || data.email is string)
+        && (!('phone' in data) || data.phone is string)
+        && (!('birthDate' in data) || data.birthDate is string)
+        && (!('address' in data) || data.address is string)
+        && (!('cpf' in data) || data.cpf is string)
+        && (!('userId' in data) || data.userId is string)
+        && (!('photoHistory' in data) || data.photoHistory is list)
+        && (!('files' in data) || data.files is list)
+        && (!('evolution' in data) || data.evolution is list)
+        && (!('anamnesis' in data) || data.anamnesis is map);
+    }
+
+    // Appointment Validation
+    function isValidAppointment(data) {
+      return data.patientId is string && isValidId(data.patientId)
+        && data.date is string
+        && data.time is string
+        && (!('status' in data) || data.status in ['scheduled', 'confirmed', 'completed', 'cancelled']);
+    }
+
+    // Inventory Validation
+    function isValidInventory(data) {
+      return data.name is string && data.name.size() > 0
+        && data.quantity is number
+        && data.minThreshold is number
+        && (!('category' in data) || data.category is string);
+    }
+
+    // Transaction Validation
+    function isValidTransaction(data) {
+      return data.amount is number
+        && data.type in ['income', 'expense']
+        && data.date is timestamp;
+    }
+
+    // Rules for Patients
+    match /patients/{patientId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidPatient(incoming()) && isValidId(patientId);
+      allow update: if isSignedIn() && isValidPatient(incoming());
+      allow delete: if isSignedIn();
+    }
+
+    // Rules for Appointments
+    match /appointments/{appointmentId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidAppointment(incoming()) && isValidId(appointmentId);
+      allow update: if isSignedIn() && isValidAppointment(incoming());
+      allow delete: if isSignedIn();
+    }
+
+    // Rules for Inventory
+    match /inventory/{itemId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidInventory(incoming()) && isValidId(itemId);
+      allow update: if isSignedIn() && isValidInventory(incoming());
+      allow delete: if isSignedIn();
+    }
+
+    // Rules for Transactions
+    match /transactions/{transactionId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidTransaction(incoming()) && isValidId(transactionId);
+      allow update: if isSignedIn() && isValidTransaction(incoming());
+      allow delete: if isSignedIn();
+    }
+
+    // Rules for Settings
+    match /settings/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+  }
+}

@@ -1,0 +1,126 @@
+{
+  "entities": {
+    "Patient": {
+      "title": "Patient",
+      "description": "Medical record and history for a patient.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string", "description": "Full name of the patient" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "birthDate": { "type": "string", "format": "date" },
+        "address": { "type": "string" },
+        "cpf": { "type": "string", "description": "Brazilian tax ID" },
+        "anamnesis": {
+          "type": "object",
+          "properties": {
+            "mainComplaint": { "type": "string" },
+            "medicalHistory": { "type": "string" },
+            "allergies": { "type": "string" },
+            "medications": { "type": "string" },
+            "previousProcedures": { "type": "string" }
+          }
+        },
+        "photoHistory": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "URLs of patient photos"
+        },
+        "files": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "URLs of attached files/exams"
+        },
+        "evolution": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "date": { "type": "string", "format": "date-time" },
+              "notes": { "type": "string" },
+              "procedure": { "type": "string" }
+            }
+          }
+        },
+        "consentSigned": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name"]
+    },
+    "Appointment": {
+      "title": "Appointment",
+      "description": "Scheduled time for a patient procedure.",
+      "type": "object",
+      "properties": {
+        "patientId": { "type": "string" },
+        "patientName": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "time": { "type": "string" },
+        "status": { "type": "string", "enum": ["scheduled", "confirmed", "completed", "cancelled"] },
+        "notes": { "type": "string" }
+      },
+      "required": ["patientId", "date", "time"]
+    },
+    "InventoryItem": {
+      "title": "Inventory Item",
+      "description": "Surgical or dental supplies.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "quantity": { "type": "number" },
+        "minThreshold": { "type": "number" },
+        "unit": { "type": "string" }
+      },
+      "required": ["name", "quantity", "minThreshold"]
+    },
+    "Transaction": {
+      "title": "Financial Transaction",
+      "description": "Income or expense for the clinic.",
+      "type": "object",
+      "properties": {
+        "amount": { "type": "number" },
+        "type": { "type": "string", "enum": ["income", "expense"] },
+        "date": { "type": "string", "format": "date-time" },
+        "category": { "type": "string" },
+        "description": { "type": "string" },
+        "patientId": { "type": "string" }
+      },
+      "required": ["amount", "type", "date"]
+    },
+    "ClinicSettings": {
+      "title": "Clinic Settings",
+      "description": "Configuration and professional info.",
+      "type": "object",
+      "properties": {
+        "professionalName": { "type": "string" },
+        "registrationNumber": { "type": "string" },
+        "clinicName": { "type": "string" },
+        "clinicAddress": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "patients": {
+      "schema": "Patient",
+      "description": "Collection of patient medical records"
+    },
+    "appointments": {
+      "schema": "Appointment",
+      "description": "Collection of scheduled visits"
+    },
+    "inventory": {
+      "schema": "InventoryItem",
+      "description": "Collection of clinical supplies"
+    },
+    "transactions": {
+      "schema": "Transaction",
+      "description": "Financial ledger"
+    },
+    "settings": {
+      "schema": "ClinicSettings",
+      "description": "Global clinic configuration"
+    }
+  }
+}

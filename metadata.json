@@ -1,0 +1,6 @@
+{
+  "name": "Clínica Estética Digital",
+  "description": "Plataforma completa de gestão para clínicas de estética, com prontuários digitais, controle de estoque e gestão financeira.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
