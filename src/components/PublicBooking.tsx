@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { doc, getDoc, setDoc, addDoc, deleteDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { slotId, checkinLink, CLINIC_HOURS, phoneIndexKey } from '../lib/slots';
+import { slotId, checkinLink, cancelLink, CLINIC_HOURS, phoneIndexKey } from '../lib/slots';
 import { buildReminderMessage, whatsappLink } from '../lib/reminders';
 import { motion, AnimatePresence } from 'motion/react';
 import { Calendar, Phone, User as UserIcon, Mail, IdCard, ChevronLeft, ChevronRight, CheckCircle2, MessageSquare } from 'lucide-react';
@@ -35,6 +35,7 @@ export default function PublicBooking() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [checkinUrl, setCheckinUrl] = useState('');
+  const [cancelUrl, setCancelUrl] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
@@ -123,12 +124,17 @@ export default function PublicBooking() {
     if (submitting || !config || !selectedTime) return;
     setSubmitting(true);
 
+    // Gera o ID do agendamento antes de criar qualquer coisa, pra poder vincular o horário
+    // ocupado (busySlot) a ele — é isso que permite liberar o horário com segurança quando
+    // o paciente cancela pelo link, sem precisar de login.
+    const apptRef = doc(collection(db, 'appointments'));
     const slotDocId = slotId(config.ownerId, selectedDate, selectedTime);
     try {
       await setDoc(doc(db, 'busySlots', slotDocId), {
         clinicId: config.ownerId,
         date: selectedDate,
         time: selectedTime,
+        apt: apptRef.id,
       });
     } catch (err) {
       showError('Esse horário acabou de ser reservado por outra pessoa. Escolha outro, por favor.');
@@ -173,8 +179,9 @@ export default function PublicBooking() {
         createdAt: new Date().toISOString(),
       };
       if (procedureInterest) payload.notes = procedureInterest;
-      const ref = await addDoc(collection(db, 'appointments'), payload);
-      setCheckinUrl(checkinLink(ref.id, token, selectedDate, selectedTime));
+      await setDoc(apptRef, payload);
+      setCheckinUrl(checkinLink(apptRef.id, token, selectedDate, selectedTime));
+      setCancelUrl(cancelLink(apptRef.id, token, selectedDate, selectedTime, config.ownerId));
       setSubmitted(true);
     } catch (err) {
       await deleteDoc(doc(db, 'busySlots', slotDocId)).catch(() => {});
@@ -229,6 +236,7 @@ export default function PublicBooking() {
                 dateLabel: new Date(selectedDate + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' }),
                 time: selectedTime!,
                 checkinUrl: checkinUrl,
+                cancelUrl: cancelUrl,
               });
               window.open(whatsappLink(phone, msg), '_blank');
             }}
@@ -254,6 +262,29 @@ export default function PublicBooking() {
                   type="button"
                   onClick={() => { navigator.clipboard.writeText(checkinUrl); }}
                   className="px-4 py-2 bg-[#EADFD4] text-white rounded-xl text-[9px] font-bold uppercase tracking-widest shrink-0"
+                >
+                  Copiar
+                </button>
+              </div>
+            </div>
+          )}
+
+          {cancelUrl && (
+            <div className="mt-4 p-5 bg-[#FDFBF9] rounded-2xl border border-[#F5F2F0] text-left">
+              <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2">
+                Não vai poder vir? Cancele por este link, sem precisar ligar
+              </p>
+              <div className="flex items-center gap-2">
+                <input
+                  readOnly
+                  value={cancelUrl}
+                  className="flex-1 bg-white border border-[#F5F2F0] rounded-xl px-3 py-2 text-[10px] text-[#9CA3AF] font-light truncate"
+                  onFocus={e => e.target.select()}
+                />
+                <button
+                  type="button"
+                  onClick={() => { navigator.clipboard.writeText(cancelUrl); }}
+                  className="px-4 py-2 bg-white border border-[#F5F2F0] text-[#9CA3AF] rounded-xl text-[9px] font-bold uppercase tracking-widest shrink-0"
                 >
                   Copiar
                 </button>

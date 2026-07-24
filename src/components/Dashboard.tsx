@@ -21,7 +21,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { doc, getDoc } from 'firebase/firestore';
 import { buildReminderMessage, whatsappLink } from '../lib/reminders';
-import { checkinLink } from '../lib/slots';
+import { checkinLink, cancelLink } from '../lib/slots';
 import { ClinicSettings } from '../types';
 import { 
   AreaChart, 
@@ -175,7 +175,8 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
     const phone = appt.guestPhone || appt.patientPhone; // No prontuário pode ser patientPhone
     if (!phone) return;
 
-    const url = checkinLink(appt.id, appt.checkinToken, appt.date, appt.time);
+    const checkinUrl = checkinLink(appt.id, appt.checkinToken, appt.date, appt.time);
+    const cancel = cancelLink(appt.id, appt.checkinToken, appt.date, appt.time, user.uid);
     const msg = buildReminderMessage({
       patientName: appt.patientName,
       clinicName: clinicSettings.clinicName || 'Nossa Clínica',
@@ -183,7 +184,8 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
       address: clinicSettings.clinicAddress,
       dateLabel: appt.date === new Date().toISOString().split('T')[0] ? 'Hoje' : new Date(appt.date + 'T00:00:00').toLocaleDateString('pt-BR'),
       time: appt.time,
-      checkinUrl: url
+      checkinUrl,
+      cancelUrl: cancel,
     });
     window.open(whatsappLink(phone, msg), '_blank');
   };

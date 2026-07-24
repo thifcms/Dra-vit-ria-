@@ -30,6 +30,7 @@ const Finance = lazy(() => import('./components/Finance'));
 const Settings = lazy(() => import('./components/Settings'));
 const PublicBooking = lazy(() => import('./components/PublicBooking'));
 const CheckIn = lazy(() => import('./components/CheckIn'));
+const Cancel = lazy(() => import('./components/Cancel'));
 
 type View = 'dashboard' | 'patients' | 'schedule' | 'inventory' | 'finance' | 'settings';
 
@@ -48,6 +49,13 @@ export default function App() {
     return (
       <Suspense fallback={<ViewLoadingFallback />}>
         <CheckIn />
+      </Suspense>
+    );
+  }
+  if (hash.startsWith('#cancelar')) {
+    return (
+      <Suspense fallback={<ViewLoadingFallback />}>
+        <Cancel />
       </Suspense>
     );
   }
