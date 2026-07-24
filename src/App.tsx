@@ -332,7 +332,12 @@ function AuthenticatedApp() {
                     initialPatientId={jumpToPatientId}
                   />
                 )}
-                {activeView === 'schedule' && <Schedule user={user} />}
+                {activeView === 'schedule' && (
+                  <Schedule 
+                    user={user} 
+                    onOpenPatient={(patientId: string) => { setActiveView('patients'); setJumpToPatientId(patientId); }}
+                  />
+                )}
                 {activeView === 'inventory' && <Inventory user={user} />}
                 {activeView === 'finance' && <Finance user={user} />}
                 {activeView === 'settings' && <Settings user={user} />}

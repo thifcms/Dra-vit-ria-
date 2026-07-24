@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { showToast } from '../lib/toast';
 
-export default function Schedule({ user }: { user: FirebaseUser }) {
+export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, onOpenPatient?: (patientId: string) => void }) {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [clinicSettings, setClinicSettings] = useState<ClinicSettings | null>(null);
@@ -151,6 +151,18 @@ export default function Schedule({ user }: { user: FirebaseUser }) {
       showToast('Erro ao atualizar status', 'error');
     } finally {
       setOpenMenuId(null);
+    }
+  };
+
+  const [linkingPatientAppt, setLinkingPatientAppt] = useState<Appointment | null>(null);
+
+  const handleOpenPatient = (appt: Appointment) => {
+    if (appt.patientId && onOpenPatient) {
+      onOpenPatient(appt.patientId);
+    } else {
+      // Agendamento sem paciente vinculado (ex: veio da página pública) — pede pra
+      // vincular a um cadastro existente ou criar um novo antes de abrir o prontuário
+      setLinkingPatientAppt(appt);
     }
   };
 
@@ -409,7 +421,11 @@ export default function Schedule({ user }: { user: FirebaseUser }) {
                             'bg-[#FDFBF9] border border-[#F5F2F0]'
                           }`}
                         >
-                          <div className="flex items-center gap-4">
+                          <button
+                            onClick={() => handleOpenPatient(appt)}
+                            className="flex items-center gap-4 text-left hover:opacity-70 transition-opacity"
+                            title={appt.patientId ? 'Abrir prontuário' : 'Vincular a um paciente cadastrado'}
+                          >
                             <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center text-[#9CA3AF] border border-[#F5F2F0] shadow-sm">
                               <User size={20} />
                             </div>
@@ -419,6 +435,9 @@ export default function Schedule({ user }: { user: FirebaseUser }) {
                                 {appt.checkedInAt && appt.status !== 'completed' && (
                                   <span className="text-[8px] bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full font-bold uppercase tracking-widest">Na fila</span>
                                 )}
+                                {!appt.patientId && (
+                                  <span className="text-[8px] bg-blue-50 text-blue-500 px-2 py-0.5 rounded-full font-bold uppercase tracking-widest">Sem cadastro</span>
+                                )}
                               </p>
                               <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest mt-1">
                                 {appt.notes || 'Procedimento Estético'}
@@ -426,7 +445,7 @@ export default function Schedule({ user }: { user: FirebaseUser }) {
                                 {seriesInfo.has(appt.id!) ? ` • Sessão ${seriesInfo.get(appt.id!)!.index} de ${seriesInfo.get(appt.id!)!.total}` : ''}
                               </p>
                             </div>
-                          </div>
+                          </button>
                           
                           <div className="flex items-center gap-4 relative">
                             <StatusBadge status={appt.status} />
@@ -504,6 +523,18 @@ export default function Schedule({ user }: { user: FirebaseUser }) {
             initialDate={editingAppointment.date}
             initialTime={editingAppointment.time}
             appointment={editingAppointment}
+          />
+        )}
+        {linkingPatientAppt && (
+          <LinkPatientModal
+            user={user}
+            appointment={linkingPatientAppt}
+            patients={patients}
+            onClose={() => setLinkingPatientAppt(null)}
+            onLinked={(patientId) => {
+              setLinkingPatientAppt(null);
+              onOpenPatient?.(patientId);
+            }}
           />
         )}
       </AnimatePresence>
@@ -768,6 +799,125 @@ function AddAppointmentModal({ user, onClose, patients, appointments, initialDat
               className="flex-1 py-4 bg-[#EADFD4] text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-[#DFCFBF] transition-all"
             >
               {saving ? 'Salvando...' : appointment ? 'Salvar Alterações' : 'Confirmar Agenda'}
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </div>
+  );
+}
+
+// Vincula um agendamento sem paciente cadastrado (ex: veio da página pública de agendamento)
+// a um paciente — escolhendo um já existente ou criando um novo a partir do nome/telefone
+// que já foram informados. Depois de vincular, já abre o prontuário direto.
+function LinkPatientModal({ user, appointment, patients, onClose, onLinked }: {
+  user: FirebaseUser,
+  appointment: Appointment,
+  patients: Patient[],
+  onClose: () => void,
+  onLinked: (patientId: string) => void,
+}) {
+  const [mode, setMode] = useState<'new' | 'existing'>('new');
+  const [selectedPatientId, setSelectedPatientId] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (saving) return;
+    if (mode === 'existing' && !selectedPatientId) {
+      showToast('Selecione um paciente', 'error');
+      return;
+    }
+    setSaving(true);
+    try {
+      let patientId = selectedPatientId;
+      if (mode === 'new') {
+        const ref = await addDoc(collection(db, 'patients'), {
+          userId: user.uid,
+          name: appointment.patientName,
+          phone: appointment.guestPhone || '',
+          updatedAt: new Date().toISOString(),
+        });
+        patientId = ref.id;
+      }
+      await updateDoc(doc(db, 'appointments', appointment.id!), { patientId });
+      showToast('Paciente vinculado');
+      onLinked(patientId);
+    } catch (err) {
+      showToast('Erro ao vincular paciente', 'error');
+    }
+    setSaving(false);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-[#5C544E]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+      <motion.div 
+        initial={{ y: 30, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 30, opacity: 0 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+        className="bg-white w-full max-w-md rounded-[40px] p-10 shadow-2xl"
+      >
+        <h2 className="serif text-2xl text-[#5C544E] mb-2">Vincular Paciente</h2>
+        <p className="text-xs text-[#9CA3AF] font-light mb-8">
+          Este agendamento ainda não tem um prontuário — {appointment.patientName}
+          {appointment.guestPhone ? ` • ${appointment.guestPhone}` : ''}
+        </p>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setMode('new')}
+              className={`flex-1 py-3 rounded-xl text-[10px] font-bold uppercase tracking-widest border transition-all ${
+                mode === 'new' ? 'bg-[#EADFD4] text-white border-[#EADFD4]' : 'bg-white text-[#9CA3AF] border-[#F5F2F0]'
+              }`}
+            >
+              Criar Novo Prontuário
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('existing')}
+              className={`flex-1 py-3 rounded-xl text-[10px] font-bold uppercase tracking-widest border transition-all ${
+                mode === 'existing' ? 'bg-[#EADFD4] text-white border-[#EADFD4]' : 'bg-white text-[#9CA3AF] border-[#F5F2F0]'
+              }`}
+            >
+              Já é Paciente
+            </button>
+          </div>
+
+          {mode === 'new' && (
+            <p className="text-xs text-[#9CA3AF] font-light italic p-4 bg-[#FDFBF9] rounded-2xl border border-[#F5F2F0]">
+              Cria um prontuário novo com o nome e telefone já informados no agendamento.
+              Você completa o resto (anamnese, etc.) depois.
+            </p>
+          )}
+
+          {mode === 'existing' && (
+            <div>
+              <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Selecionar Paciente</label>
+              <select
+                required
+                className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all font-light appearance-none text-sm"
+                value={selectedPatientId}
+                onChange={e => setSelectedPatientId(e.target.value)}
+              >
+                <option value="">Selecione...</option>
+                {patients.map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div className="flex gap-4 pt-4">
+            <button type="button" onClick={onClose} className="flex-1 py-4 text-[#9CA3AF] font-bold text-[10px] uppercase">Cancelar</button>
+            <button 
+              disabled={saving}
+              type="submit" 
+              className="flex-1 py-4 bg-[#EADFD4] text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-[#DFCFBF] transition-all"
+            >
+              {saving ? 'Vinculando...' : 'Vincular e Abrir Prontuário'}
             </button>
           </div>
         </form>
