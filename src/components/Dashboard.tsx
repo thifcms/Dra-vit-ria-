@@ -151,28 +151,28 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
         <motion.div 
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="lg:col-span-2 bg-[#4A433F] rounded-[48px] p-12 text-white relative overflow-hidden flex flex-col justify-between min-h-[300px] shadow-2xl"
+          className="lg:col-span-2 bg-[#5C544E] rounded-[48px] p-12 text-white relative overflow-hidden flex flex-col justify-between min-h-[300px] shadow-2xl"
         >
           <div className="relative z-10">
             <h2 className="text-4xl font-light mb-4 serif">
               Olá, <span className="italic">{professionalName}</span>
             </h2>
             <p className="text-white/60 font-light max-w-sm leading-relaxed text-lg">
-              Sua clínica está operando com <span className="text-[#E8D8D0] font-medium">excelência</span> hoje. Confira os destaques do seu consultório.
+              Sua clínica está operando com <span className="text-[#EADFD4] font-medium">excelência</span> hoje. Confira os destaques do seu consultório.
             </p>
           </div>
           
           <div className="relative z-10 flex gap-4 mt-8">
             <button 
               onClick={() => onNavigate('schedule')}
-              className="px-10 py-5 bg-[#E8D8D0] text-white rounded-2xl hover:bg-[#DFCFBF] transition-all shadow-lg font-bold text-[10px] uppercase tracking-widest flex items-center gap-3"
+              className="px-10 py-5 bg-[#EADFD4] text-white rounded-2xl hover:bg-[#DFCFBF] transition-all shadow-lg font-bold text-[10px] uppercase tracking-widest flex items-center gap-3"
             >
               Agenda de Hoje <ArrowRight size={16} />
             </button>
           </div>
 
           <div className="absolute right-0 top-0 w-80 h-80 bg-white/5 rounded-full -translate-y-1/3 translate-x-1/3 blur-3xl" />
-          <div className="absolute left-1/4 bottom-0 w-40 h-40 bg-[#E8D8D0]/10 rounded-full translate-y-1/2 blur-2xl" />
+          <div className="absolute left-1/4 bottom-0 w-40 h-40 bg-[#EADFD4]/10 rounded-full translate-y-1/2 blur-2xl" />
         </motion.div>
 
         <AnimatePresence>
@@ -182,7 +182,7 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
               animate={{ opacity: 1, scale: 1 }}
               className="bg-white rounded-[48px] p-10 border border-[#F5F2F0] flex flex-col justify-between shadow-xl relative group overflow-hidden"
             >
-              <div className="absolute top-0 right-0 p-8 text-[#FDFBF9] group-hover:text-[#E8D8D0]/10 transition-colors">
+              <div className="absolute top-0 right-0 p-8 text-[#FDFBF9] group-hover:text-[#EADFD4]/10 transition-colors">
                 <Clock size={80} />
               </div>
               
@@ -190,14 +190,14 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
                 <span className="bg-[#FDFBF9] text-[#9CA3AF] px-4 py-2 rounded-xl text-[9px] font-bold uppercase tracking-[0.2em] border border-[#F5F2F0]">
                   Próximo Atendimento
                 </span>
-                <h3 className="text-4xl font-light text-[#4A433F] serif mt-8 mb-2">{nextAppointment.time}</h3>
-                <p className="text-xl text-[#4A433F] font-medium">{nextAppointment.patientName}</p>
+                <h3 className="text-4xl font-light text-[#5C544E] serif mt-8 mb-2">{nextAppointment.time}</h3>
+                <p className="text-xl text-[#5C544E] font-medium">{nextAppointment.patientName}</p>
                 <p className="text-[#9CA3AF] font-light text-sm mt-1">{nextAppointment.notes || 'Procedimento Estético'}</p>
               </div>
 
               <button 
                 onClick={() => onNavigate('patients')}
-                className="relative z-10 w-full mt-10 py-5 bg-[#FDFBF9] text-[#9CA3AF] rounded-[24px] font-bold text-[10px] uppercase tracking-widest border border-[#F5F2F0] hover:bg-[#E8D8D0] hover:text-white hover:border-[#E8D8D0] transition-all flex items-center justify-center gap-2"
+                className="relative z-10 w-full mt-10 py-5 bg-[#FDFBF9] text-[#9CA3AF] rounded-[24px] font-bold text-[10px] uppercase tracking-widest border border-[#F5F2F0] hover:bg-[#EADFD4] hover:text-white hover:border-[#EADFD4] transition-all flex items-center justify-center gap-2"
               >
                 Abrir Prontuário <Play size={14} fill="currentColor" />
               </button>
@@ -211,7 +211,7 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
         <StatCard 
           label="Base de Pacientes" 
           value={stats.totalPatients} 
-          icon={<Users className="text-[#E8D8D0]" size={20} />} 
+          icon={<Users className="text-[#EADFD4]" size={20} />} 
           trend="+4 novos"
         />
         <StatCard 
@@ -242,13 +242,13 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
           onClick={() => onNavigate('patients')}
         >
           <div>
-            <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-[#E8D8D0] shadow-sm mb-6 group-hover:bg-[#E8D8D0] group-hover:text-white transition-all">
+            <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-[#EADFD4] shadow-sm mb-6 group-hover:bg-[#EADFD4] group-hover:text-white transition-all">
               <Plus size={24} />
             </div>
-            <h3 className="serif text-2xl text-[#4A433F] mb-2">Novo Cadastro</h3>
+            <h3 className="serif text-2xl text-[#5C544E] mb-2">Novo Cadastro</h3>
             <p className="text-xs text-[#9CA3AF] font-light leading-relaxed">Adicione um novo paciente à sua base de dados em segundos.</p>
           </div>
-          <ArrowRight className="mt-8 text-[#F5F2F0] group-hover:text-[#E8D8D0] group-hover:translate-x-2 transition-all" />
+          <ArrowRight className="mt-8 text-[#F5F2F0] group-hover:text-[#EADFD4] group-hover:translate-x-2 transition-all" />
         </motion.div>
 
         <motion.div 
@@ -260,7 +260,7 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
             <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-[#8BA888] shadow-sm mb-6 group-hover:bg-[#8BA888] group-hover:text-white transition-all">
               <TrendingUp size={24} />
             </div>
-            <h3 className="serif text-2xl text-[#4A433F] mb-2">Fluxo de Caixa</h3>
+            <h3 className="serif text-2xl text-[#5C544E] mb-2">Fluxo de Caixa</h3>
             <p className="text-xs text-[#9CA3AF] font-light leading-relaxed">Visualize a saúde financeira do seu consultório em tempo real.</p>
           </div>
           <ArrowRight className="mt-8 text-[#F5F2F0] group-hover:text-[#8BA888] group-hover:translate-x-2 transition-all" />
@@ -268,17 +268,17 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
 
         <motion.div 
           whileHover={{ scale: 1.01 }}
-          className="md:col-span-1 bg-[#4A433F] rounded-[40px] p-10 flex flex-col justify-between group cursor-pointer text-white"
+          className="md:col-span-1 bg-[#5C544E] rounded-[40px] p-10 flex flex-col justify-between group cursor-pointer text-white"
           onClick={() => onNavigate('settings')}
         >
           <div>
-            <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center text-[#E8D8D0] shadow-sm mb-6 group-hover:bg-white group-hover:text-[#4A433F] transition-all">
+            <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center text-[#EADFD4] shadow-sm mb-6 group-hover:bg-white group-hover:text-[#5C544E] transition-all">
               <SettingsIcon size={24} />
             </div>
             <h3 className="serif text-2xl mb-2">Configurações</h3>
             <p className="text-xs text-white/50 font-light leading-relaxed">Personalize os termos de consentimento e dados da clínica.</p>
           </div>
-          <ArrowRight className="mt-8 text-white/20 group-hover:text-[#E8D8D0] group-hover:translate-x-2 transition-all" />
+          <ArrowRight className="mt-8 text-white/20 group-hover:text-[#EADFD4] group-hover:translate-x-2 transition-all" />
         </motion.div>
       </div>
 
@@ -290,12 +290,12 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
       >
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-12 gap-4">
           <div>
-            <h3 className="serif text-2xl text-[#4A433F] mb-1">Crescimento Mensal</h3>
+            <h3 className="serif text-2xl text-[#5C544E] mb-1">Crescimento Mensal</h3>
             <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest">Acompanhamento de Receita • Últimos 6 meses</p>
           </div>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-[#E8D8D0]" />
+              <div className="w-3 h-3 rounded-full bg-[#EADFD4]" />
               <span className="text-xs text-[#9CA3AF]">Receita Bruta</span>
             </div>
           </div>
@@ -306,8 +306,8 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
             <AreaChart data={chartData}>
               <defs>
                 <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#E8D8D0" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#E8D8D0" stopOpacity={0}/>
+                  <stop offset="5%" stopColor="#EADFD4" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#EADFD4" stopOpacity={0}/>
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F5F2F0" />
@@ -331,13 +331,13 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
                   boxShadow: '0 10px 30px rgba(0,0,0,0.05)',
                   padding: '15px 20px'
                 }}
-                itemStyle={{ color: '#4A433F', fontWeight: 600, fontSize: '14px' }}
+                itemStyle={{ color: '#5C544E', fontWeight: 600, fontSize: '14px' }}
                 labelStyle={{ fontSize: '10px', color: '#9CA3AF', fontWeight: 700, textTransform: 'uppercase', marginBottom: '5px' }}
               />
               <Area 
                 type="monotone" 
                 dataKey="revenue" 
-                stroke="#E8D8D0" 
+                stroke="#EADFD4" 
                 strokeWidth={4}
                 fillOpacity={1} 
                 fill="url(#colorRevenue)" 
@@ -352,7 +352,7 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
         {/* Today's Schedule List */}
         <div className="bg-white rounded-[40px] border border-[#F5F2F0] p-10 card-shadow">
           <div className="flex items-center justify-between mb-10">
-            <h3 className="serif text-2xl text-[#4A433F]">Agenda de Hoje</h3>
+            <h3 className="serif text-2xl text-[#5C544E]">Agenda de Hoje</h3>
             <button onClick={() => onNavigate('schedule')} className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest hover:text-red-400 transition-colors flex items-center gap-2">
               Agenda Completa <ChevronRight size={14} />
             </button>
@@ -362,7 +362,7 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
               <div key={appt.id} className="flex items-center gap-6 p-6 rounded-3xl border border-transparent hover:border-[#F5F2F0] hover:bg-[#FDFBF9]/40 transition-all group">
                 <div className="text-xs font-bold text-[#9CA3AF] uppercase w-12 text-center py-2 bg-[#FDFBF9] rounded-xl">{appt.time}</div>
                 <div className="flex-1">
-                  <p className="text-base font-semibold text-[#4A433F]">{appt.patientName}</p>
+                  <p className="text-base font-semibold text-[#5C544E]">{appt.patientName}</p>
                   <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest mt-1">{appt.notes || 'Avaliação Clínica'}</p>
                 </div>
                 <div className={`px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest ${
@@ -374,7 +374,7 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
             ))}
             {todaySchedule.length === 0 && (
               <div className="text-center py-16 space-y-4">
-                <div className="p-4 bg-[#FDFBF9] rounded-full inline-block text-[#E8D8D0]">
+                <div className="p-4 bg-[#FDFBF9] rounded-full inline-block text-[#EADFD4]">
                   <Calendar size={32} />
                 </div>
                 <p className="text-sm text-[#9CA3AF] font-light italic">Sem compromissos hoje.</p>
@@ -386,20 +386,20 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
         {/* Recent Activity / Patients */}
         <div className="bg-white rounded-[40px] border border-[#F5F2F0] p-10 card-shadow">
           <div className="flex items-center justify-between mb-10">
-            <h3 className="serif text-2xl text-[#4A433F]">Novos Pacientes</h3>
+            <h3 className="serif text-2xl text-[#5C544E]">Novos Pacientes</h3>
             <button onClick={() => onNavigate('patients')} className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest hover:text-red-400 transition-colors flex items-center gap-2">
               Ver Todos <ChevronRight size={14} />
             </button>
           </div>
           <div className="space-y-4">
             {recentPatients.map((p) => (
-              <div key={p.id} className="flex items-center justify-between p-6 bg-[#FDFBF9]/50 rounded-3xl border border-[#F5F2F0] hover:border-[#E8D8D0] transition-all group">
+              <div key={p.id} className="flex items-center justify-between p-6 bg-[#FDFBF9]/50 rounded-3xl border border-[#F5F2F0] hover:border-[#EADFD4] transition-all group">
                 <div className="flex items-center gap-5">
-                  <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center border border-[#F5F2F0] text-[#9CA3AF] group-hover:bg-[#E8D8D0] group-hover:text-white transition-all">
+                  <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center border border-[#F5F2F0] text-[#9CA3AF] group-hover:bg-[#EADFD4] group-hover:text-white transition-all">
                     <Users size={20} />
                   </div>
                   <div>
-                    <p className="text-base font-semibold text-[#4A433F]">{p.name}</p>
+                    <p className="text-base font-semibold text-[#5C544E]">{p.name}</p>
                     <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest">Prontuário Ativo</p>
                   </div>
                 </div>
@@ -408,7 +408,7 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
             ))}
             {recentPatients.length === 0 && (
               <div className="text-center py-16 space-y-4">
-                <div className="p-4 bg-[#FDFBF9] rounded-full inline-block text-[#E8D8D0]">
+                <div className="p-4 bg-[#FDFBF9] rounded-full inline-block text-[#EADFD4]">
                   <Users size={32} />
                 </div>
                 <p className="text-sm text-[#9CA3AF] font-light italic">Nenhum paciente novo.</p>
@@ -428,7 +428,7 @@ function StatCard({ label, value, icon, trend, variant = "default" }: any) {
       className={`p-10 bg-white border border-[#F5F2F0] rounded-[40px] shadow-sm relative overflow-hidden group ${variant === 'danger' ? 'bg-red-50/20' : ''}`}
     >
       <div className="flex items-center justify-between mb-8">
-        <div className={`p-4 rounded-2xl transition-all ${variant === 'danger' ? 'bg-red-100/50 text-red-500' : 'bg-[#FDFBF9] text-[#9CA3AF] group-hover:bg-[#E8D8D0] group-hover:text-white'}`}>
+        <div className={`p-4 rounded-2xl transition-all ${variant === 'danger' ? 'bg-red-100/50 text-red-500' : 'bg-[#FDFBF9] text-[#9CA3AF] group-hover:bg-[#EADFD4] group-hover:text-white'}`}>
           {icon}
         </div>
         {trend && (
@@ -439,9 +439,9 @@ function StatCard({ label, value, icon, trend, variant = "default" }: any) {
       </div>
       <div>
         <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-[0.2em] mb-2 ml-1">{label}</p>
-        <p className="text-3xl font-light text-[#4A433F] serif leading-tight">{value}</p>
+        <p className="text-3xl font-light text-[#5C544E] serif leading-tight">{value}</p>
       </div>
-      <div className="absolute right-0 bottom-0 w-24 h-24 bg-[#E8D8D0]/5 rounded-full translate-x-1/2 translate-y-1/2" />
+      <div className="absolute right-0 bottom-0 w-24 h-24 bg-[#EADFD4]/5 rounded-full translate-x-1/2 translate-y-1/2" />
     </motion.div>
   );
 }

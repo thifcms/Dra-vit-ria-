@@ -152,7 +152,7 @@ export default function Finance({ user }: { user: User }) {
           label="Saldo Disponível" 
           value={balance} 
           icon={<DollarSign size={20} />} 
-          color="text-[#4A433F]" 
+          color="text-[#5C544E]" 
           bg="bg-[#FDFBF9]"
         />
         <BalanceCard 
@@ -178,7 +178,7 @@ export default function Finance({ user }: { user: User }) {
         className="bg-white rounded-[48px] border border-[#F5F2F0] p-10 shadow-sm"
       >
         <div className="mb-10">
-          <h3 className="serif text-2xl text-[#4A433F]">Fluxo de Caixa</h3>
+          <h3 className="serif text-2xl text-[#5C544E]">Fluxo de Caixa</h3>
           <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest mt-1">Comparativo de Entradas e Saídas • Últimos 6 meses</p>
         </div>
         <div className="h-[300px] w-full">
@@ -247,7 +247,7 @@ export default function Finance({ user }: { user: User }) {
           className="bg-white rounded-[48px] border border-[#F5F2F0] p-10 shadow-sm"
         >
           <div className="mb-8">
-            <h3 className="serif text-2xl text-[#4A433F]">Resumo por Categoria</h3>
+            <h3 className="serif text-2xl text-[#5C544E]">Resumo por Categoria</h3>
             <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest mt-1">Onde entra e sai seu dinheiro</p>
           </div>
           <div className="space-y-3">
@@ -255,7 +255,7 @@ export default function Finance({ user }: { user: User }) {
               const maxTotal = categoryTotals[0].total || 1;
               return (
                 <div key={c.category} className="flex items-center gap-4">
-                  <span className="w-40 shrink-0 text-xs font-semibold text-[#4A433F] truncate">{c.category}</span>
+                  <span className="w-40 shrink-0 text-xs font-semibold text-[#5C544E] truncate">{c.category}</span>
                   <div className="flex-1 h-3 bg-[#FDFBF9] rounded-full overflow-hidden flex">
                     {c.income > 0 && <div className="h-full bg-[#8BA888]" style={{ width: `${(c.income / maxTotal) * 100}%` }} />}
                     {c.expense > 0 && <div className="h-full bg-red-400" style={{ width: `${(c.expense / maxTotal) * 100}%` }} />}
@@ -280,14 +280,14 @@ export default function Finance({ user }: { user: User }) {
         <div className="flex items-center gap-4 w-full md:w-auto">
           <button 
             onClick={handleExportCSV}
-            className="flex-1 md:flex-none p-4 bg-white border border-[#F5F2F0] text-[#9CA3AF] rounded-2xl hover:border-[#E8D8D0] transition-all flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-widest"
+            className="flex-1 md:flex-none p-4 bg-white border border-[#F5F2F0] text-[#9CA3AF] rounded-2xl hover:border-[#EADFD4] transition-all flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-widest"
           >
             <Download size={18} />
             Relatório
           </button>
           <button 
             onClick={() => setIsAdding(true)}
-            className="flex-1 md:flex-none p-4 bg-[#E8D8D0] text-white rounded-2xl hover:bg-[#DFCFBF] transition-all flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-widest shadow-md"
+            className="flex-1 md:flex-none p-4 bg-[#EADFD4] text-white rounded-2xl hover:bg-[#DFCFBF] transition-all flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-widest shadow-md"
           >
             <Plus size={18} />
             Lançar Fluxo
@@ -315,7 +315,7 @@ export default function Finance({ user }: { user: User }) {
                 {filteredTransactions.map((t) => (
                   <tr key={t.id} className="hover:bg-[#FDFBF9] transition-colors group">
                     <td className="p-6 text-sm font-light text-[#9CA3AF]">{new Date(t.date).toLocaleDateString('pt-BR')}</td>
-                    <td className="p-6 font-medium text-[#4A433F]">{t.description}</td>
+                    <td className="p-6 font-medium text-[#5C544E]">{t.description}</td>
                     <td className="p-6">
                       <span className="px-3 py-1 bg-[#FDFBF9] text-[#9CA3AF] text-[10px] font-bold uppercase tracking-widest rounded-lg border border-[#F5F2F0]">
                         {t.category}
@@ -378,7 +378,7 @@ function FilterButton({ active, onClick, label }: any) {
     <button 
       onClick={onClick}
       className={`px-6 py-3 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${
-        active ? 'bg-[#E8D8D0] text-white shadow-md' : 'text-[#9CA3AF] hover:bg-[#FDFBF9]'
+        active ? 'bg-[#EADFD4] text-white shadow-md' : 'text-[#9CA3AF] hover:bg-[#FDFBF9]'
       }`}
     >
       {label}
@@ -451,7 +451,7 @@ function AddTransactionModal({ user, onClose }: any) {
   };
 
   return (
-    <div className="fixed inset-0 bg-[#4A433F]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+    <div className="fixed inset-0 bg-[#5C544E]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
       <motion.div 
         initial={{ y: 30, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -459,7 +459,7 @@ function AddTransactionModal({ user, onClose }: any) {
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
         className="bg-white w-full max-w-lg rounded-[40px] p-10 shadow-2xl"
       >
-        <h2 className="serif text-2xl text-[#4A433F] mb-8">Novo Lançamento</h2>
+        <h2 className="serif text-2xl text-[#5C544E] mb-8">Novo Lançamento</h2>
         
         <div className="flex gap-4 mb-8 bg-[#FDFBF9] p-2 rounded-2xl">
           <button 
@@ -483,7 +483,7 @@ function AddTransactionModal({ user, onClose }: any) {
               required
               type="text"
               placeholder="0,00"
-              className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 text-2xl serif outline-none focus:border-[#E8D8D0]/30 transition-all"
+              className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 text-2xl serif outline-none focus:border-[#EADFD4]/30 transition-all"
               value={amount}
               onChange={e => setAmount(e.target.value)}
             />
@@ -492,7 +492,7 @@ function AddTransactionModal({ user, onClose }: any) {
             <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Descrição</label>
             <input 
               required
-              className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#E8D8D0]/30 transition-all font-light"
+              className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all font-light"
               value={description}
               onChange={e => setDescription(e.target.value)}
               placeholder="Ex: Pagamento Consulta, Compra Insumos..."
@@ -507,7 +507,7 @@ function AddTransactionModal({ user, onClose }: any) {
                   type="button"
                   onClick={() => setCategory(cat)}
                   className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all border ${
-                    category === cat ? 'bg-[#E8D8D0] border-[#E8D8D0] text-white' : 'bg-white border-[#F5F2F0] text-[#9CA3AF] hover:border-[#E8D8D0]'
+                    category === cat ? 'bg-[#EADFD4] border-[#EADFD4] text-white' : 'bg-white border-[#F5F2F0] text-[#9CA3AF] hover:border-[#EADFD4]'
                   }`}
                 >
                   {cat}
@@ -516,7 +516,7 @@ function AddTransactionModal({ user, onClose }: any) {
             </div>
             <input 
               required
-              className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#E8D8D0]/30 transition-all font-light"
+              className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all font-light"
               value={category}
               onChange={e => setCategory(e.target.value)}
               placeholder="Ou digite outra categoria..."
@@ -544,7 +544,7 @@ function AddTransactionModal({ user, onClose }: any) {
                     type="number"
                     min="2"
                     max="36"
-                    className="w-full bg-white border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#E8D8D0]/30 transition-all font-light text-sm"
+                    className="w-full bg-white border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all font-light text-sm"
                     value={months}
                     onChange={e => setMonths(parseInt(e.target.value) || 2)}
                   />
@@ -558,7 +558,7 @@ function AddTransactionModal({ user, onClose }: any) {
             <button 
               disabled={saving}
               type="submit" 
-              className="flex-1 py-4 bg-[#E8D8D0] text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-[#DFCFBF] transition-all"
+              className="flex-1 py-4 bg-[#EADFD4] text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-[#DFCFBF] transition-all"
             >
               {saving ? 'Salvando...' : 'Confirmar Lançamento'}
             </button>

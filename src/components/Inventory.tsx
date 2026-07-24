@@ -122,17 +122,17 @@ export default function Inventory({ user }: { user: User }) {
     <div className="max-w-6xl mx-auto space-y-8">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-4">
-          <div className="p-3 bg-[#FDFBF9] rounded-2xl text-[#E8D8D0] border border-[#F5F2F0]">
+          <div className="p-3 bg-[#FDFBF9] rounded-2xl text-[#EADFD4] border border-[#F5F2F0]">
             <Package size={28} />
           </div>
           <div>
-            <h1 className="text-3xl font-light text-[#4A433F] serif">Estoque & Insumos</h1>
+            <h1 className="text-3xl font-light text-[#5C544E] serif">Estoque & Insumos</h1>
             <p className="text-[#9CA3AF] font-light text-xs uppercase tracking-widest mt-1">Materiais e Controle de Consumo</p>
           </div>
         </div>
         <button 
           onClick={() => setIsAdding(true)}
-          className="bg-[#E8D8D0] text-white px-8 py-4 rounded-2xl flex items-center gap-2 hover:bg-[#DFCFBF] transition-all shadow-md active:scale-95 font-medium"
+          className="bg-[#EADFD4] text-white px-8 py-4 rounded-2xl flex items-center gap-2 hover:bg-[#DFCFBF] transition-all shadow-md active:scale-95 font-medium"
         >
           <Plus size={20} />
           <span>Cadastrar Material</span>
@@ -166,7 +166,7 @@ export default function Inventory({ user }: { user: User }) {
                   />
                   <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                     {stats.consumptionData.map((_, i) => (
-                      <Cell key={i} fill={['#E8D8D0', '#A3988E', '#DFCFBF'][i % 3]} />
+                      <Cell key={i} fill={['#EADFD4', '#A3988E', '#DFCFBF'][i % 3]} />
                     ))}
                   </Bar>
                 </BarChart>
@@ -180,12 +180,12 @@ export default function Inventory({ user }: { user: User }) {
 
       <div className="bg-white rounded-[40px] border border-[#F5F2F0] shadow-sm overflow-hidden min-h-[400px]">
         <div className="p-8 border-b border-[#F5F2F0] flex items-center gap-6 bg-[#FDFBF9]">
-          <div className="flex-1 max-w-md bg-white border border-[#F5F2F0] rounded-2xl px-6 py-3 flex items-center gap-4 shadow-sm focus-within:border-[#E8D8D0]/30 transition-all">
+          <div className="flex-1 max-w-md bg-white border border-[#F5F2F0] rounded-2xl px-6 py-3 flex items-center gap-4 shadow-sm focus-within:border-[#EADFD4]/30 transition-all">
             <Search size={20} className="text-[#9CA3AF]" />
             <input 
               type="text" 
               placeholder="Buscar material ou categoria..." 
-              className="flex-1 outline-none font-light text-[#4A433F] placeholder-[#9CA3AF] bg-transparent"
+              className="flex-1 outline-none font-light text-[#5C544E] placeholder-[#9CA3AF] bg-transparent"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -211,18 +211,18 @@ export default function Inventory({ user }: { user: User }) {
                   <tr key={item.id} className="hover:bg-[#FDFBF9]/50 transition-colors group">
                     <td className="p-6">
                       <div className="flex items-center gap-4">
-                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border shadow-sm transition-all ${item.quantity <= item.minThreshold ? 'bg-red-50 border-red-100 text-red-400' : 'bg-white border-[#F5F2F0] text-[#E8D8D0]'}`}>
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border shadow-sm transition-all ${item.quantity <= item.minThreshold ? 'bg-red-50 border-red-100 text-red-400' : 'bg-white border-[#F5F2F0] text-[#EADFD4]'}`}>
                           <Tag size={20} />
                         </div>
                         <div>
-                          <p className="font-semibold text-[#4A433F]">{item.name}</p>
+                          <p className="font-semibold text-[#5C544E]">{item.name}</p>
                           <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest">{item.category}</p>
                         </div>
                       </div>
                     </td>
                     <td className="p-6">
                       <div className="flex items-center gap-3">
-                        <span className="text-lg font-light serif text-[#4A433F]">{item.quantity}</span>
+                        <span className="text-lg font-light serif text-[#5C544E]">{item.quantity}</span>
                         <span className="text-[10px] text-[#9CA3AF] font-medium">{item.unit}</span>
                         {item.quantity <= item.minThreshold && (
                           <span className="px-2 py-0.5 bg-red-50 text-red-400 text-[8px] font-bold uppercase tracking-widest rounded-full">Crítico</span>
@@ -230,7 +230,7 @@ export default function Inventory({ user }: { user: User }) {
                       </div>
                       <div className="w-24 h-1 bg-[#F5F2F0] rounded-full mt-2 overflow-hidden">
                         <div 
-                          className={`h-full transition-all ${item.quantity <= item.minThreshold ? 'bg-red-400' : 'bg-[#E8D8D0]'}`} 
+                          className={`h-full transition-all ${item.quantity <= item.minThreshold ? 'bg-red-400' : 'bg-[#EADFD4]'}`} 
                           style={{ width: `${Math.min(100, (item.quantity / (item.minThreshold * 2)) * 100)}%` }}
                         />
                       </div>
@@ -282,7 +282,7 @@ export default function Inventory({ user }: { user: User }) {
       {/* Movimentações Recentes */}
       <div className="bg-white rounded-[40px] border border-[#F5F2F0] shadow-sm p-8">
         <h3 className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-[0.2em] mb-8 flex items-center gap-2">
-          <History size={14} className="text-[#E8D8D0]" /> Histórico de Movimentações
+          <History size={14} className="text-[#EADFD4]" /> Histórico de Movimentações
         </h3>
         <div className="space-y-4">
           {movements.slice(0, 8).map(m => (
@@ -292,7 +292,7 @@ export default function Inventory({ user }: { user: User }) {
                   {m.type === 'restock' ? <ArrowUpRight size={16} /> : <ArrowDownLeft size={16} />}
                 </div>
                 <div>
-                  <p className="text-xs font-semibold text-[#4A433F]">{m.itemName}</p>
+                  <p className="text-xs font-semibold text-[#5C544E]">{m.itemName}</p>
                   <p className="text-[9px] text-[#9CA3AF] font-bold uppercase tracking-widest">
                     {m.type === 'restock' ? 'Entrada' : 'Saída'} • {new Date(m.date).toLocaleString('pt-BR')}
                   </p>
@@ -321,10 +321,10 @@ export default function Inventory({ user }: { user: User }) {
 function InventoryStatCard({ icon, label, value, sub, alert }: any) {
   return (
     <div className={`bg-white rounded-[32px] p-8 border shadow-sm transition-all ${alert ? 'border-red-100 bg-red-50/10' : 'border-[#F5F2F0]'}`}>
-      <div className={`w-10 h-10 rounded-2xl flex items-center justify-center mb-6 ${alert ? 'bg-red-50 text-red-400' : 'bg-[#FDFBF9] text-[#E8D8D0]'}`}>
+      <div className={`w-10 h-10 rounded-2xl flex items-center justify-center mb-6 ${alert ? 'bg-red-50 text-red-400' : 'bg-[#FDFBF9] text-[#EADFD4]'}`}>
         {icon}
       </div>
-      <h3 className="serif text-3xl text-[#4A433F] leading-tight">{value}</h3>
+      <h3 className="serif text-3xl text-[#5C544E] leading-tight">{value}</h3>
       <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mt-2">{label}</p>
       <p className="text-[10px] text-[#9CA3AF] font-light mt-1">{sub}</p>
     </div>
@@ -363,7 +363,7 @@ function AddMaterialModal({ user, onClose }: any) {
   };
 
   return (
-    <div className="fixed inset-0 bg-[#4A433F]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+    <div className="fixed inset-0 bg-[#5C544E]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
       <motion.div 
         initial={{ y: 30, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -371,7 +371,7 @@ function AddMaterialModal({ user, onClose }: any) {
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
         className="bg-white w-full max-w-lg rounded-[40px] p-10 shadow-2xl"
       >
-        <h2 className="serif text-2xl text-[#4A433F] mb-8">Novo Material</h2>
+        <h2 className="serif text-2xl text-[#5C544E] mb-8">Novo Material</h2>
         <form onSubmit={handleSubmit} className="space-y-6">
           <FormField label="Nome do Material" value={name} onChange={setName} placeholder="ex: Luvas de Nitrilo, Botox 50U..." />
           <div className="grid grid-cols-2 gap-4">
@@ -379,7 +379,7 @@ function AddMaterialModal({ user, onClose }: any) {
             <div>
               <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Unidade</label>
               <select 
-                className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#E8D8D0]/30 transition-all font-light appearance-none text-sm"
+                className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all font-light appearance-none text-sm"
                 value={unit}
                 onChange={e => setUnit(e.target.value)}
               >
@@ -401,7 +401,7 @@ function AddMaterialModal({ user, onClose }: any) {
             <button 
               disabled={saving}
               type="submit" 
-              className="flex-1 py-4 bg-[#E8D8D0] text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-[#DFCFBF] transition-all"
+              className="flex-1 py-4 bg-[#EADFD4] text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-[#DFCFBF] transition-all"
             >
               {saving ? 'Gravando...' : 'Cadastrar Material'}
             </button>
@@ -419,7 +419,7 @@ function FormField({ label, value, onChange, placeholder, type = 'text' }: any) 
       <input 
         type={type}
         required
-        className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#E8D8D0]/30 transition-all font-light text-sm"
+        className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all font-light text-sm"
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}

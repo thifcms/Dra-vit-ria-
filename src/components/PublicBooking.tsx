@@ -136,7 +136,7 @@ export default function PublicBooking() {
   if (loadingConfig) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-[#FDFBF9]">
-        <div className="w-8 h-8 border-2 border-[#E8D8D0] border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-[#EADFD4] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -162,10 +162,10 @@ export default function PublicBooking() {
           <div className="w-20 h-20 bg-[#F0F7F0] rounded-full flex items-center justify-center mx-auto mb-8">
             <CheckCircle2 className="text-[#8BA888] w-10 h-10" />
           </div>
-          <h1 className="text-2xl font-light text-[#4A433F] mb-3 serif">Agendamento confirmado!</h1>
+          <h1 className="text-2xl font-light text-[#5C544E] mb-3 serif">Agendamento confirmado!</h1>
           <p className="text-[#9CA3AF] font-light">
             {name}, seu horário na {config.clinicName}{config.professionalName ? ` com ${config.professionalName}` : ''} está marcado para{' '}
-            <span className="text-[#4A433F] font-medium">
+            <span className="text-[#5C544E] font-medium">
               {new Date(selectedDate + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })} às {selectedTime}
             </span>. Até lá!
           </p>
@@ -184,7 +184,7 @@ export default function PublicBooking() {
                 <button
                   type="button"
                   onClick={() => { navigator.clipboard.writeText(checkinUrl); }}
-                  className="px-4 py-2 bg-[#E8D8D0] text-white rounded-xl text-[9px] font-bold uppercase tracking-widest shrink-0"
+                  className="px-4 py-2 bg-[#EADFD4] text-white rounded-xl text-[9px] font-bold uppercase tracking-widest shrink-0"
                 >
                   Copiar
                 </button>
@@ -204,12 +204,12 @@ export default function PublicBooking() {
         className="w-full max-w-md bg-white p-10 rounded-[32px] shadow-sm border border-[#F5F2F0]"
       >
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-[#E8D8D0]/10 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Calendar className="text-[#E8D8D0] w-8 h-8" />
+          <div className="w-16 h-16 bg-[#EADFD4]/10 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Calendar className="text-[#EADFD4] w-8 h-8" />
           </div>
-          <h1 className="text-2xl font-light text-[#4A433F] serif">{config.clinicName}</h1>
+          <h1 className="text-2xl font-light text-[#5C544E] serif">{config.clinicName}</h1>
           {config.professionalName && (
-            <p className="text-[#E8D8D0] font-medium text-sm mt-1">{config.professionalName}</p>
+            <p className="text-[#EADFD4] font-medium text-sm mt-1">{config.professionalName}</p>
           )}
           <p className="text-[#9CA3AF] mt-2 font-light">Agende seu horário</p>
         </div>
@@ -227,17 +227,17 @@ export default function PublicBooking() {
                 <button
                   type="button"
                   onClick={() => changeDay(-1)}
-                  className="p-2 text-[#9CA3AF] hover:text-[#4A433F] hover:bg-[#FDFBF9] rounded-xl transition-all"
+                  className="p-2 text-[#9CA3AF] hover:text-[#5C544E] hover:bg-[#FDFBF9] rounded-xl transition-all"
                 >
                   <ChevronLeft size={20} />
                 </button>
-                <p className="text-sm font-semibold text-[#4A433F] capitalize">
+                <p className="text-sm font-semibold text-[#5C544E] capitalize">
                   {new Date(selectedDate + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
                 </p>
                 <button
                   type="button"
                   onClick={() => changeDay(1)}
-                  className="p-2 text-[#9CA3AF] hover:text-[#4A433F] hover:bg-[#FDFBF9] rounded-xl transition-all"
+                  className="p-2 text-[#9CA3AF] hover:text-[#5C544E] hover:bg-[#FDFBF9] rounded-xl transition-all"
                 >
                   <ChevronRight size={20} />
                 </button>
@@ -254,7 +254,7 @@ export default function PublicBooking() {
                       key={t}
                       type="button"
                       onClick={() => handleSelectTime(t)}
-                      className="py-3 rounded-xl border border-[#F5F2F0] bg-[#FDFBF9] text-sm font-semibold text-[#4A433F] hover:bg-[#E8D8D0] hover:text-white hover:border-[#E8D8D0] transition-all"
+                      className="py-3 rounded-xl border border-[#F5F2F0] bg-[#FDFBF9] text-sm font-semibold text-[#5C544E] hover:bg-[#EADFD4] hover:text-white hover:border-[#EADFD4] transition-all"
                     >
                       {t}
                     </button>
@@ -267,16 +267,16 @@ export default function PublicBooking() {
               <button
                 type="button"
                 onClick={() => { setStep('calendar'); setSelectedTime(null); }}
-                className="flex items-center gap-2 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-6 hover:text-[#4A433F] transition-all"
+                className="flex items-center gap-2 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-6 hover:text-[#5C544E] transition-all"
               >
                 <ChevronLeft size={14} /> Trocar horário
               </button>
 
               <div className="mb-6 p-4 bg-[#FDFBF9] rounded-2xl border border-[#F5F2F0] text-center">
-                <p className="text-sm font-semibold text-[#4A433F] capitalize">
+                <p className="text-sm font-semibold text-[#5C544E] capitalize">
                   {new Date(selectedDate + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
                 </p>
-                <p className="text-2xl font-light text-[#E8D8D0] serif mt-1">{selectedTime}</p>
+                <p className="text-2xl font-light text-[#EADFD4] serif mt-1">{selectedTime}</p>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-5">
@@ -286,7 +286,7 @@ export default function PublicBooking() {
                     <UserIcon size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
                     <input
                       required
-                      className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 pl-12 outline-none focus:border-[#E8D8D0]/30 transition-all font-light text-sm"
+                      className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 pl-12 outline-none focus:border-[#EADFD4]/30 transition-all font-light text-sm"
                       value={name}
                       onChange={e => setName(e.target.value)}
                       placeholder="Nome completo"
@@ -301,7 +301,7 @@ export default function PublicBooking() {
                     <input
                       required
                       type="tel"
-                      className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 pl-12 outline-none focus:border-[#E8D8D0]/30 transition-all font-light text-sm"
+                      className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 pl-12 outline-none focus:border-[#EADFD4]/30 transition-all font-light text-sm"
                       value={phone}
                       onChange={e => setPhone(e.target.value)}
                       placeholder="(11) 99999-9999"
@@ -312,7 +312,7 @@ export default function PublicBooking() {
                 <div>
                   <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Procedimento de interesse (opcional)</label>
                   <input
-                    className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#E8D8D0]/30 transition-all font-light text-sm"
+                    className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all font-light text-sm"
                     value={procedureInterest}
                     onChange={e => setProcedureInterest(e.target.value)}
                     placeholder="ex: Harmonização Facial, Botox..."
@@ -322,7 +322,7 @@ export default function PublicBooking() {
                 <button
                   disabled={submitting}
                   type="submit"
-                  className="w-full py-4 bg-[#E8D8D0] text-white rounded-2xl font-medium hover:bg-[#DFCFBF] transition-all shadow-sm active:scale-[0.98] disabled:opacity-50"
+                  className="w-full py-4 bg-[#EADFD4] text-white rounded-2xl font-medium hover:bg-[#DFCFBF] transition-all shadow-sm active:scale-[0.98] disabled:opacity-50"
                 >
                   {submitting ? 'Confirmando...' : 'Confirmar Agendamento'}
                 </button>
