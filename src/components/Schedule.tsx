@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, setDoc, doc, where, orderBy } from 'firebase/firestore';
+import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, setDoc, doc, getDoc, where, orderBy } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { Appointment, Patient } from '../types';
+import { Appointment, Patient, ClinicSettings } from '../types';
 import { slotId, checkinLink, CLINIC_HOURS } from '../lib/slots';
+import { buildReminderMessage, whatsappLink, emailLink } from '../lib/reminders';
 import { User as FirebaseUser } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -16,16 +17,27 @@ import {
   XCircle,
   AlertCircle,
   CalendarDays,
-  Users
+  Users,
+  MessageCircle,
+  Mail,
+  BellRing
 } from 'lucide-react';
 import { showToast } from '../lib/toast';
 
 export default function Schedule({ user }: { user: FirebaseUser }) {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
+  const [clinicSettings, setClinicSettings] = useState<ClinicSettings | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Nome/endereço da clínica, usados na mensagem de lembrete
+    getDoc(doc(db, 'settings', user.uid)).then(snap => {
+      if (snap.exists()) setClinicSettings(snap.data() as ClinicSettings);
+    }).catch(() => {});
+  }, [user.uid]);
 
   useEffect(() => {
     // Sincronizar agendamentos
@@ -74,6 +86,16 @@ export default function Schedule({ user }: { user: FirebaseUser }) {
       .filter(a => a.checkedInAt && a.status !== 'completed' && a.status !== 'cancelled')
       .sort((a, b) => (a.checkedInAt! < b.checkedInAt! ? -1 : 1)),
     [dayAppointments]
+  );
+
+  const isViewingToday = dateStr === new Date().toISOString().split('T')[0];
+  const todaysReminders = useMemo(
+    () => isViewingToday
+      ? dayAppointments
+          .filter(a => !a.checkedInAt && a.status !== 'completed' && a.status !== 'cancelled')
+          .sort((a, b) => a.time.localeCompare(b.time))
+      : [],
+    [dayAppointments, isViewingToday]
   );
 
   // Índice/total de uma sessão dentro de um pacote recorrente (mesmo seriesId), pra mostrar "Sessão X de Y"
@@ -143,14 +165,16 @@ export default function Schedule({ user }: { user: FirebaseUser }) {
     }
   };
 
+  const ensureCheckinToken = async (appt: Appointment): Promise<string> => {
+    if (appt.checkinToken) return appt.checkinToken;
+    const token = crypto.randomUUID();
+    await updateDoc(doc(db, 'appointments', appt.id!), { checkinToken: token });
+    return token;
+  };
+
   const handleCopyCheckinLink = async (appt: Appointment) => {
     try {
-      let token = appt.checkinToken;
-      // Agendamentos criados antes deste recurso ainda não têm token — gera um agora
-      if (!token) {
-        token = crypto.randomUUID();
-        await updateDoc(doc(db, 'appointments', appt.id!), { checkinToken: token });
-      }
+      const token = await ensureCheckinToken(appt);
       const link = checkinLink(appt.id!, token, appt.date, appt.time);
       await navigator.clipboard.writeText(link);
       showToast('Link de check-in copiado — envie para o paciente');
@@ -158,6 +182,41 @@ export default function Schedule({ user }: { user: FirebaseUser }) {
       showToast('Erro ao gerar link de check-in', 'error');
     } finally {
       setOpenMenuId(null);
+    }
+  };
+
+  const handleSendReminder = async (appt: Appointment, channel: 'whatsapp' | 'email') => {
+    setOpenMenuId(null);
+    const patient = patients.find(p => p.id === appt.patientId);
+    const phone = patient?.phone || appt.guestPhone;
+    const email = patient?.email;
+
+    if (channel === 'whatsapp' && !phone) {
+      showToast('Este paciente não tem telefone cadastrado', 'error');
+      return;
+    }
+    if (channel === 'email' && !email) {
+      showToast('Este paciente não tem e-mail cadastrado', 'error');
+      return;
+    }
+
+    try {
+      const token = await ensureCheckinToken(appt);
+      const checkinUrl = checkinLink(appt.id!, token, appt.date, appt.time);
+      const dateLabel = new Date(appt.date + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
+      const message = buildReminderMessage({
+        patientName: appt.patientName,
+        clinicName: clinicSettings?.clinicName || clinicSettings?.professionalName || 'Clínica',
+        professionalName: clinicSettings?.professionalName,
+        address: clinicSettings?.clinicAddress,
+        dateLabel,
+        time: appt.time,
+        checkinUrl,
+      });
+      const url = channel === 'whatsapp' ? whatsappLink(phone!, message) : emailLink(email!, clinicSettings?.clinicName || 'Clínica', message);
+      window.open(url, '_blank');
+    } catch (err) {
+      showToast('Erro ao preparar lembrete', 'error');
     }
   };
 
@@ -273,6 +332,42 @@ export default function Schedule({ user }: { user: FirebaseUser }) {
             )}
           </div>
 
+          {/* Lembretes de Hoje — só quando a data selecionada é hoje */}
+          {isViewingToday && (
+            <div className="bg-white rounded-[32px] p-8 border border-[#F1F3F5] shadow-sm">
+              <h4 className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+                <BellRing size={14} className="text-[#D1C7BD]" /> Lembretes de Hoje
+              </h4>
+              {todaysReminders.length === 0 ? (
+                <p className="text-xs text-[#9CA3AF] font-light italic">Nada pendente pra hoje.</p>
+              ) : (
+                <div className="space-y-3">
+                  {todaysReminders.map(appt => (
+                    <div key={appt.id} className="flex items-center gap-3 p-4 bg-[#F8F9FA] rounded-2xl border border-[#F1F3F5]">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold text-[#374151] truncate">{appt.time} — {appt.patientName}</p>
+                      </div>
+                      <button
+                        onClick={() => handleSendReminder(appt, 'whatsapp')}
+                        title="Lembrete por WhatsApp"
+                        className="p-2 bg-[#4F634F] text-white rounded-xl shrink-0 hover:opacity-90 transition-all"
+                      >
+                        <MessageCircle size={14} />
+                      </button>
+                      <button
+                        onClick={() => handleSendReminder(appt, 'email')}
+                        title="Lembrete por E-mail"
+                        className="p-2 bg-[#374151] text-white rounded-xl shrink-0 hover:opacity-90 transition-all"
+                      >
+                        <Mail size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="bg-[#F8F9FA] rounded-[32px] p-8 border border-[#F1F3F5]">
             <h4 className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-[0.2em] mb-6">Legenda de Status</h4>
             <div className="space-y-4">
@@ -355,6 +450,8 @@ export default function Schedule({ user }: { user: FirebaseUser }) {
                                     <>
                                       <MenuOption onClick={() => handleCheckIn(appt.id!)} label="Fazer Check-in Manual" color="text-amber-500" />
                                       <MenuOption onClick={() => handleCopyCheckinLink(appt)} label="Copiar Link de Check-in" color="text-[#D1C7BD]" />
+                                      <MenuOption onClick={() => handleSendReminder(appt, 'whatsapp')} label="Lembrete por WhatsApp" color="text-[#4F634F]" />
+                                      <MenuOption onClick={() => handleSendReminder(appt, 'email')} label="Lembrete por E-mail" color="text-[#4F634F]" />
                                     </>
                                   )}
                                   <MenuOption onClick={() => handleSetStatus(appt.id!, 'confirmed')} label="Confirmar" color="text-[#D1C7BD]" />
