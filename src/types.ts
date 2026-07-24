@@ -166,6 +166,7 @@ export interface ClinicSettings {
 export interface PublicBookingConfig {
   ownerId: string;
   clinicName: string;
+  professionalName: string;
 }
 
 // Marca um horário como ocupado — coleção pública (só data/hora, sem nenhum dado do paciente),

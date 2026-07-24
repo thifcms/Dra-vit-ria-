@@ -164,7 +164,7 @@ export default function PublicBooking() {
           </div>
           <h1 className="text-2xl font-light text-[#374151] mb-3 serif">Agendamento confirmado!</h1>
           <p className="text-[#9CA3AF] font-light">
-            {name}, seu horário na {config.clinicName} está marcado para{' '}
+            {name}, seu horário na {config.clinicName}{config.professionalName ? ` com ${config.professionalName}` : ''} está marcado para{' '}
             <span className="text-[#374151] font-medium">
               {new Date(selectedDate + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })} às {selectedTime}
             </span>. Até lá!
@@ -208,6 +208,9 @@ export default function PublicBooking() {
             <Calendar className="text-[#D1C7BD] w-8 h-8" />
           </div>
           <h1 className="text-2xl font-light text-[#374151] serif">{config.clinicName}</h1>
+          {config.professionalName && (
+            <p className="text-[#D1C7BD] font-medium text-sm mt-1">{config.professionalName}</p>
+          )}
           <p className="text-[#9CA3AF] mt-2 font-light">Agende seu horário</p>
         </div>
 

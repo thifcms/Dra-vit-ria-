@@ -51,7 +51,8 @@ export default function Settings({ user }: { user: User }) {
           // mesmo que o usuário nunca clique em "Salvar" depois desta atualização.
           await setDoc(doc(db, 'publicConfig', 'booking'), {
             ownerId: user.uid,
-            clinicName: data.clinicName || data.professionalName || 'Clínica'
+            clinicName: data.clinicName || data.professionalName || 'Clínica',
+            professionalName: data.professionalName || ''
           }).catch(() => {});
         }
       } catch (err) {
@@ -100,7 +101,8 @@ export default function Settings({ user }: { user: User }) {
       // Mantém o config público (usado pela página de agendamento sem login) sincronizado
       await setDoc(doc(db, 'publicConfig', 'booking'), {
         ownerId: user.uid,
-        clinicName: settings.clinicName || settings.professionalName || 'Clínica'
+        clinicName: settings.clinicName || settings.professionalName || 'Clínica',
+        professionalName: settings.professionalName || ''
       });
       showToast('Configurações atualizadas');
     } catch (err) {
