@@ -27,10 +27,25 @@ const Schedule = lazy(() => import('./components/Schedule'));
 const Inventory = lazy(() => import('./components/Inventory'));
 const Finance = lazy(() => import('./components/Finance'));
 const Settings = lazy(() => import('./components/Settings'));
+const PublicBooking = lazy(() => import('./components/PublicBooking'));
 
 type View = 'dashboard' | 'patients' | 'schedule' | 'inventory' | 'finance' | 'settings';
 
 export default function App() {
+  // Página pública de agendamento (#agendar) — sem login, acessível de qualquer link externo.
+  // Fica num componente separado pra não misturar hooks condicionais com o resto do app.
+  const isPublicBooking = window.location.hash.startsWith('#agendar');
+  if (isPublicBooking) {
+    return (
+      <Suspense fallback={<ViewLoadingFallback />}>
+        <PublicBooking />
+      </Suspense>
+    );
+  }
+  return <AuthenticatedApp />;
+}
+
+function AuthenticatedApp() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeView, setActiveView] = useState<View>('dashboard');
@@ -58,15 +73,18 @@ export default function App() {
 
   useEffect(() => {
     if (!user) { setClinicSettings(null); setPatients([]); return; }
-    getDoc(doc(db, 'settings', user.uid)).then(snap => {
+    const unsubSettings = onSnapshot(doc(db, 'settings', user.uid), (snap) => {
       if (snap.exists()) setClinicSettings(snap.data() as ClinicSettings);
-    }).catch(() => {});
+    });
 
     const unsubPatients = onSnapshot(
       query(collection(db, 'patients'), where('userId', '==', user.uid)),
       snap => setPatients(snap.docs.map(d => ({ id: d.id, ...d.data() } as Patient)))
     );
-    return unsubPatients;
+    return () => {
+      unsubSettings();
+      unsubPatients();
+    };
   }, [user]);
 
   if (loading) {
@@ -106,10 +124,12 @@ export default function App() {
           
           <p className="mt-8 text-xs text-[#9CA3AF] font-light uppercase tracking-[0.2em]">Acesso Seguro & Criptografado</p>
         </motion.div>
+        
+        <ToastHost />
       </div>
     );
   }
-
+          
   return (
     <div className="flex h-screen bg-[#F8F9FA] text-[#374151] overflow-hidden relative">
       <ToastHost />

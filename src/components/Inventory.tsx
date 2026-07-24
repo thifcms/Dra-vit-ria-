@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { InventoryItem } from '../types';
+import { InventoryItem, InventoryMovement } from '../types';
 import { User } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -15,7 +15,8 @@ import {
   Edit2,
   ChevronRight,
   PieChart as PieChartIcon,
-  Activity
+  Activity,
+  BarChart as BarChartIcon
 } from 'lucide-react';
 import { 
   PieChart, 
@@ -23,7 +24,12 @@ import {
   Cell, 
   Tooltip, 
   ResponsiveContainer,
-  Legend 
+  Legend,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid
 } from 'recharts';
 import { showToast } from '../lib/toast';
 
@@ -31,6 +37,7 @@ const COLORS = ['#D1C7BD', '#374151', '#9CA3AF', '#F1F3F5', '#E8F5E9'];
 
 export default function Inventory({ user }: { user: User }) {
   const [items, setItems] = useState<InventoryItem[]>([]);
+  const [movements, setMovements] = useState<InventoryMovement[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -43,7 +50,24 @@ export default function Inventory({ user }: { user: User }) {
       setItems(list);
       setLoading(false);
     });
-    return unsubscribe;
+
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const mq = query(
+      collection(db, 'inventory_movements'), 
+      where('userId', '==', user.uid),
+      where('date', '>=', thirtyDaysAgo.toISOString())
+    );
+    const unsubscribeMovements = onSnapshot(mq, (snapshot) => {
+      const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as InventoryMovement));
+      setMovements(list);
+    });
+
+    return () => {
+      unsubscribe();
+      unsubscribeMovements();
+    };
   }, [user.uid]);
 
   const filteredItems = useMemo(() => items.filter(item => 
@@ -72,6 +96,20 @@ export default function Inventory({ user }: { user: User }) {
     return acc;
   }, []), [items]);
 
+  const consumptionData = useMemo(() => {
+    const consumption = movements
+      .filter(m => m.type === 'consumption')
+      .reduce((acc: Record<string, number>, m) => {
+        const cat = m.category || 'Geral';
+        acc[cat] = (acc[cat] || 0) + m.quantity;
+        return acc;
+      }, {});
+
+    return Object.entries(consumption)
+      .map(([name, value]) => ({ name, value: value as number }))
+      .sort((a, b) => b.value - a.value);
+  }, [movements]);
+
   const handleDelete = async (id: string) => {
     if (!window.confirm('Excluir este item do estoque?')) return;
     try {
@@ -89,6 +127,20 @@ export default function Inventory({ user }: { user: User }) {
       await updateDoc(doc(db, 'inventory', id), {
         quantity: Math.max(0, item.quantity + delta)
       });
+      
+      // Record movement
+      if (delta !== 0) {
+        await addDoc(collection(db, 'inventory_movements'), {
+          userId: user.uid,
+          itemId: id,
+          itemName: item.name,
+          category: item.category || 'Geral',
+          quantity: Math.abs(delta),
+          type: delta < 0 ? 'consumption' : 'restock',
+          date: new Date().toISOString()
+        } as InventoryMovement);
+      }
+
       if (item.quantity + delta <= item.minThreshold && delta < 0) {
         showToast(`Atenção: ${item.name} com estoque baixo!`, 'info');
       }
@@ -101,37 +153,79 @@ export default function Inventory({ user }: { user: User }) {
     <div className="max-w-6xl mx-auto space-y-10">
       {/* Inventory Dashboard Summary */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 bg-[#374151] text-white p-12 rounded-[48px] flex flex-col justify-between min-h-[350px] relative overflow-hidden shadow-2xl">
-          <div className="relative z-10">
-            <div className="flex items-center gap-4 mb-6">
-              <div className="p-3 bg-white/10 rounded-2xl">
-                <Package size={24} className="text-[#D1C7BD]" />
+        <div className="lg:col-span-2 bg-[#374151] text-white p-12 rounded-[48px] flex flex-col justify-between min-h-[450px] relative overflow-hidden shadow-2xl">
+          <div className="relative z-10 flex flex-col md:flex-row gap-12">
+            <div className="flex-1">
+              <div className="flex items-center gap-4 mb-6">
+                <div className="p-3 bg-white/10 rounded-2xl">
+                  <Package size={24} className="text-[#D1C7BD]" />
+                </div>
+                <h2 className="text-3xl font-light serif italic">Controle de Estoque</h2>
               </div>
-              <h2 className="text-3xl font-light serif italic">Controle de Estoque</h2>
+              <p className="text-white/60 font-light max-w-sm leading-relaxed text-lg mb-8">
+                Gerencie seus insumos com <span className="text-[#D1C7BD] font-medium">precisão clínica</span>. Acompanhe a disponibilidade e receba alertas automáticos de reposição.
+              </p>
+              
+              <div className="grid grid-cols-3 gap-4 mt-auto">
+                <div className="bg-white/10 backdrop-blur-md p-6 rounded-3xl border border-white/5">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-2">Total Itens</p>
+                  <p className="text-3xl font-light serif">{items.length}</p>
+                </div>
+                <div className={`p-6 rounded-3xl border ${lowStockItems.length > 0 ? 'bg-red-400/20 border-red-400/30' : 'bg-white/10 border-white/5'}`}>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-2">Críticos</p>
+                  <p className={`text-3xl font-light serif ${lowStockItems.length > 0 ? 'text-red-400' : 'text-white'}`}>{lowStockItems.length}</p>
+                </div>
+                <div className={`p-6 rounded-3xl border ${expiringItems.length > 0 ? 'bg-amber-400/20 border-amber-400/30' : 'bg-white/10 border-white/5'}`}>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-2">Validade</p>
+                  <p className={`text-3xl font-light serif ${expiringItems.length > 0 ? 'text-amber-400' : 'text-white'}`}>{expiringItems.length}</p>
+                </div>
+              </div>
             </div>
-            <p className="text-white/60 font-light max-w-sm leading-relaxed text-lg mb-8">
-              Gerencie seus insumos com <span className="text-[#D1C7BD] font-medium">precisão clínica</span>. Acompanhe a disponibilidade e receba alertas automáticos de reposição.
-            </p>
-          </div>
 
-          <div className="relative z-10 flex gap-6">
-            <div className="bg-white/10 backdrop-blur-md p-6 rounded-3xl flex-1 border border-white/5">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-2">Total de Itens</p>
-              <p className="text-4xl font-light serif">{items.length}</p>
-            </div>
-            <div className={`p-6 rounded-3xl flex-1 border ${lowStockItems.length > 0 ? 'bg-red-400/20 border-red-400/30' : 'bg-white/10 border-white/5'}`}>
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">Itens Críticos</p>
-                {lowStockItems.length > 0 && <AlertTriangle size={14} className="text-red-400" />}
+            <div className="flex-1 min-h-[250px] bg-white/5 rounded-[32px] p-6 border border-white/5">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-sm font-medium text-white/80 flex items-center gap-2">
+                  <BarChartIcon size={16} className="text-[#D1C7BD]" />
+                  Consumo (30 dias)
+                </h3>
               </div>
-              <p className={`text-4xl font-light serif ${lowStockItems.length > 0 ? 'text-red-400' : 'text-white'}`}>{lowStockItems.length}</p>
-            </div>
-            <div className={`p-6 rounded-3xl flex-1 border ${expiringItems.length > 0 ? 'bg-amber-400/20 border-amber-400/30' : 'bg-white/10 border-white/5'}`}>
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">Vencendo em 30d</p>
-                {expiringItems.length > 0 && <AlertTriangle size={14} className="text-amber-400" />}
+              
+              <div className="h-[180px] w-full">
+                {consumptionData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={consumptionData}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                      <XAxis 
+                        dataKey="name" 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 10 }} 
+                      />
+                      <YAxis hide />
+                      <Tooltip 
+                        cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                        contentStyle={{ 
+                          backgroundColor: '#374151', 
+                          border: 'none', 
+                          borderRadius: '12px',
+                          color: '#fff',
+                          fontSize: '12px'
+                        }}
+                      />
+                      <Bar 
+                        dataKey="value" 
+                        fill="#D1C7BD" 
+                        radius={[6, 6, 0, 0]} 
+                        barSize={30}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex items-center justify-center text-white/20 text-xs font-light italic">
+                    Nenhum consumo registrado recentemente
+                  </div>
+                )}
               </div>
-              <p className={`text-4xl font-light serif ${expiringItems.length > 0 ? 'text-amber-400' : 'text-white'}`}>{expiringItems.length}</p>
             </div>
           </div>
 
@@ -289,7 +383,7 @@ export default function Inventory({ user }: { user: User }) {
                 ))}
                 {filteredItems.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="p-20 text-center text-[#9CA3AF] font-light italic">
+                    <td colSpan={7} className="p-20 text-center text-[#9CA3AF] font-light italic">
                       Nenhum item encontrado no estoque.
                     </td>
                   </tr>

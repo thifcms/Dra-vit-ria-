@@ -75,6 +75,21 @@
       },
       "required": ["name", "quantity", "minThreshold"]
     },
+    "InventoryMovement": {
+      "title": "Inventory Movement",
+      "description": "Log of stock consumption or replenishment.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "itemId": { "type": "string" },
+        "itemName": { "type": "string" },
+        "category": { "type": "string" },
+        "quantity": { "type": "number" },
+        "type": { "type": "string", "enum": ["consumption", "restock"] },
+        "date": { "type": "string", "format": "date-time" }
+      },
+      "required": ["itemId", "quantity", "type", "date"]
+    },
     "Transaction": {
       "title": "Financial Transaction",
       "description": "Income or expense for the clinic.",
@@ -113,6 +128,10 @@
     "inventory": {
       "schema": "InventoryItem",
       "description": "Collection of clinical supplies"
+    },
+    "inventory_movements": {
+      "schema": "InventoryMovement",
+      "description": "History of stock consumption and restocking"
     },
     "transactions": {
       "schema": "Transaction",

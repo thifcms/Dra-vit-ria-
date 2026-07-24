@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, where, orderBy } from 'firebase/firestore';
+import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, setDoc, doc, where, orderBy } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Appointment, Patient } from '../types';
+import { slotId, CLINIC_HOURS } from '../lib/slots';
 import { User as FirebaseUser } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -14,7 +15,8 @@ import {
   CheckCircle2,
   XCircle,
   AlertCircle,
-  CalendarDays
+  CalendarDays,
+  Users
 } from 'lucide-react';
 import { showToast } from '../lib/toast';
 
@@ -67,6 +69,29 @@ export default function Schedule({ user }: { user: FirebaseUser }) {
     [appointments, dateStr]
   );
 
+  const waitingQueue = useMemo(
+    () => dayAppointments
+      .filter(a => a.checkedInAt && a.status !== 'completed' && a.status !== 'cancelled')
+      .sort((a, b) => (a.checkedInAt! < b.checkedInAt! ? -1 : 1)),
+    [dayAppointments]
+  );
+
+  // Índice/total de uma sessão dentro de um pacote recorrente (mesmo seriesId), pra mostrar "Sessão X de Y"
+  const seriesInfo = useMemo(() => {
+    const map = new Map<string, { index: number, total: number }>();
+    const bySeries = new Map<string, Appointment[]>();
+    appointments.forEach(a => {
+      if (!a.seriesId) return;
+      if (!bySeries.has(a.seriesId)) bySeries.set(a.seriesId, []);
+      bySeries.get(a.seriesId)!.push(a);
+    });
+    bySeries.forEach(list => {
+      const sorted = [...list].sort((a, b) => a.date.localeCompare(b.date));
+      sorted.forEach((a, i) => map.set(a.id!, { index: i + 1, total: sorted.length }));
+    });
+    return map;
+  }, [appointments]);
+
   const hours = Array.from({ length: 14 }, (_, i) => {
     const h = i + 8;
     return `${h < 10 ? '0' + h : h}:00`;
@@ -76,8 +101,14 @@ export default function Schedule({ user }: { user: FirebaseUser }) {
     try {
       await updateDoc(doc(db, 'appointments', id), { status });
 
-      // Ao concluir uma consulta com valor definido, gera o lançamento financeiro automaticamente
       const appt = appointments.find(a => a.id === id);
+
+      // Cancelar libera o horário na fila pública de disponibilidade
+      if (status === 'cancelled' && appt) {
+        await deleteDoc(doc(db, 'busySlots', slotId(user.uid, appt.date, appt.time))).catch(() => {});
+      }
+
+      // Ao concluir uma consulta com valor definido, gera o lançamento financeiro automaticamente
       if (status === 'completed' && appt && appt.value && !appt.financeGenerated) {
         await addDoc(collection(db, 'transactions'), {
           userId: user.uid,
@@ -101,10 +132,26 @@ export default function Schedule({ user }: { user: FirebaseUser }) {
     }
   };
 
+  const handleCheckIn = async (id: string) => {
+    try {
+      await updateDoc(doc(db, 'appointments', id), { checkedInAt: new Date().toISOString() });
+      showToast('Check-in realizado');
+    } catch (err) {
+      showToast('Erro ao fazer check-in', 'error');
+    } finally {
+      setOpenMenuId(null);
+    }
+  };
+
   const handleDeleteAppointment = async (id: string) => {
     if (!window.confirm('Excluir este agendamento?')) return;
+    const appt = appointments.find(a => a.id === id);
     try {
       await deleteDoc(doc(db, 'appointments', id));
+      // Libera o horário correspondente na fila pública de disponibilidade
+      if (appt) {
+        await deleteDoc(doc(db, 'busySlots', slotId(user.uid, appt.date, appt.time))).catch(() => {});
+      }
       showToast('Agendamento excluído');
     } catch (err) {
       showToast('Erro ao excluir', 'error');
@@ -115,7 +162,7 @@ export default function Schedule({ user }: { user: FirebaseUser }) {
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-4">
           <div className="p-3 bg-[#F8F9FA] rounded-2xl text-[#D1C7BD] border border-[#F1F3F5]">
             <CalendarDays size={28} />
@@ -176,6 +223,38 @@ export default function Schedule({ user }: { user: FirebaseUser }) {
             </div>
           </div>
 
+          {/* Fila de Espera */}
+          <div className="bg-white rounded-[32px] p-8 border border-[#F1F3F5] shadow-sm">
+            <h4 className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+              <Users size={14} className="text-[#D1C7BD]" /> Fila de Espera
+            </h4>
+            {waitingQueue.length === 0 ? (
+              <p className="text-xs text-[#9CA3AF] font-light italic">Ninguém aguardando no momento.</p>
+            ) : (
+              <div className="space-y-3">
+                {waitingQueue.map((appt, i) => (
+                  <div key={appt.id} className="flex items-center gap-3 p-4 bg-[#F8F9FA] rounded-2xl border border-[#F1F3F5]">
+                    <div className="w-8 h-8 rounded-full bg-[#D1C7BD] text-white text-xs font-bold flex items-center justify-center shrink-0">
+                      {i + 1}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold text-[#374151] truncate">{appt.patientName}</p>
+                      <p className="text-[9px] text-[#9CA3AF] font-bold uppercase tracking-widest mt-0.5">
+                        Aguardando desde {new Date(appt.checkedInAt!).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleSetStatus(appt.id!, 'completed')}
+                      className="px-3 py-2 bg-[#4F634F] text-white rounded-xl text-[9px] font-bold uppercase tracking-widest shrink-0 hover:opacity-90 transition-all"
+                    >
+                      Atender
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="bg-[#F8F9FA] rounded-[32px] p-8 border border-[#F1F3F5]">
             <h4 className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-[0.2em] mb-6">Legenda de Status</h4>
             <div className="space-y-4">
@@ -222,10 +301,16 @@ export default function Schedule({ user }: { user: FirebaseUser }) {
                               <User size={20} />
                             </div>
                             <div>
-                              <p className="text-sm font-semibold text-[#374151]">{appt.patientName}</p>
+                              <p className="text-sm font-semibold text-[#374151] flex items-center gap-2">
+                                {appt.patientName}
+                                {appt.checkedInAt && appt.status !== 'completed' && (
+                                  <span className="text-[8px] bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full font-bold uppercase tracking-widest">Na fila</span>
+                                )}
+                              </p>
                               <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest mt-1">
                                 {appt.notes || 'Procedimento Estético'}
                                 {appt.value ? ` • R$ ${appt.value.toFixed(2)}` : ''}
+                                {seriesInfo.has(appt.id!) ? ` • Sessão ${seriesInfo.get(appt.id!)!.index} de ${seriesInfo.get(appt.id!)!.total}` : ''}
                               </p>
                             </div>
                           </div>
@@ -248,6 +333,9 @@ export default function Schedule({ user }: { user: FirebaseUser }) {
                                   className="absolute right-0 top-12 z-20 bg-white rounded-2xl border border-[#F1F3F5] shadow-xl py-3 w-52 overflow-hidden"
                                 >
                                   <MenuOption onClick={() => { setEditingAppointment(appt); setOpenMenuId(null); }} label="Editar" color="text-[#374151]" />
+                                  {!appt.checkedInAt && appt.status !== 'completed' && appt.status !== 'cancelled' && (
+                                    <MenuOption onClick={() => handleCheckIn(appt.id!)} label="Fazer Check-in" color="text-amber-500" />
+                                  )}
                                   <MenuOption onClick={() => handleSetStatus(appt.id!, 'confirmed')} label="Confirmar" color="text-[#D1C7BD]" />
                                   <MenuOption onClick={() => handleSetStatus(appt.id!, 'completed')} label="Marcar como realizado" color="text-[#4F634F]" />
                                   <MenuOption onClick={() => handleSetStatus(appt.id!, 'cancelled')} label="Cancelar" color="text-red-400" />
@@ -386,6 +474,11 @@ function AddAppointmentModal({ user, onClose, patients, appointments, initialDat
           notes,
           value: numericValue,
         });
+        // Se a data/hora mudou, libera o horário antigo e ocupa o novo na fila pública
+        if (appointment.date !== date || appointment.time !== time) {
+          await deleteDoc(doc(db, 'busySlots', slotId(user.uid, appointment.date, appointment.time))).catch(() => {});
+          await setDoc(doc(db, 'busySlots', slotId(user.uid, date, time)), { clinicId: user.uid, date, time }).catch(() => {});
+        }
         showToast('Agendamento atualizado');
       } else if (recurrence === 'none') {
         await addDoc(collection(db, 'appointments'), {
@@ -399,6 +492,7 @@ function AddAppointmentModal({ user, onClose, patients, appointments, initialDat
           status: 'scheduled',
           createdAt: new Date().toISOString()
         });
+        await setDoc(doc(db, 'busySlots', slotId(user.uid, date, time)), { clinicId: user.uid, date, time }).catch(() => {});
         showToast('Agendamento realizado');
       } else {
         // Agendamento recorrente: cria N ocorrências de uma vez, pulando horários já ocupados
@@ -426,6 +520,7 @@ function AddAppointmentModal({ user, onClose, patients, appointments, initialDat
             seriesId,
             createdAt: new Date().toISOString()
           });
+          await setDoc(doc(db, 'busySlots', slotId(user.uid, occDateStr, time)), { clinicId: user.uid, date: occDateStr, time }).catch(() => {});
           created++;
         }
         showToast(skipped > 0 ? `${created} agendamentos criados, ${skipped} pulados por conflito` : `${created} agendamentos criados`);

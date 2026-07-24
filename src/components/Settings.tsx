@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { ClinicSettings, ConsentTemplate } from '../types';
 import { User } from 'firebase/auth';
@@ -18,15 +18,16 @@ import {
   Edit2,
   Trash2,
   X,
-  CreditCard
+  CreditCard,
+  Download
 } from 'lucide-react';
 import { showToast } from '../lib/toast';
 
 export default function Settings({ user }: { user: User }) {
   const [settings, setSettings] = useState<ClinicSettings>({
-    professionalName: 'Dra. Vitória Oliveira',
+    professionalName: user.displayName || 'Minha Conta',
     registrationNumber: '',
-    clinicName: 'Dra. Vitória Oliveira',
+    clinicName: 'Minha Clínica',
     clinicAddress: '',
     contactEmail: user.email || '',
     consentTemplates: [],
@@ -44,7 +45,14 @@ export default function Settings({ user }: { user: User }) {
         const docRef = doc(db, 'settings', user.uid);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
-          setSettings(docSnap.data() as ClinicSettings);
+          const data = docSnap.data() as ClinicSettings;
+          setSettings(data);
+          // Garante que a página pública de agendamento sempre tenha o nome atualizado,
+          // mesmo que o usuário nunca clique em "Salvar" depois desta atualização.
+          await setDoc(doc(db, 'publicConfig', 'booking'), {
+            ownerId: user.uid,
+            clinicName: data.clinicName || data.professionalName || 'Clínica'
+          }).catch(() => {});
         }
       } catch (err) {
         console.error(err);
@@ -89,11 +97,46 @@ export default function Settings({ user }: { user: User }) {
     setSaving(true);
     try {
       await setDoc(doc(db, 'settings', user.uid), settings);
+      // Mantém o config público (usado pela página de agendamento sem login) sincronizado
+      await setDoc(doc(db, 'publicConfig', 'booking'), {
+        ownerId: user.uid,
+        clinicName: settings.clinicName || settings.professionalName || 'Clínica'
+      });
       showToast('Configurações atualizadas');
     } catch (err) {
       showToast('Erro ao salvar', 'error');
     }
     setSaving(false);
+  };
+
+  const [backingUp, setBackingUp] = useState(false);
+  const handleFullBackup = async () => {
+    setBackingUp(true);
+    try {
+      const collections = ['patients', 'appointments', 'transactions', 'inventory'];
+      const backup: Record<string, any> = {};
+      for (const col of collections) {
+        const q = query(collection(db, col), where('userId', '==', user.uid));
+        const snap = await getDocs(q);
+        backup[col] = snap.docs.map(d => {
+          const data: any = { id: d.id, ...d.data() };
+          if (data.date?.toDate) data.date = data.date.toDate().toISOString();
+          return data;
+        });
+      }
+      backup.settings = settings;
+      backup.exportedAt = new Date().toISOString();
+
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `backup-clinica-${new Date().toISOString().split('T')[0]}.json`;
+      link.click();
+      showToast('Backup completo exportado');
+    } catch (err) {
+      showToast('Erro ao gerar backup', 'error');
+    }
+    setBackingUp(false);
   };
 
   if (loading) return (
@@ -235,6 +278,15 @@ export default function Settings({ user }: { user: User }) {
           >
             <Save size={20} />
             <span>{saving ? 'Gravando...' : 'Salvar Alterações'}</span>
+          </button>
+
+          <button 
+            onClick={handleFullBackup}
+            disabled={backingUp}
+            className="w-full py-5 bg-white border border-[#F1F3F5] text-[#374151] rounded-[28px] font-medium flex items-center justify-center gap-3 hover:border-[#D1C7BD] transition-all shadow-sm active:scale-95 disabled:opacity-50"
+          >
+            <Download size={20} />
+            <span>{backingUp ? 'Gerando backup...' : 'Backup Completo (JSON)'}</span>
           </button>
         </div>
       </div>

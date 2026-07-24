@@ -60,6 +60,15 @@ service cloud.firestore {
         && (!('category' in data) || data.category is string);
     }
 
+    // Inventory Movement Validation
+    function isValidInventoryMovement(data) {
+      return data.userId is string && data.userId == request.auth.uid
+        && data.itemId is string
+        && data.quantity is number
+        && data.type in ['consumption', 'restock']
+        && data.date is string;
+    }
+
     // Transaction Validation
     function isValidTransaction(data) {
       return data.userId is string && data.userId == request.auth.uid
@@ -79,8 +88,11 @@ service cloud.firestore {
     // Rules for Appointments
     match /appointments/{appointmentId} {
       allow read: if ownsExisting();
-      allow create: if isValidAppointment(incoming()) && isValidId(appointmentId);
-      allow update: if ownsExisting() && isValidAppointment(incoming()) && incoming().userId == resource.data.userId;
+      // Criar agendamento: o dono (clínica) pode criar livremente via Dashboard,
+      // e o público pode criar via página #agendar (bookedOnline=true).
+      allow create: if (isSignedIn() && incoming().userId == request.auth.uid) || 
+                       (incoming().bookedOnline == true);
+      allow update: if ownsExisting() && incoming().userId == resource.data.userId;
       allow delete: if ownsExisting();
     }
 
@@ -92,6 +104,14 @@ service cloud.firestore {
       allow delete: if ownsExisting();
     }
 
+    // Rules for Inventory Movements
+    match /inventory_movements/{movementId} {
+      allow read: if ownsExisting();
+      allow create: if isValidInventoryMovement(incoming()) && isValidId(movementId);
+      allow update: if ownsExisting() && isValidInventoryMovement(incoming()) && incoming().userId == resource.data.userId;
+      allow delete: if ownsExisting();
+    }
+
     // Rules for Transactions
     match /transactions/{transactionId} {
       allow read: if ownsExisting();
@@ -100,7 +120,25 @@ service cloud.firestore {
       allow delete: if ownsExisting();
     }
 
-    // Rules for Settings — um documento por usuário (settings/{uid}), não mais um doc global compartilhado
+    // Marca horários como ocupados — coleção pública (sem dados sensíveis)
+    match /busySlots/{slotId} {
+      allow read: if true; // Aberto pra página de agendamento saber o que tá livre
+      // Criação aberta: permite que qualquer um "reserve" o horário atômicamente.
+      // O ID do documento é determinístico (clinic_data_hora), então a regra de 
+      // 'update' falsa abaixo garante que ninguém sobrescreva uma reserva de outro.
+      allow create: if true;
+      allow update: if false; // Garante atomicidade da reserva (quem chegar primeiro leva)
+      // Delete: só a própria clínica (dono do slot) pode liberar o horário manualmente
+      allow delete: if isSignedIn() && resource.data.clinicId == request.auth.uid;
+    }
+
+    // Configuração pública usada pela página de agendamento (nome da clínica)
+    match /publicConfig/booking {
+      allow read: if true; // Página pública precisa ler pra mostrar o nome da clínica
+      allow write: if isSignedIn(); // Apenas logados podem setar (em Settings.tsx)
+    }
+
+    // Rules for Settings — um documento por usuário (settings/{uid})
     match /settings/{uid} {
       allow read, write: if isSignedIn() && uid == request.auth.uid;
     }

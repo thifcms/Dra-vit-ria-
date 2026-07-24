@@ -88,15 +88,18 @@ export interface Patient {
 export interface Appointment {
   id?: string;
   userId?: string;
-  patientId: string;
+  patientId?: string; // opcional: agendamentos feitos pelo paciente direto na página pública não têm patientId
   patientName: string;
+  guestPhone?: string; // telefone informado pelo paciente na página pública (quando não há cadastro ainda)
   date: string;
   time: string;
   status: 'scheduled' | 'confirmed' | 'completed' | 'cancelled';
   notes?: string; // usado como descrição do procedimento
   value?: number;
   financeGenerated?: boolean; // evita duplicar lançamento financeiro ao concluir
-  seriesId?: string; // agrupa ocorrências de um agendamento recorrente
+  seriesId?: string; // agrupa ocorrências de um agendamento recorrente (pacote de sessões)
+  checkedInAt?: string; // horário de chegada na recepção (fila de espera)
+  bookedOnline?: boolean; // true quando o próprio paciente agendou pela página pública
   createdAt?: string;
 }
 
@@ -143,4 +146,33 @@ export interface ClinicSettings {
   consentTemplates?: ConsentTemplate[];
   biometricEnabled?: boolean;
   cloudBackupEnabled?: boolean;
+}
+
+// Solicitação vinda da página pública de agendamento (sem login)
+export interface BookingRequest {
+  id?: string;
+  clinicId: string; // uid do dono da clínica, pra rotear a solicitação certa
+  name: string;
+  phone: string;
+  desiredDate?: string;
+  desiredTime?: string;
+  procedureInterest?: string;
+  message?: string;
+  status: 'pending' | 'scheduled' | 'declined';
+  createdAt: string;
+}
+
+// Documento público (legível por qualquer um, sem login) usado pela página de agendamento
+// pra saber qual clínica é o "dono" deste app e mostrar o nome dela
+export interface PublicBookingConfig {
+  ownerId: string;
+  clinicName: string;
+}
+
+// Marca um horário como ocupado — coleção pública (só data/hora, sem nenhum dado do paciente),
+// usada pela página de agendamento pra saber quais horários mostrar como disponíveis.
+export interface BusySlot {
+  clinicId: string;
+  date: string;
+  time: string;
 }

@@ -22,7 +22,8 @@ import {
   X,
   FileDown,
   Pill,
-  Printer
+  Printer,
+  ExternalLink
 } from 'lucide-react';
 import SignaturePad from 'react-signature-canvas';
 import { showToast } from '../lib/toast';
@@ -39,6 +40,25 @@ import {
 } from 'recharts';
 
 // Helper to export patient record as a clean text file
+// Mesma lista de condições usada na ficha de anamnese, reaproveitada pro filtro de pacientes
+const conditionFilterOptions: { key: string, label: string }[] = [
+  { key: 'diabetes', label: 'Diabetes' },
+  { key: 'hypertension', label: 'Hipertensão' },
+  { key: 'heartProblems', label: 'Problemas Cardíacos' },
+  { key: 'autoimmune', label: 'Doença Autoimune' },
+  { key: 'cancerHistory', label: 'Histórico de Câncer' },
+  { key: 'keloid', label: 'Queloide' },
+  { key: 'herpes', label: 'Herpes' },
+  { key: 'epilepsy', label: 'Epilepsia' },
+  { key: 'hivHepatitis', label: 'HIV/Hepatite' },
+  { key: 'pacemaker', label: 'Marca-passo' },
+  { key: 'pregnant', label: 'Gestante' },
+  { key: 'breastfeeding', label: 'Amamentando' },
+  { key: 'anticoagulant', label: 'Anticoagulante' },
+  { key: 'isotretinoin', label: 'Roacutan' },
+  { key: 'contraceptive', label: 'Anticoncepcional' },
+];
+
 function exportPatientRecord(patient: Patient) {
   const a = patient.anamnesis;
   
@@ -120,6 +140,7 @@ export default function Patients({ user, initialPatientId }: { user: User, initi
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [conditionFilter, setConditionFilter] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -145,17 +166,19 @@ export default function Patients({ user, initialPatientId }: { user: User, initi
   }, [initialPatientId, patients.length]);
 
   const filteredPatients = useMemo(
-    () => patients.filter(p => 
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      p.cpf?.includes(searchTerm)
-    ),
-    [patients, searchTerm]
+    () => patients.filter(p => {
+      const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        p.cpf?.includes(searchTerm);
+      const matchesCondition = !conditionFilter || (p.anamnesis?.conditions as any)?.[conditionFilter] === true;
+      return matchesSearch && matchesCondition;
+    }),
+    [patients, searchTerm, conditionFilter]
   );
 
   const PAGE_SIZE = 20;
   const [page, setPage] = useState(1);
   const totalPages = Math.max(1, Math.ceil(filteredPatients.length / PAGE_SIZE));
-  useEffect(() => { setPage(1); }, [searchTerm]);
+  useEffect(() => { setPage(1); }, [searchTerm, conditionFilter]);
   const pagedPatients = useMemo(
     () => filteredPatients.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
     [filteredPatients, page]
@@ -195,6 +218,16 @@ export default function Patients({ user, initialPatientId }: { user: User, initi
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+          <select
+            className="bg-white border border-[#F1F3F5] rounded-2xl px-5 py-3 shadow-sm outline-none focus:border-[#D1C7BD]/30 transition-all text-xs font-semibold text-[#374151] appearance-none"
+            value={conditionFilter}
+            onChange={e => setConditionFilter(e.target.value)}
+          >
+            <option value="">Todas as condições</option>
+            {conditionFilterOptions.map(c => (
+              <option key={c.key} value={c.key}>{c.label}</option>
+            ))}
+          </select>
           <div className="hidden md:block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest">
             {filteredPatients.length} pacientes encontrados
           </div>
@@ -526,6 +559,17 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
     } catch (err) {
       showToast('Erro ao excluir foto', 'error');
     }
+  };
+
+  // Comparação de fotos antes/depois lado a lado
+  const [compareMode, setCompareMode] = useState(false);
+  const [compareSelection, setCompareSelection] = useState<number[]>([]);
+  const toggleCompareSelection = (index: number) => {
+    setCompareSelection(prev => {
+      if (prev.includes(index)) return prev.filter(i => i !== index);
+      if (prev.length >= 2) return [prev[1], index];
+      return [...prev, index];
+    });
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -877,20 +921,52 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
               <motion.div key="photos" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
                 <div className="flex items-center justify-between pb-6 border-b border-[#F1F3F5]">
                   <h3 className="serif text-2xl text-[#374151]">Galeria Clínica</h3>
-                  <label className="bg-[#F8F9FA] text-[#9CA3AF] px-8 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 cursor-pointer border border-[#F1F3F5] hover:bg-[#D1C7BD] hover:text-white hover:border-[#D1C7BD] transition-all shadow-sm">
-                    <Camera size={18} /> Enviar Imagens
-                    <input type="file" accept="image/*" className="hidden" multiple onChange={handlePhotoUpload} />
-                  </label>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => { setCompareMode(!compareMode); setCompareSelection([]); }}
+                      className={`px-8 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 border transition-all shadow-sm ${
+                        compareMode ? 'bg-[#374151] text-white border-[#374151]' : 'bg-white text-[#9CA3AF] border-[#F1F3F5] hover:border-[#D1C7BD]'
+                      }`}
+                    >
+                      {compareMode ? 'Sair da Comparação' : 'Comparar Antes/Depois'}
+                    </button>
+                    <label className="bg-[#F8F9FA] text-[#9CA3AF] px-8 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 cursor-pointer border border-[#F1F3F5] hover:bg-[#D1C7BD] hover:text-white hover:border-[#D1C7BD] transition-all shadow-sm">
+                      <Camera size={18} /> Enviar Imagens
+                      <input type="file" accept="image/*" className="hidden" multiple onChange={handlePhotoUpload} />
+                    </label>
+                  </div>
                 </div>
+                {compareMode && (
+                  <p className="text-xs text-[#9CA3AF] font-light italic -mt-4">
+                    Selecione duas fotos para comparar lado a lado ({compareSelection.length}/2 selecionadas)
+                  </p>
+                )}
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-8">
                   {patient.photoHistory?.map((url, i) => (
-                    <div key={i} className="group relative aspect-square">
-                      <img src={url} alt="Paciente" className="w-full h-full object-cover rounded-[32px] border border-[#F1F3F5] shadow-md group-hover:scale-[1.02] transition-all duration-300" />
-                      <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-all rounded-[32px] flex items-center justify-center backdrop-blur-[2px]">
-                        <button onClick={() => handleDeletePhoto(i)} className="p-4 bg-white/90 rounded-2xl text-red-400 shadow-xl hover:scale-110 active:scale-95 transition-all">
-                          <Trash2 size={24} />
-                        </button>
-                      </div>
+                    <div 
+                      key={i} 
+                      className="group relative aspect-square"
+                      onClick={compareMode ? () => toggleCompareSelection(i) : undefined}
+                    >
+                      <img 
+                        src={url} 
+                        alt="Paciente" 
+                        className={`w-full h-full object-cover rounded-[32px] border shadow-md group-hover:scale-[1.02] transition-all duration-300 ${
+                          compareMode && compareSelection.includes(i) ? 'border-4 border-[#D1C7BD]' : 'border-[#F1F3F5]'
+                        } ${compareMode ? 'cursor-pointer' : ''}`}
+                      />
+                      {compareMode && compareSelection.includes(i) && (
+                        <div className="absolute top-3 left-3 w-8 h-8 bg-[#D1C7BD] rounded-full flex items-center justify-center text-white text-xs font-bold shadow-lg">
+                          {compareSelection.indexOf(i) + 1}
+                        </div>
+                      )}
+                      {!compareMode && (
+                        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-all rounded-[32px] flex items-center justify-center backdrop-blur-[2px]">
+                          <button onClick={() => handleDeletePhoto(i)} className="p-4 bg-white/90 rounded-2xl text-red-400 shadow-xl hover:scale-110 active:scale-95 transition-all">
+                            <Trash2 size={24} />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))}
                   {(!patient.photoHistory || patient.photoHistory.length === 0) && (
@@ -899,6 +975,27 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
                     </div>
                   )}
                 </div>
+
+                {compareMode && compareSelection.length === 2 && (
+                  <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-6" onClick={() => setCompareSelection([])}>
+                    <div className="bg-white rounded-[32px] p-8 max-w-4xl w-full" onClick={e => e.stopPropagation()}>
+                      <div className="flex items-center justify-between mb-6">
+                        <h4 className="serif text-xl text-[#374151]">Comparação Antes / Depois</h4>
+                        <button onClick={() => setCompareSelection([])} className="p-2 text-[#9CA3AF] hover:text-[#374151]">
+                          <X size={24} />
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-6">
+                        {compareSelection.map((idx, pos) => (
+                          <div key={idx}>
+                            <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-3 text-center">{pos === 0 ? 'Antes' : 'Depois'}</p>
+                            <img src={patient.photoHistory![idx]} alt={pos === 0 ? 'Antes' : 'Depois'} className="w-full aspect-square object-cover rounded-[24px] border border-[#F1F3F5] shadow-md" />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </motion.div>
             )}
 
