@@ -12,7 +12,7 @@ export default defineConfig(() => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate', // atualiza o app sozinho a cada novo deploy, sem cache velho travando
-        includeAssets: ['favicon.png', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'],
+        includeAssets: ['favicon.png', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-192-maskable.png', 'icons/icon-512-maskable.png', 'icons/apple-touch-icon.png'],
         manifest: {
           name: 'Clínica Digital',
           short_name: 'Clínica Digital',
@@ -26,9 +26,9 @@ export default defineConfig(() => {
           theme_color: '#E8D8D0',
           icons: [
             { src: '/Dra-vit-ria-/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
-            { src: '/Dra-vit-ria-/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
             { src: '/Dra-vit-ria-/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
-            { src: '/Dra-vit-ria-/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+            { src: '/Dra-vit-ria-/icons/icon-192-maskable.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
+            { src: '/Dra-vit-ria-/icons/icon-512-maskable.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
           ],
         },
         workbox: {
