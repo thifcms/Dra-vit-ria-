@@ -42,13 +42,44 @@ service cloud.firestore {
         && (!('anamnesis' in data) || data.anamnesis is map);
     }
 
-    // Appointment Validation
-    function isValidAppointment(data) {
-      return data.userId is string && data.userId == request.auth.uid
-        && data.patientId is string && isValidId(data.patientId)
+    // Appointment Validation — formato do documento, independente de quem está criando
+    function isValidAppointmentShape(data) {
+      return data.userId is string
+        && data.patientName is string && data.patientName.size() > 0 && data.patientName.size() <= 200
         && data.date is string
         && data.time is string
+        && (!('patientId' in data) || (data.patientId is string && isValidId(data.patientId)))
+        && (!('guestPhone' in data) || (data.guestPhone is string && data.guestPhone.size() <= 30))
         && (!('status' in data) || data.status in ['scheduled', 'confirmed', 'completed', 'cancelled']);
+    }
+
+    // Criação normal, pelo dono autenticado (uso interno do app)
+    function isOwnedAppointmentCreate(data) {
+      return isSignedIn() && data.userId == request.auth.uid;
+    }
+
+    // Criação pública, pelo próprio paciente na página de agendamento (#agendar), sem login.
+    // Só é permitida se o userId apontar pro dono real (validado contra publicConfig/booking),
+    // o agendamento nascer como "scheduled" e vier marcado como bookedOnline — impede que alguém
+    // crie agendamentos com outros status ou em nome de outra clínica.
+    function isPublicAppointmentCreate(data) {
+      return !isSignedIn()
+        && data.userId == get(/databases/$(database)/documents/publicConfig/booking).data.ownerId
+        && data.status == 'scheduled'
+        && data.bookedOnline == true;
+    }
+
+    // Check-in público, pelo próprio paciente na página #checkin, sem login. Não precisa LER
+    // o agendamento (só escreve "às cegas"): a prova de que é o paciente certo é conhecer o
+    // token secreto, que só existe no link que ele recebeu. affectedKeys().hasOnly garante que
+    // essa escrita NUNCA consegue alterar mais nada além do horário de chegada — nem o próprio
+    // token, nem status, nem valor, nem qualquer outro campo do agendamento.
+    function isPublicCheckIn(data) {
+      return !isSignedIn()
+        && resource.data.checkinToken is string
+        && data.checkinToken == resource.data.checkinToken
+        && data.checkedInAt is string
+        && data.diff(resource.data).affectedKeys().hasOnly(['checkedInAt']);
     }
 
     // Inventory Validation
@@ -77,10 +108,17 @@ service cloud.firestore {
         && data.date is timestamp;
     }
 
+    // Busy Slot Validation — documento público minimalista (só data/hora), sem nenhum dado do paciente
+    function isValidBusySlot(data) {
+      return data.clinicId is string
+        && data.date is string
+        && data.time is string;
+    }
+
     // Rules for Patients — só o dono do dado (userId) pode ler/escrever
     match /patients/{patientId} {
       allow read: if ownsExisting();
-      allow create: if isValidPatient(incoming());
+      allow create: if isValidPatient(incoming()) && isValidId(patientId);
       allow update: if ownsExisting() && isValidPatient(incoming()) && incoming().userId == resource.data.userId;
       allow delete: if ownsExisting();
     }
@@ -88,33 +126,25 @@ service cloud.firestore {
     // Rules for Appointments
     match /appointments/{appointmentId} {
       allow read: if ownsExisting();
-      // Criar agendamento: o dono (clínica) pode criar livremente via Dashboard,
-      // e o público pode criar via página #agendar (bookedOnline=true).
-      allow create: if (isSignedIn() && incoming().userId == request.auth.uid) || 
-                       (incoming().bookedOnline == true);
-      
-      // Update: 
-      // 1. O dono da clínica pode alterar qualquer coisa.
-      // 2. O paciente pode fazer check-in (setar checkedInAt) SE enviar o token correto.
-      allow update: if (ownsExisting() && incoming().userId == resource.data.userId) ||
-                       (incoming().checkinToken == resource.data.checkinToken && 
-                        incoming().diff(resource.data).affectedKeys().hasOnly(['checkedInAt', 'checkinToken']));
-      
+      allow create: if isValidAppointmentShape(incoming()) && isValidId(appointmentId)
+        && (isOwnedAppointmentCreate(incoming()) || isPublicAppointmentCreate(incoming()));
+      allow update: if (ownsExisting() && isValidAppointmentShape(incoming()) && incoming().userId == resource.data.userId)
+        || isPublicCheckIn(incoming());
       allow delete: if ownsExisting();
     }
 
     // Rules for Inventory
     match /inventory/{itemId} {
       allow read: if ownsExisting();
-      allow create: if isValidInventory(incoming());
+      allow create: if isValidInventory(incoming()) && isValidId(itemId);
       allow update: if ownsExisting() && isValidInventory(incoming()) && incoming().userId == resource.data.userId;
       allow delete: if ownsExisting();
     }
 
     // Rules for Inventory Movements
-    match /inventoryMovements/{movementId} {
+    match /inventory_movements/{movementId} {
       allow read: if ownsExisting();
-      allow create: if isValidInventoryMovement(incoming());
+      allow create: if isValidInventoryMovement(incoming()) && isValidId(movementId);
       allow update: if ownsExisting() && isValidInventoryMovement(incoming()) && incoming().userId == resource.data.userId;
       allow delete: if ownsExisting();
     }
@@ -122,21 +152,28 @@ service cloud.firestore {
     // Rules for Transactions
     match /transactions/{transactionId} {
       allow read: if ownsExisting();
-      allow create: if isValidTransaction(incoming());
+      allow create: if isValidTransaction(incoming()) && isValidId(transactionId);
       allow update: if ownsExisting() && isValidTransaction(incoming()) && incoming().userId == resource.data.userId;
       allow delete: if ownsExisting();
     }
 
-    // Marca horários como ocupados — coleção pública (sem dados sensíveis)
+    // Marca horários como ocupados — coleção pública (só clinicId/data/hora, ZERO dado de
+    // paciente) que a página de agendamento usa pra saber quais horários esconder. Qualquer um
+    // pode ler (é assim que o calendário público sabe o que está livre). A criação exige que o
+    // clinicId bata com o dono real (autenticado) ou, no caso público, com o dono cadastrado em
+    // publicConfig/booking — isso impede que alguém "reserve" horários em nome de outra clínica
+    // ou envie lixo pra essa coleção. Ninguém pode "atualizar" um slot já existente (isso é o
+    // que impede duas pessoas reservarem o mesmo horário ao mesmo tempo: a segunda tentativa
+    // vira uma escrita sobre um documento que já existe, e cai na regra de update, sempre negada).
     match /busySlots/{slotId} {
-      allow read: if true; // Aberto pra página de agendamento saber o que tá livre
-      // Criação aberta: permite que qualquer um "reserve" o horário atômicamente.
-      // O ID do documento é determinístico (clinic_data_hora), então a regra de 
-      // 'update' falsa abaixo garante que ninguém sobrescreva uma reserva de outro.
-      allow create: if true;
-      allow update: if false; // Garante atomicidade da reserva (quem chegar primeiro leva)
-      // Delete: só a própria clínica (dono do slot) pode liberar o horário manualmente
-      allow delete: if isSignedIn() && resource.data.clinicId == request.auth.uid;
+      allow read: if true;
+      allow create: if isValidBusySlot(incoming()) && isValidId(slotId)
+        && (
+          (isSignedIn() && incoming().clinicId == request.auth.uid) ||
+          (!isSignedIn() && incoming().clinicId == get(/databases/$(database)/documents/publicConfig/booking).data.ownerId)
+        );
+      allow update: if false;
+      allow delete: if isSignedIn();
     }
 
     // Configuração pública usada pela página de agendamento (nome da clínica)
