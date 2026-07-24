@@ -3,8 +3,9 @@ import { doc, getDoc, setDoc, addDoc, deleteDoc, collection, query, where, onSna
 import { db } from '../lib/firebase';
 import { slotId, checkinLink, CLINIC_HOURS } from '../lib/slots';
 import { motion, AnimatePresence } from 'motion/react';
-import { Calendar, Phone, User as UserIcon, ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { Calendar, Phone, User as UserIcon, ChevronLeft, ChevronRight, CheckCircle2, MessageSquare } from 'lucide-react';
 import type { PublicBookingConfig, BusySlot } from '../types';
+import { buildReminderMessage, whatsappLink } from '../lib/reminders';
 
 // Página pública de agendamento — acessada via link (ex: no Instagram/site), sem exigir login.
 // Mostra só os horários realmente livres (a coleção 'busySlots' é pública mas só tem
@@ -163,12 +164,32 @@ export default function PublicBooking() {
             <CheckCircle2 className="text-[#8BA888] w-10 h-10" />
           </div>
           <h1 className="text-2xl font-light text-[#5C544E] mb-3 serif">Agendamento confirmado!</h1>
-          <p className="text-[#9CA3AF] font-light">
+          <p className="text-[#9CA3AF] font-light mb-8">
             {name}, seu horário na {config.clinicName}{config.professionalName ? ` com ${config.professionalName}` : ''} está marcado para{' '}
             <span className="text-[#5C544E] font-medium">
               {new Date(selectedDate + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })} às {selectedTime}
             </span>. Até lá!
           </p>
+
+          <button
+            onClick={() => {
+              const msg = buildReminderMessage({
+                patientName: name,
+                clinicName: config.clinicName,
+                professionalName: config.professionalName,
+                dateLabel: new Date(selectedDate + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' }),
+                time: selectedTime,
+                checkinUrl: checkinUrl
+              });
+              // Abre o WhatsApp do paciente com a mensagem para ele mesmo (ou para enviar para alguém)
+              window.open(whatsappLink(phone, msg), '_blank');
+            }}
+            className="w-full py-4 bg-[#25D366] text-white rounded-2xl font-medium flex items-center justify-center gap-3 hover:bg-[#20bd5c] transition-all shadow-sm mb-8"
+          >
+            <MessageSquare size={20} />
+            Receber no meu WhatsApp
+          </button>
+
           {checkinUrl && (
             <div className="mt-8 p-5 bg-[#FDFBF9] rounded-2xl border border-[#F5F2F0] text-left">
               <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2">

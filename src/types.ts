@@ -159,6 +159,7 @@ export interface ClinicSettings {
   consentTemplates?: ConsentTemplate[];
   biometricEnabled?: boolean;
   cloudBackupEnabled?: boolean;
+  whatsappNumber?: string;
 }
 
 // Documento público (legível por qualquer um, sem login) usado pela página de agendamento
@@ -167,6 +168,7 @@ export interface PublicBookingConfig {
   ownerId: string;
   clinicName: string;
   professionalName: string;
+  whatsappNumber?: string;
 }
 
 // Marca um horário como ocupado — coleção pública (só data/hora, sem nenhum dado do paciente),

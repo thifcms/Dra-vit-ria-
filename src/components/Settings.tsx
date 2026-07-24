@@ -33,6 +33,7 @@ export default function Settings({ user }: { user: User }) {
     consentTemplates: [],
     biometricEnabled: false,
     cloudBackupEnabled: true,
+    whatsappNumber: '',
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -52,7 +53,8 @@ export default function Settings({ user }: { user: User }) {
           await setDoc(doc(db, 'publicConfig', 'booking'), {
             ownerId: user.uid,
             clinicName: data.clinicName || data.professionalName || 'Clínica',
-            professionalName: data.professionalName || ''
+            professionalName: data.professionalName || '',
+            whatsappNumber: data.whatsappNumber || ''
           }).catch(() => {});
         }
       } catch (err) {
@@ -102,7 +104,8 @@ export default function Settings({ user }: { user: User }) {
       await setDoc(doc(db, 'publicConfig', 'booking'), {
         ownerId: user.uid,
         clinicName: settings.clinicName || settings.professionalName || 'Clínica',
-        professionalName: settings.professionalName || ''
+        professionalName: settings.professionalName || '',
+        whatsappNumber: settings.whatsappNumber || ''
       });
       showToast('Configurações atualizadas');
     } catch (err) {
@@ -233,6 +236,13 @@ export default function Settings({ user }: { user: User }) {
                 value={settings.clinicAddress} 
                 onChange={v => setSettings({...settings, clinicAddress: v})}
                 icon={<MapPin size={18} />}
+              />
+              <SettingField 
+                label="WhatsApp da Clínica (para automação)" 
+                value={settings.whatsappNumber || ''} 
+                onChange={v => setSettings({...settings, whatsappNumber: v})}
+                icon={<Phone size={18} />}
+                placeholder="Ex: 11999999999"
               />
             </div>
           </section>
@@ -418,4 +428,4 @@ function SettingField({ label, value, onChange, icon }: any) {
   );
 }
 
-import { Settings as SettingsIcon } from 'lucide-react';
+import { Settings as SettingsIcon, Phone } from 'lucide-react';

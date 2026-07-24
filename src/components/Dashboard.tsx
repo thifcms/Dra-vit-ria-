@@ -14,9 +14,15 @@ import {
   Play,
   ArrowRight,
   Settings as SettingsIcon,
-  Plus
+  Plus,
+  MessageSquare,
+  Send
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { doc, getDoc } from 'firebase/firestore';
+import { buildReminderMessage, whatsappLink } from '../lib/reminders';
+import { checkinLink } from '../lib/slots';
+import { ClinicSettings } from '../types';
 import { 
   AreaChart, 
   Area, 
@@ -36,8 +42,16 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
   });
   const [recentPatients, setRecentPatients] = useState<any[]>([]);
   const [todaySchedule, setTodaySchedule] = useState<any[]>([]);
+  const [pendingOnlineBookings, setPendingOnlineBookings] = useState<any[]>([]);
+  const [clinicSettings, setClinicSettings] = useState<ClinicSettings | null>(null);
   const [chartData, setChartData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getDoc(doc(db, 'settings', user.uid)).then(snap => {
+      if (snap.exists()) setClinicSettings(snap.data() as ClinicSettings);
+    });
+  }, [user.uid]);
 
   useEffect(() => {
     // Patients count & Recents
@@ -63,6 +77,19 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
     const unsubSchedule = onSnapshot(qSchedule, (snap) => {
       setStats(prev => ({ ...prev, todayAppointments: snap.size }));
       setTodaySchedule(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
+    // Pending online bookings (not necessarily today)
+    const qPending = query(
+      collection(db, 'appointments'),
+      where('userId', '==', user.uid),
+      where('bookedOnline', '==', true),
+      where('status', '==', 'scheduled'),
+      orderBy('createdAt', 'desc'),
+      limit(5)
+    );
+    const unsubPending = onSnapshot(qPending, (snap) => {
+      setPendingOnlineBookings(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
     // Finance & Chart Data (last 6 months)
@@ -130,6 +157,7 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
     return () => {
       unsubPatients();
       unsubSchedule();
+      unsubPending();
       unsubFinance();
       unsubInventory();
     };
@@ -141,6 +169,24 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
     apptTime.setHours(parseInt(h), parseInt(m), 0);
     return apptTime > new Date();
   }) || todaySchedule[0];
+
+  const handleSendReminder = (appt: any) => {
+    if (!clinicSettings) return;
+    const phone = appt.guestPhone || appt.patientPhone; // No prontuário pode ser patientPhone
+    if (!phone) return;
+
+    const url = checkinLink(appt.id, appt.checkinToken, appt.date, appt.time);
+    const msg = buildReminderMessage({
+      patientName: appt.patientName,
+      clinicName: clinicSettings.clinicName || 'Nossa Clínica',
+      professionalName: clinicSettings.professionalName,
+      address: clinicSettings.clinicAddress,
+      dateLabel: appt.date === new Date().toISOString().split('T')[0] ? 'Hoje' : new Date(appt.date + 'T00:00:00').toLocaleDateString('pt-BR'),
+      time: appt.time,
+      checkinUrl: url
+    });
+    window.open(whatsappLink(phone, msg), '_blank');
+  };
 
   if (loading) return null;
 
@@ -349,6 +395,39 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
       </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Pending Online Bookings */}
+        {pendingOnlineBookings.length > 0 && (
+          <div className="bg-[#FDFBF9] rounded-[40px] border border-[#F5F2F0] p-10 card-shadow lg:col-span-2">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h3 className="serif text-2xl text-[#5C544E]">Novos Agendamentos Online</h3>
+                <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest">Confirme e envie o link de chegada para o paciente</p>
+              </div>
+              <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-[#EADFD4] shadow-sm">
+                <Send size={20} />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {pendingOnlineBookings.map((appt) => (
+                <div key={appt.id} className="bg-white p-6 rounded-3xl border border-[#F5F2F0] flex items-center justify-between group">
+                  <div>
+                    <p className="text-sm font-semibold text-[#5C544E]">{appt.patientName}</p>
+                    <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest mt-1">
+                      {new Date(appt.date + 'T00:00:00').toLocaleDateString('pt-BR')} às {appt.time}
+                    </p>
+                  </div>
+                  <button 
+                    onClick={() => handleSendReminder(appt)}
+                    className="flex items-center gap-2 px-4 py-2 bg-[#FDFBF9] text-[#9CA3AF] hover:bg-[#25D366] hover:text-white rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all"
+                  >
+                    Confirmar & Enviar <MessageSquare size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Today's Schedule List */}
         <div className="bg-white rounded-[40px] border border-[#F5F2F0] p-10 card-shadow">
           <div className="flex items-center justify-between mb-10">
@@ -365,10 +444,19 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
                   <p className="text-base font-semibold text-[#5C544E]">{appt.patientName}</p>
                   <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest mt-1">{appt.notes || 'Avaliação Clínica'}</p>
                 </div>
-                <div className={`px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest ${
-                  appt.status === 'confirmed' ? 'bg-[#F0F7F0] text-[#8BA888]' : 'bg-[#FDFBF9] text-[#9CA3AF]'
-                }`}>
-                  {appt.status === 'confirmed' ? 'Confirmado' : 'Pendente'}
+                <div className="flex items-center gap-3">
+                  <button 
+                    onClick={() => handleSendReminder(appt)}
+                    className="p-2 text-[#9CA3AF] hover:text-[#25D366] hover:bg-green-50 rounded-xl transition-all"
+                    title="Enviar Lembrete WhatsApp"
+                  >
+                    <MessageSquare size={18} />
+                  </button>
+                  <div className={`px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest ${
+                    appt.status === 'confirmed' ? 'bg-[#F0F7F0] text-[#8BA888]' : 'bg-[#FDFBF9] text-[#9CA3AF]'
+                  }`}>
+                    {appt.status === 'confirmed' ? 'Confirmado' : 'Pendente'}
+                  </div>
                 </div>
               </div>
             ))}
