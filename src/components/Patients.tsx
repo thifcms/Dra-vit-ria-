@@ -1361,12 +1361,20 @@ function PrescriptionModule({ user, patient }: { user: User, patient: Patient })
     <div className="space-y-10">
       <div className="flex items-center justify-between pb-6 border-b border-[#F1F3F5]">
         <h3 className="serif text-2xl text-[#374151]">Receituários & Prescrições</h3>
-        <button 
-          onClick={() => setIsAdding(true)}
-          className="bg-[#D1C7BD] text-white px-8 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest shadow-md hover:bg-[#C5B9AD] transition-all flex items-center gap-2"
-        >
-          <Plus size={18} /> Novo Receituário
-        </button>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => window.open('https://app.mevo.com.br/', '_blank')}
+            className="bg-white text-[#D1C7BD] border border-[#F1F3F5] px-6 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 hover:bg-[#F8F9FA] transition-all shadow-sm"
+          >
+            <ExternalLink size={18} /> Mevo Prescrição Digital
+          </button>
+          <button 
+            onClick={() => setIsAdding(true)}
+            className="bg-[#D1C7BD] text-white px-8 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest shadow-md hover:bg-[#C5B9AD] transition-all flex items-center gap-2"
+          >
+            <Plus size={18} /> Novo Receituário
+          </button>
+        </div>
       </div>
 
       <AnimatePresence>

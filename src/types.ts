@@ -99,6 +99,7 @@ export interface Appointment {
   financeGenerated?: boolean; // evita duplicar lançamento financeiro ao concluir
   seriesId?: string; // agrupa ocorrências de um agendamento recorrente (pacote de sessões)
   checkedInAt?: string; // horário de chegada na recepção (fila de espera)
+  checkinToken?: string; // token secreto usado no link de check-in do próprio paciente
   bookedOnline?: boolean; // true quando o próprio paciente agendou pela página pública
   createdAt?: string;
 }
@@ -106,15 +107,27 @@ export interface Appointment {
 export interface InventoryItem {
   id?: string;
   userId?: string;
-  code: string;
+  code?: string;
   name: string;
   category: string;
   quantity: number;
   minThreshold: number;
   unit: string;
-  supplier: string;
+  supplier?: string;
   lastRestockDate?: string;
   expiryDate?: string;
+}
+
+// Histórico de consumo/reposição de estoque (feature adicionada depois, direto no AI Studio)
+export interface InventoryMovement {
+  id?: string;
+  userId?: string;
+  itemId: string;
+  itemName: string;
+  category?: string;
+  quantity: number;
+  type: 'consumption' | 'restock';
+  date: string;
 }
 
 export interface ConsentTemplate {
@@ -146,20 +159,6 @@ export interface ClinicSettings {
   consentTemplates?: ConsentTemplate[];
   biometricEnabled?: boolean;
   cloudBackupEnabled?: boolean;
-}
-
-// Solicitação vinda da página pública de agendamento (sem login)
-export interface BookingRequest {
-  id?: string;
-  clinicId: string; // uid do dono da clínica, pra rotear a solicitação certa
-  name: string;
-  phone: string;
-  desiredDate?: string;
-  desiredTime?: string;
-  procedureInterest?: string;
-  message?: string;
-  status: 'pending' | 'scheduled' | 'declined';
-  createdAt: string;
 }
 
 // Documento público (legível por qualquer um, sem login) usado pela página de agendamento

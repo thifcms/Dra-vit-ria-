@@ -10,3 +10,12 @@ export const CLINIC_HOURS = Array.from({ length: 14 }, (_, i) => {
 export function slotId(clinicId: string, date: string, time: string): string {
   return `${clinicId}_${date}_${time.replace(':', '')}`;
 }
+
+// Link de check-in do próprio paciente. O token é o "segredo": só quem tem o link
+// consegue confirmar a chegada daquele agendamento específico — ninguém consegue listar
+// ou acessar dados de outros pacientes a partir dele. date/time vêm só pra exibição
+// (não têm função de segurança, evitam precisar ler o agendamento pra mostrar o horário).
+export function checkinLink(appointmentId: string, token: string, date: string, time: string): string {
+  const base = window.location.href.split('#')[0];
+  return `${base}#checkin?apt=${appointmentId}&token=${token}&date=${date}&time=${time}`;
+}

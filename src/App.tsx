@@ -28,17 +28,25 @@ const Inventory = lazy(() => import('./components/Inventory'));
 const Finance = lazy(() => import('./components/Finance'));
 const Settings = lazy(() => import('./components/Settings'));
 const PublicBooking = lazy(() => import('./components/PublicBooking'));
+const CheckIn = lazy(() => import('./components/CheckIn'));
 
 type View = 'dashboard' | 'patients' | 'schedule' | 'inventory' | 'finance' | 'settings';
 
 export default function App() {
-  // Página pública de agendamento (#agendar) — sem login, acessível de qualquer link externo.
-  // Fica num componente separado pra não misturar hooks condicionais com o resto do app.
-  const isPublicBooking = window.location.hash.startsWith('#agendar');
-  if (isPublicBooking) {
+  // Páginas públicas — sem login, acessíveis de qualquer link externo.
+  // Ficam num componente separado pra não misturar hooks condicionais com o resto do app.
+  const hash = window.location.hash;
+  if (hash.startsWith('#agendar')) {
     return (
       <Suspense fallback={<ViewLoadingFallback />}>
         <PublicBooking />
+      </Suspense>
+    );
+  }
+  if (hash.startsWith('#checkin')) {
+    return (
+      <Suspense fallback={<ViewLoadingFallback />}>
+        <CheckIn />
       </Suspense>
     );
   }

@@ -80,7 +80,7 @@ service cloud.firestore {
     // Rules for Patients — só o dono do dado (userId) pode ler/escrever
     match /patients/{patientId} {
       allow read: if ownsExisting();
-      allow create: if isValidPatient(incoming()) && isValidId(patientId);
+      allow create: if isValidPatient(incoming());
       allow update: if ownsExisting() && isValidPatient(incoming()) && incoming().userId == resource.data.userId;
       allow delete: if ownsExisting();
     }
@@ -92,22 +92,29 @@ service cloud.firestore {
       // e o público pode criar via página #agendar (bookedOnline=true).
       allow create: if (isSignedIn() && incoming().userId == request.auth.uid) || 
                        (incoming().bookedOnline == true);
-      allow update: if ownsExisting() && incoming().userId == resource.data.userId;
+      
+      // Update: 
+      // 1. O dono da clínica pode alterar qualquer coisa.
+      // 2. O paciente pode fazer check-in (setar checkedInAt) SE enviar o token correto.
+      allow update: if (ownsExisting() && incoming().userId == resource.data.userId) ||
+                       (incoming().checkinToken == resource.data.checkinToken && 
+                        incoming().diff(resource.data).affectedKeys().hasOnly(['checkedInAt', 'checkinToken']));
+      
       allow delete: if ownsExisting();
     }
 
     // Rules for Inventory
     match /inventory/{itemId} {
       allow read: if ownsExisting();
-      allow create: if isValidInventory(incoming()) && isValidId(itemId);
+      allow create: if isValidInventory(incoming());
       allow update: if ownsExisting() && isValidInventory(incoming()) && incoming().userId == resource.data.userId;
       allow delete: if ownsExisting();
     }
 
     // Rules for Inventory Movements
-    match /inventory_movements/{movementId} {
+    match /inventoryMovements/{movementId} {
       allow read: if ownsExisting();
-      allow create: if isValidInventoryMovement(incoming()) && isValidId(movementId);
+      allow create: if isValidInventoryMovement(incoming());
       allow update: if ownsExisting() && isValidInventoryMovement(incoming()) && incoming().userId == resource.data.userId;
       allow delete: if ownsExisting();
     }
@@ -115,7 +122,7 @@ service cloud.firestore {
     // Rules for Transactions
     match /transactions/{transactionId} {
       allow read: if ownsExisting();
-      allow create: if isValidTransaction(incoming()) && isValidId(transactionId);
+      allow create: if isValidTransaction(incoming());
       allow update: if ownsExisting() && isValidTransaction(incoming()) && incoming().userId == resource.data.userId;
       allow delete: if ownsExisting();
     }

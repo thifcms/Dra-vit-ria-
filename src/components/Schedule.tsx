@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, setDoc, doc, where, orderBy } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Appointment, Patient } from '../types';
-import { slotId, CLINIC_HOURS } from '../lib/slots';
+import { slotId, checkinLink, CLINIC_HOURS } from '../lib/slots';
 import { User as FirebaseUser } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -138,6 +138,24 @@ export default function Schedule({ user }: { user: FirebaseUser }) {
       showToast('Check-in realizado');
     } catch (err) {
       showToast('Erro ao fazer check-in', 'error');
+    } finally {
+      setOpenMenuId(null);
+    }
+  };
+
+  const handleCopyCheckinLink = async (appt: Appointment) => {
+    try {
+      let token = appt.checkinToken;
+      // Agendamentos criados antes deste recurso ainda não têm token — gera um agora
+      if (!token) {
+        token = crypto.randomUUID();
+        await updateDoc(doc(db, 'appointments', appt.id!), { checkinToken: token });
+      }
+      const link = checkinLink(appt.id!, token, appt.date, appt.time);
+      await navigator.clipboard.writeText(link);
+      showToast('Link de check-in copiado — envie para o paciente');
+    } catch (err) {
+      showToast('Erro ao gerar link de check-in', 'error');
     } finally {
       setOpenMenuId(null);
     }
@@ -334,7 +352,10 @@ export default function Schedule({ user }: { user: FirebaseUser }) {
                                 >
                                   <MenuOption onClick={() => { setEditingAppointment(appt); setOpenMenuId(null); }} label="Editar" color="text-[#374151]" />
                                   {!appt.checkedInAt && appt.status !== 'completed' && appt.status !== 'cancelled' && (
-                                    <MenuOption onClick={() => handleCheckIn(appt.id!)} label="Fazer Check-in" color="text-amber-500" />
+                                    <>
+                                      <MenuOption onClick={() => handleCheckIn(appt.id!)} label="Fazer Check-in Manual" color="text-amber-500" />
+                                      <MenuOption onClick={() => handleCopyCheckinLink(appt)} label="Copiar Link de Check-in" color="text-[#D1C7BD]" />
+                                    </>
                                   )}
                                   <MenuOption onClick={() => handleSetStatus(appt.id!, 'confirmed')} label="Confirmar" color="text-[#D1C7BD]" />
                                   <MenuOption onClick={() => handleSetStatus(appt.id!, 'completed')} label="Marcar como realizado" color="text-[#4F634F]" />
@@ -490,6 +511,7 @@ function AddAppointmentModal({ user, onClose, patients, appointments, initialDat
           notes,
           value: numericValue,
           status: 'scheduled',
+          checkinToken: crypto.randomUUID(),
           createdAt: new Date().toISOString()
         });
         await setDoc(doc(db, 'busySlots', slotId(user.uid, date, time)), { clinicId: user.uid, date, time }).catch(() => {});
@@ -518,6 +540,7 @@ function AddAppointmentModal({ user, onClose, patients, appointments, initialDat
             value: numericValue,
             status: 'scheduled',
             seriesId,
+            checkinToken: crypto.randomUUID(),
             createdAt: new Date().toISOString()
           });
           await setDoc(doc(db, 'busySlots', slotId(user.uid, occDateStr, time)), { clinicId: user.uid, date: occDateStr, time }).catch(() => {});

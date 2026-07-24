@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { doc, getDoc, setDoc, addDoc, deleteDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { slotId, CLINIC_HOURS } from '../lib/slots';
+import { slotId, checkinLink, CLINIC_HOURS } from '../lib/slots';
 import { motion, AnimatePresence } from 'motion/react';
 import { Calendar, Phone, User as UserIcon, ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react';
 import type { PublicBookingConfig, BusySlot } from '../types';
@@ -24,6 +24,7 @@ export default function PublicBooking() {
   const [procedureInterest, setProcedureInterest] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [checkinUrl, setCheckinUrl] = useState('');
   const [step, setStep] = useState<'calendar' | 'details'>('calendar');
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -108,6 +109,7 @@ export default function PublicBooking() {
     }
 
     try {
+      const token = crypto.randomUUID();
       const payload: any = {
         userId: config.ownerId,
         patientName: name,
@@ -116,10 +118,12 @@ export default function PublicBooking() {
         time: selectedTime,
         status: 'scheduled',
         bookedOnline: true,
+        checkinToken: token,
         createdAt: new Date().toISOString(),
       };
       if (procedureInterest) payload.notes = procedureInterest;
-      await addDoc(collection(db, 'appointments'), payload);
+      const ref = await addDoc(collection(db, 'appointments'), payload);
+      setCheckinUrl(checkinLink(ref.id, token, selectedDate, selectedTime));
       setSubmitted(true);
     } catch (err) {
       // Se o agendamento falhar depois de reservado o horário, libera o horário de volta
@@ -165,6 +169,28 @@ export default function PublicBooking() {
               {new Date(selectedDate + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })} às {selectedTime}
             </span>. Até lá!
           </p>
+          {checkinUrl && (
+            <div className="mt-8 p-5 bg-[#F8F9FA] rounded-2xl border border-[#F1F3F5] text-left">
+              <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2">
+                Salve este link — use-o pra confirmar sua chegada no dia
+              </p>
+              <div className="flex items-center gap-2">
+                <input
+                  readOnly
+                  value={checkinUrl}
+                  className="flex-1 bg-white border border-[#F1F3F5] rounded-xl px-3 py-2 text-[10px] text-[#9CA3AF] font-light truncate"
+                  onFocus={e => e.target.select()}
+                />
+                <button
+                  type="button"
+                  onClick={() => { navigator.clipboard.writeText(checkinUrl); }}
+                  className="px-4 py-2 bg-[#D1C7BD] text-white rounded-xl text-[9px] font-bold uppercase tracking-widest shrink-0"
+                >
+                  Copiar
+                </button>
+              </div>
+            </div>
+          )}
         </motion.div>
       </div>
     );
