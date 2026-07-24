@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { collection, query, onSnapshot, addDoc, updateDoc, setDoc, getDoc, doc, where, orderBy } from 'firebase/firestore';
+import { collection, query, onSnapshot, addDoc, updateDoc, getDoc, doc, where, orderBy } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, storage } from '../lib/firebase';
 import { Patient, ClinicSettings } from '../types';
-import { phoneIndexKey } from '../lib/slots';
 import { User } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -330,7 +329,6 @@ function AddPatientModal({ user, onClose }: { user: User, onClose: () => void })
   const [name, setName] = useState('');
   const [cpf, setCpf] = useState('');
   const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
   const [saving, setSaving] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -338,12 +336,11 @@ function AddPatientModal({ user, onClose }: { user: User, onClose: () => void })
     if (saving) return;
     setSaving(true);
     try {
-      const ref = await addDoc(collection(db, 'patients'), {
+      await addDoc(collection(db, 'patients'), {
         userId: user.uid,
         name,
         cpf,
         email,
-        phone,
         updatedAt: new Date().toISOString(),
         anamnesis: {
           mainComplaint: '',
@@ -370,13 +367,6 @@ function AddPatientModal({ user, onClose }: { user: User, onClose: () => void })
         files: [],
         consentTerms: []
       });
-      if (phone) {
-        await setDoc(doc(db, 'patientPhoneIndex', phoneIndexKey(user.uid, phone)), {
-          clinicId: user.uid,
-          patientId: ref.id,
-          name,
-        }).catch(() => {});
-      }
       showToast('Paciente cadastrado com sucesso');
       onClose();
     } catch (err) {
@@ -429,15 +419,6 @@ function AddPatientModal({ user, onClose }: { user: User, onClose: () => void })
               />
             </div>
           </div>
-          <div>
-            <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Telefone / WhatsApp</label>
-            <input 
-              className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all font-light"
-              value={phone}
-              onChange={e => setPhone(e.target.value)}
-              placeholder="(11) 99999-9999"
-            />
-          </div>
           
           <div className="flex gap-4 pt-4">
             <button type="button" onClick={onClose} className="flex-1 py-4 text-[#9CA3AF] font-bold text-[10px] uppercase">Cancelar</button>
@@ -457,7 +438,6 @@ function AddPatientModal({ user, onClose }: { user: User, onClose: () => void })
 
 function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient, onBack: () => void }) {
   const [activeTab, setActiveTab] = useState<'anamnesis' | 'evolution' | 'photos' | 'files' | 'consent' | 'prescriptions'>('anamnesis');
-  const [phoneDraft, setPhoneDraft] = useState(patient.phone || '');
   
   // Normalização para garantir que dados legados não quebrem a interface nova de checkboxes
   const normalizeAnamnesis = (a: any) => {
@@ -654,18 +634,6 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
             </div>
             <h2 className="text-2xl font-light serif text-[#5C544E] leading-tight">{patient.name}</h2>
             <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-[0.2em] mt-3">{patient.cpf || 'Sem CPF'}</p>
-            <input
-              value={phoneDraft}
-              onChange={e => setPhoneDraft(e.target.value)}
-              onBlur={async () => {
-                if (phoneDraft !== (patient.phone || '')) {
-                  await updateDoc(doc(db, 'patients', patient.id!), { phone: phoneDraft }).catch(() => {});
-                  showToast('Telefone atualizado');
-                }
-              }}
-              placeholder="Adicionar telefone"
-              className="mt-2 text-center text-xs text-[#5C544E] bg-transparent border-b border-transparent hover:border-[#F5F2F0] focus:border-[#EADFD4] outline-none transition-all px-2 py-1 w-full"
-            />
           </div>
 
           <nav className="space-y-2">

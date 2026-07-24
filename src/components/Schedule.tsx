@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, setDoc, doc, getDoc, where, orderBy } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Appointment, Patient, ClinicSettings } from '../types';
-import { slotId, checkinLink, cancelLink, CLINIC_HOURS } from '../lib/slots';
+import { slotId, checkinLink, CLINIC_HOURS } from '../lib/slots';
 import { buildReminderMessage, whatsappLink, emailLink } from '../lib/reminders';
 import { User as FirebaseUser } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
@@ -187,10 +187,9 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
   const handleCopyCheckinLink = async (appt: Appointment) => {
     try {
       const token = await ensureCheckinToken(appt);
-      const checkin = checkinLink(appt.id!, token, appt.date, appt.time);
-      const cancel = cancelLink(appt.id!, token, appt.date, appt.time, user.uid);
-      await navigator.clipboard.writeText(`Confirmar chegada: ${checkin}\nCancelar consulta: ${cancel}`);
-      showToast('Links de check-in e cancelamento copiados — envie para o paciente');
+      const link = checkinLink(appt.id!, token, appt.date, appt.time);
+      await navigator.clipboard.writeText(link);
+      showToast('Link de check-in copiado — envie para o paciente');
     } catch (err) {
       showToast('Erro ao gerar link de check-in', 'error');
     } finally {
@@ -216,7 +215,6 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
     try {
       const token = await ensureCheckinToken(appt);
       const checkinUrl = checkinLink(appt.id!, token, appt.date, appt.time);
-      const cancelUrl = cancelLink(appt.id!, token, appt.date, appt.time, user.uid);
       const dateLabel = new Date(appt.date + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
       const message = buildReminderMessage({
         patientName: appt.patientName,
@@ -226,7 +224,6 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
         dateLabel,
         time: appt.time,
         checkinUrl,
-        cancelUrl,
       });
       const url = channel === 'whatsapp' ? whatsappLink(phone!, message) : emailLink(email!, clinicSettings?.clinicName || 'Clínica', message);
       window.open(url, '_blank');
@@ -336,7 +333,7 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
                       </p>
                     </div>
                     <button
-                      onClick={() => handleOpenPatient(appt)}
+                      onClick={() => handleSetStatus(appt.id!, 'completed')}
                       className="px-3 py-2 bg-[#8BA888] text-white rounded-xl text-[9px] font-bold uppercase tracking-widest shrink-0 hover:opacity-90 transition-all"
                     >
                       Atender
@@ -467,7 +464,6 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
                                   exit={{ opacity: 0, y: 10 }}
                                   className="absolute right-0 top-12 z-20 bg-white rounded-2xl border border-[#F5F2F0] shadow-xl py-3 w-52 overflow-hidden"
                                 >
-                                  <MenuOption onClick={() => { handleOpenPatient(appt); setOpenMenuId(null); }} label="Abrir Prontuário" color="text-[#EADFD4]" />
                                   <MenuOption onClick={() => { setEditingAppointment(appt); setOpenMenuId(null); }} label="Editar" color="text-[#5C544E]" />
                                   {!appt.checkedInAt && appt.status !== 'completed' && appt.status !== 'cancelled' && (
                                     <>
@@ -630,11 +626,11 @@ function AddAppointmentModal({ user, onClose, patients, appointments, initialDat
         // Se a data/hora mudou, libera o horário antigo e ocupa o novo na fila pública
         if (appointment.date !== date || appointment.time !== time) {
           await deleteDoc(doc(db, 'busySlots', slotId(user.uid, appointment.date, appointment.time))).catch(() => {});
-          await setDoc(doc(db, 'busySlots', slotId(user.uid, date, time)), { clinicId: user.uid, date, time, apt: appointment.id }).catch(() => {});
+          await setDoc(doc(db, 'busySlots', slotId(user.uid, date, time)), { clinicId: user.uid, date, time }).catch(() => {});
         }
         showToast('Agendamento atualizado');
       } else if (recurrence === 'none') {
-        const ref = await addDoc(collection(db, 'appointments'), {
+        await addDoc(collection(db, 'appointments'), {
           userId: user.uid,
           patientId,
           patientName: patient?.name || 'Unknown',
@@ -646,7 +642,7 @@ function AddAppointmentModal({ user, onClose, patients, appointments, initialDat
           checkinToken: crypto.randomUUID(),
           createdAt: new Date().toISOString()
         });
-        await setDoc(doc(db, 'busySlots', slotId(user.uid, date, time)), { clinicId: user.uid, date, time, apt: ref.id }).catch(() => {});
+        await setDoc(doc(db, 'busySlots', slotId(user.uid, date, time)), { clinicId: user.uid, date, time }).catch(() => {});
         showToast('Agendamento realizado');
       } else {
         // Agendamento recorrente: cria N ocorrências de uma vez, pulando horários já ocupados
@@ -662,7 +658,7 @@ function AddAppointmentModal({ user, onClose, patients, appointments, initialDat
             a.date === occDateStr && a.time === time && a.status !== 'cancelled'
           );
           if (hasConflict) { skipped++; continue; }
-          const ref = await addDoc(collection(db, 'appointments'), {
+          await addDoc(collection(db, 'appointments'), {
             userId: user.uid,
             patientId,
             patientName: patient?.name || 'Unknown',
@@ -675,7 +671,7 @@ function AddAppointmentModal({ user, onClose, patients, appointments, initialDat
             checkinToken: crypto.randomUUID(),
             createdAt: new Date().toISOString()
           });
-          await setDoc(doc(db, 'busySlots', slotId(user.uid, occDateStr, time)), { clinicId: user.uid, date: occDateStr, time, apt: ref.id }).catch(() => {});
+          await setDoc(doc(db, 'busySlots', slotId(user.uid, occDateStr, time)), { clinicId: user.uid, date: occDateStr, time }).catch(() => {});
           created++;
         }
         showToast(skipped > 0 ? `${created} agendamentos criados, ${skipped} pulados por conflito` : `${created} agendamentos criados`);
