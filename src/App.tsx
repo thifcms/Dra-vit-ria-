@@ -101,9 +101,8 @@ function AuthenticatedApp() {
         <motion.div 
           animate={{ scale: [1, 1.05, 1] }} 
           transition={{ repeat: Infinity, duration: 2 }}
-          className="text-[#E8D8D0] font-light text-xl tracking-[0.3em] serif text-center"
         >
-          DRA. VITÓRIA OLIVEIRA
+          <img src={"/Dra-vit-ria-/logo/logo-full.png"} alt="Dra. Vitória Oliveira — Estética Orofacial" className="h-24 w-auto object-contain" />
         </motion.div>
       </div>
     );
@@ -163,12 +162,7 @@ function AuthenticatedApp() {
               className="fixed left-0 top-0 bottom-0 w-80 bg-white border-r border-[#F5F2F0] shadow-2xl z-[60] flex flex-col p-8"
             >
               <div className="flex items-center justify-between mb-8">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-[#E8D8D0] rounded-2xl flex items-center justify-center shadow-sm">
-                    <span className="text-white font-serif text-xl">{professionalName.trim().charAt(0).toUpperCase() || '?'}</span>
-                  </div>
-                  <span className="serif text-xl tracking-tight text-[#4A433F]">{professionalName}</span>
-                </div>
+                <img src={"/Dra-vit-ria-/logo/logo-mark.png"} alt="Dra. Vitória Oliveira" className="h-12 w-auto object-contain" />
                 <button 
                   onClick={() => setIsSidebarOpen(false)}
                   className="p-2 text-[#9CA3AF] hover:text-[#E8D8D0] transition-colors"
