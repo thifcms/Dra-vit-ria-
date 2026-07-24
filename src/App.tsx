@@ -99,11 +99,20 @@ function AuthenticatedApp() {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-white">
         <motion.div 
-          animate={{ scale: [1, 1.05, 1] }} 
-          transition={{ repeat: Infinity, duration: 2 }}
-          className="text-[#EADFD4] font-light text-xl tracking-[0.3em] serif text-center"
+          initial={{ opacity: 0, scale: 0.75 }}
+          animate={{ 
+            opacity: [0, 1, 1, 0.85, 1],
+            scale: [0.75, 1.08, 1, 1.04, 1],
+          }} 
+          transition={{ 
+            duration: 2.6,
+            times: [0, 0.4, 0.55, 0.8, 1],
+            repeat: Infinity,
+            repeatDelay: 0.3,
+            ease: 'easeInOut',
+          }}
         >
-          DRA. VITÓRIA OLIVEIRA
+          <img src="/Dra-vit-ria-/logo/logo-full.png" alt="Dra. Vitória Oliveira — Estética Orofacial" className="h-24 w-auto object-contain" />
         </motion.div>
       </div>
     );
