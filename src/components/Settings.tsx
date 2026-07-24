@@ -148,11 +148,11 @@ export default function Settings({ user }: { user: User }) {
   return (
     <div className="max-w-5xl mx-auto space-y-10">
       <div className="flex items-center gap-6">
-        <div className="p-4 bg-[#F8F9FA] rounded-3xl text-[#D1C7BD] border border-[#F1F3F5]">
+        <div className="p-4 bg-[#FDFBF9] rounded-3xl text-[#E8D8D0] border border-[#F5F2F0]">
           <SettingsIcon className="w-8 h-8" />
         </div>
         <div>
-          <h1 className="text-3xl font-light text-[#374151] serif">Configurações</h1>
+          <h1 className="text-3xl font-light text-[#4A433F] serif">Configurações</h1>
           <p className="text-[#9CA3AF] font-light text-xs uppercase tracking-widest mt-1">Personalização & Segurança da Clínica</p>
         </div>
       </div>
@@ -160,12 +160,12 @@ export default function Settings({ user }: { user: User }) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
           {/* Professional Profile */}
-          <section className="bg-white rounded-[40px] p-10 border border-[#F1F3F5] shadow-sm">
+          <section className="bg-white rounded-[40px] p-10 border border-[#F5F2F0] shadow-sm">
             <div className="flex items-center gap-4 mb-8">
-              <div className="p-3 bg-[#F8F9FA] rounded-2xl text-[#9CA3AF]">
+              <div className="p-3 bg-[#FDFBF9] rounded-2xl text-[#9CA3AF]">
                 <UserIcon size={24} />
               </div>
-              <h3 className="text-xl font-light text-[#374151] serif">Identificação Profissional</h3>
+              <h3 className="text-xl font-light text-[#4A433F] serif">Identificação Profissional</h3>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -185,12 +185,12 @@ export default function Settings({ user }: { user: User }) {
           </section>
 
           {/* Clinic Info */}
-          <section className="bg-white rounded-[40px] p-10 border border-[#F1F3F5] shadow-sm">
+          <section className="bg-white rounded-[40px] p-10 border border-[#F5F2F0] shadow-sm">
             <div className="flex items-center gap-4 mb-8">
-              <div className="p-3 bg-[#F8F9FA] rounded-2xl text-[#9CA3AF]">
+              <div className="p-3 bg-[#FDFBF9] rounded-2xl text-[#9CA3AF]">
                 <Building2 size={24} />
               </div>
-              <h3 className="text-xl font-light text-[#374151] serif">Sobre o Consultório</h3>
+              <h3 className="text-xl font-light text-[#4A433F] serif">Sobre o Consultório</h3>
             </div>
             
             <div className="space-y-8">
@@ -210,17 +210,17 @@ export default function Settings({ user }: { user: User }) {
           </section>
 
           {/* Consent Templates */}
-          <section className="bg-white rounded-[40px] p-10 border border-[#F1F3F5] shadow-sm">
+          <section className="bg-white rounded-[40px] p-10 border border-[#F5F2F0] shadow-sm">
             <div className="flex items-center justify-between mb-8">
               <div className="flex items-center gap-4">
-                <div className="p-3 bg-[#F8F9FA] rounded-2xl text-[#9CA3AF]">
+                <div className="p-3 bg-[#FDFBF9] rounded-2xl text-[#9CA3AF]">
                   <FileText size={24} />
                 </div>
-                <h3 className="text-xl font-light text-[#374151] serif">Modelos de Consentimento</h3>
+                <h3 className="text-xl font-light text-[#4A433F] serif">Modelos de Consentimento</h3>
               </div>
               <button 
                 onClick={() => setIsAddingTemplate(true)}
-                className="text-[#D1C7BD] text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 hover:text-[#9CA3AF] transition-colors"
+                className="text-[#E8D8D0] text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 hover:text-[#9CA3AF] transition-colors"
               >
                 <Plus size={16} /> Adicionar Modelo
               </button>
@@ -228,13 +228,13 @@ export default function Settings({ user }: { user: User }) {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {(settings.consentTemplates || []).map(template => (
-                <div key={template.id} className="p-6 bg-[#F8F9FA] border border-[#F1F3F5] rounded-2xl flex items-center justify-between group">
+                <div key={template.id} className="p-6 bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl flex items-center justify-between group">
                   <div className="flex items-center gap-3">
                     <FileText size={18} className="text-[#9CA3AF]" />
-                    <span className="text-sm font-medium text-[#374151]">{template.title}</span>
+                    <span className="text-sm font-medium text-[#4A433F]">{template.title}</span>
                   </div>
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                    <button onClick={() => setEditingTemplate(template)} className="p-2 text-[#9CA3AF] hover:text-[#374151]"><Edit2 size={16} /></button>
+                    <button onClick={() => setEditingTemplate(template)} className="p-2 text-[#9CA3AF] hover:text-[#4A433F]"><Edit2 size={16} /></button>
                     <button onClick={() => handleDeleteTemplate(template.id!)} className="p-2 text-[#9CA3AF] hover:text-red-400"><Trash2 size={16} /></button>
                   </div>
                 </div>
@@ -248,10 +248,10 @@ export default function Settings({ user }: { user: User }) {
 
         {/* Sidebar Actions */}
         <div className="space-y-6">
-          <div className="bg-[#374151] text-white rounded-[40px] p-10 shadow-xl relative overflow-hidden">
+          <div className="bg-[#4A433F] text-white rounded-[40px] p-10 shadow-xl relative overflow-hidden">
             <div className="relative z-10">
               <div className="flex items-center gap-3 mb-8">
-                <Shield size={20} className="text-[#D1C7BD]" />
+                <Shield size={20} className="text-[#E8D8D0]" />
                 <h3 className="text-lg font-light serif">Segurança</h3>
               </div>
               
@@ -276,7 +276,7 @@ export default function Settings({ user }: { user: User }) {
           <button 
             onClick={handleSaveAll}
             disabled={saving}
-            className="w-full py-5 bg-[#D1C7BD] text-white rounded-[28px] font-medium flex items-center justify-center gap-3 hover:bg-[#C5B9AD] transition-all shadow-lg active:scale-95 disabled:opacity-50"
+            className="w-full py-5 bg-[#E8D8D0] text-white rounded-[28px] font-medium flex items-center justify-center gap-3 hover:bg-[#DFCFBF] transition-all shadow-lg active:scale-95 disabled:opacity-50"
           >
             <Save size={20} />
             <span>{saving ? 'Gravando...' : 'Salvar Alterações'}</span>
@@ -285,7 +285,7 @@ export default function Settings({ user }: { user: User }) {
           <button 
             onClick={handleFullBackup}
             disabled={backingUp}
-            className="w-full py-5 bg-white border border-[#F1F3F5] text-[#374151] rounded-[28px] font-medium flex items-center justify-center gap-3 hover:border-[#D1C7BD] transition-all shadow-sm active:scale-95 disabled:opacity-50"
+            className="w-full py-5 bg-white border border-[#F5F2F0] text-[#4A433F] rounded-[28px] font-medium flex items-center justify-center gap-3 hover:border-[#E8D8D0] transition-all shadow-sm active:scale-95 disabled:opacity-50"
           >
             <Download size={20} />
             <span>{backingUp ? 'Gerando backup...' : 'Backup Completo (JSON)'}</span>
@@ -295,7 +295,7 @@ export default function Settings({ user }: { user: User }) {
 
       <AnimatePresence>
         {(isAddingTemplate || editingTemplate) && (
-          <div className="fixed inset-0 bg-[#374151]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+          <div className="fixed inset-0 bg-[#4A433F]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
             <motion.div 
               initial={{ y: 30, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
@@ -304,8 +304,8 @@ export default function Settings({ user }: { user: User }) {
               className="bg-white w-full max-w-2xl rounded-[40px] p-10 shadow-2xl"
             >
               <div className="flex items-center justify-between mb-8">
-                <h2 className="serif text-2xl text-[#374151]">{editingTemplate ? 'Editar Modelo' : 'Novo Modelo de Termo'}</h2>
-                <button onClick={() => { setIsAddingTemplate(false); setEditingTemplate(null); }} className="text-[#9CA3AF] hover:text-[#374151]"><X size={24} /></button>
+                <h2 className="serif text-2xl text-[#4A433F]">{editingTemplate ? 'Editar Modelo' : 'Novo Modelo de Termo'}</h2>
+                <button onClick={() => { setIsAddingTemplate(false); setEditingTemplate(null); }} className="text-[#9CA3AF] hover:text-[#4A433F]"><X size={24} /></button>
               </div>
               <TemplateForm 
                 template={editingTemplate} 
@@ -330,7 +330,7 @@ function ToggleButton({ active, onClick, label, icon }: any) {
         <div className="text-white/40 group-hover:text-white/60 transition-colors">{icon}</div>
         <span className="text-sm font-light">{label}</span>
       </div>
-      <div className={`w-10 h-5 rounded-full relative transition-colors ${active ? 'bg-[#E8F5E9]' : 'bg-white/20'}`}>
+      <div className={`w-10 h-5 rounded-full relative transition-colors ${active ? 'bg-[#F0F7F0]' : 'bg-white/20'}`}>
         <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${active ? 'right-1' : 'left-1'}`} />
       </div>
     </button>
@@ -346,7 +346,7 @@ function TemplateForm({ template, onSave, onCancel }: any) {
       <div>
         <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Título do Documento</label>
         <input 
-          className="w-full bg-[#F8F9FA] border border-[#F1F3F5] rounded-2xl p-4 outline-none focus:border-[#D1C7BD]/30 transition-all font-light text-[#374151]"
+          className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#E8D8D0]/30 transition-all font-light text-[#4A433F]"
           value={title}
           onChange={e => setTitle(e.target.value)}
           placeholder="ex: Termo de Consentimento - Preenchimento"
@@ -355,7 +355,7 @@ function TemplateForm({ template, onSave, onCancel }: any) {
       <div>
         <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Texto do Modelo</label>
         <textarea 
-          className="w-full bg-[#F8F9FA] border border-[#F1F3F5] rounded-2xl p-4 outline-none focus:border-[#D1C7BD]/30 transition-all font-light text-[#374151] min-h-[250px] resize-none"
+          className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#E8D8D0]/30 transition-all font-light text-[#4A433F] min-h-[250px] resize-none"
           value={content}
           onChange={e => setContent(e.target.value)}
           placeholder="Digite o texto. Use [NOME DO PACIENTE] para substituição automática."
@@ -365,7 +365,7 @@ function TemplateForm({ template, onSave, onCancel }: any) {
         <button onClick={onCancel} className="flex-1 py-4 text-[#9CA3AF] font-bold text-[10px] uppercase tracking-widest">Cancelar</button>
         <button 
           onClick={() => onSave({ ...template, title, content })}
-          className="flex-1 py-4 bg-[#D1C7BD] text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest shadow-md hover:bg-[#C5B9AD]"
+          className="flex-1 py-4 bg-[#E8D8D0] text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest shadow-md hover:bg-[#DFCFBF]"
         >
           Salvar Modelo
         </button>
@@ -381,7 +381,7 @@ function SettingField({ label, value, onChange, icon }: any) {
       <div className="relative flex items-center">
         <div className="absolute left-4 text-[#9CA3AF]">{icon}</div>
         <input 
-          className="w-full bg-[#F8F9FA] border border-[#F1F3F5] rounded-2xl p-4 pl-12 outline-none focus:border-[#D1C7BD]/30 transition-all font-light text-[#374151] shadow-sm"
+          className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 pl-12 outline-none focus:border-[#E8D8D0]/30 transition-all font-light text-[#4A433F] shadow-sm"
           value={value}
           onChange={e => onChange(e.target.value)}
         />

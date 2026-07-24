@@ -241,17 +241,17 @@ export default function Schedule({ user }: { user: FirebaseUser }) {
     <div className="max-w-6xl mx-auto space-y-8">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-4">
-          <div className="p-3 bg-[#F8F9FA] rounded-2xl text-[#D1C7BD] border border-[#F1F3F5]">
+          <div className="p-3 bg-[#FDFBF9] rounded-2xl text-[#E8D8D0] border border-[#F5F2F0]">
             <CalendarDays size={28} />
           </div>
           <div>
-            <h1 className="text-3xl font-light text-[#374151] serif">Agenda Clínica</h1>
+            <h1 className="text-3xl font-light text-[#4A433F] serif">Agenda Clínica</h1>
             <p className="text-[#9CA3AF] font-light text-xs uppercase tracking-widest mt-1">Gestão de Consultas & Disponibilidade</p>
           </div>
         </div>
         <button 
           onClick={() => setIsAdding(true)}
-          className="bg-[#D1C7BD] text-white px-8 py-4 rounded-2xl flex items-center gap-2 hover:bg-[#C5B9AD] transition-all shadow-md active:scale-95 font-medium"
+          className="bg-[#E8D8D0] text-white px-8 py-4 rounded-2xl flex items-center gap-2 hover:bg-[#DFCFBF] transition-all shadow-md active:scale-95 font-medium"
         >
           <Plus size={20} />
           <span>Novo Agendamento</span>
@@ -261,13 +261,13 @@ export default function Schedule({ user }: { user: FirebaseUser }) {
       <div className="flex flex-col lg:flex-row gap-8">
         {/* Calendar Sidebar */}
         <div className="w-full lg:w-80 space-y-6">
-          <div className="bg-white rounded-[32px] p-8 border border-[#F1F3F5] shadow-sm">
+          <div className="bg-white rounded-[32px] p-8 border border-[#F5F2F0] shadow-sm">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="font-semibold text-[#374151] serif">{selectedDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</h3>
+              <h3 className="font-semibold text-[#4A433F] serif">{selectedDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</h3>
               <div className="flex gap-1">
                 <button 
                   onClick={() => setSelectedDate(new Date())}
-                  className="px-4 py-2 text-[10px] font-bold text-[#D1C7BD] uppercase tracking-widest hover:bg-[#F8F9FA] rounded-xl transition-all mr-2"
+                  className="px-4 py-2 text-[10px] font-bold text-[#E8D8D0] uppercase tracking-widest hover:bg-[#FDFBF9] rounded-xl transition-all mr-2"
                 >
                   Hoje
                 </button>
@@ -277,7 +277,7 @@ export default function Schedule({ user }: { user: FirebaseUser }) {
                     d.setDate(d.getDate() - 1);
                     setSelectedDate(d);
                   }} 
-                  className="p-2 text-[#9CA3AF] hover:text-[#374151] hover:bg-[#F8F9FA] rounded-xl transition-all"
+                  className="p-2 text-[#9CA3AF] hover:text-[#4A433F] hover:bg-[#FDFBF9] rounded-xl transition-all"
                 >
                   <ChevronLeft size={20}/>
                 </button>
@@ -287,42 +287,42 @@ export default function Schedule({ user }: { user: FirebaseUser }) {
                     d.setDate(d.getDate() + 1);
                     setSelectedDate(d);
                   }} 
-                  className="p-2 text-[#9CA3AF] hover:text-[#374151] hover:bg-[#F8F9FA] rounded-xl transition-all"
+                  className="p-2 text-[#9CA3AF] hover:text-[#4A433F] hover:bg-[#FDFBF9] rounded-xl transition-all"
                 >
                   <ChevronRight size={20}/>
                 </button>
               </div>
             </div>
             
-            <div className="text-center py-6 bg-[#F8F9FA] rounded-2xl border border-[#F1F3F5]">
+            <div className="text-center py-6 bg-[#FDFBF9] rounded-2xl border border-[#F5F2F0]">
               <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-[0.2em] mb-1">{selectedDate.toLocaleDateString('pt-BR', { weekday: 'long' })}</p>
-              <p className="text-4xl font-light text-[#374151] serif">{selectedDate.getDate()}</p>
+              <p className="text-4xl font-light text-[#4A433F] serif">{selectedDate.getDate()}</p>
             </div>
           </div>
 
           {/* Fila de Espera */}
-          <div className="bg-white rounded-[32px] p-8 border border-[#F1F3F5] shadow-sm">
+          <div className="bg-white rounded-[32px] p-8 border border-[#F5F2F0] shadow-sm">
             <h4 className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-              <Users size={14} className="text-[#D1C7BD]" /> Fila de Espera
+              <Users size={14} className="text-[#E8D8D0]" /> Fila de Espera
             </h4>
             {waitingQueue.length === 0 ? (
               <p className="text-xs text-[#9CA3AF] font-light italic">Ninguém aguardando no momento.</p>
             ) : (
               <div className="space-y-3">
                 {waitingQueue.map((appt, i) => (
-                  <div key={appt.id} className="flex items-center gap-3 p-4 bg-[#F8F9FA] rounded-2xl border border-[#F1F3F5]">
-                    <div className="w-8 h-8 rounded-full bg-[#D1C7BD] text-white text-xs font-bold flex items-center justify-center shrink-0">
+                  <div key={appt.id} className="flex items-center gap-3 p-4 bg-[#FDFBF9] rounded-2xl border border-[#F5F2F0]">
+                    <div className="w-8 h-8 rounded-full bg-[#E8D8D0] text-white text-xs font-bold flex items-center justify-center shrink-0">
                       {i + 1}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-semibold text-[#374151] truncate">{appt.patientName}</p>
+                      <p className="text-xs font-semibold text-[#4A433F] truncate">{appt.patientName}</p>
                       <p className="text-[9px] text-[#9CA3AF] font-bold uppercase tracking-widest mt-0.5">
                         Aguardando desde {new Date(appt.checkedInAt!).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                       </p>
                     </div>
                     <button
                       onClick={() => handleSetStatus(appt.id!, 'completed')}
-                      className="px-3 py-2 bg-[#4F634F] text-white rounded-xl text-[9px] font-bold uppercase tracking-widest shrink-0 hover:opacity-90 transition-all"
+                      className="px-3 py-2 bg-[#8BA888] text-white rounded-xl text-[9px] font-bold uppercase tracking-widest shrink-0 hover:opacity-90 transition-all"
                     >
                       Atender
                     </button>
@@ -334,30 +334,30 @@ export default function Schedule({ user }: { user: FirebaseUser }) {
 
           {/* Lembretes de Hoje — só quando a data selecionada é hoje */}
           {isViewingToday && (
-            <div className="bg-white rounded-[32px] p-8 border border-[#F1F3F5] shadow-sm">
+            <div className="bg-white rounded-[32px] p-8 border border-[#F5F2F0] shadow-sm">
               <h4 className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-                <BellRing size={14} className="text-[#D1C7BD]" /> Lembretes de Hoje
+                <BellRing size={14} className="text-[#E8D8D0]" /> Lembretes de Hoje
               </h4>
               {todaysReminders.length === 0 ? (
                 <p className="text-xs text-[#9CA3AF] font-light italic">Nada pendente pra hoje.</p>
               ) : (
                 <div className="space-y-3">
                   {todaysReminders.map(appt => (
-                    <div key={appt.id} className="flex items-center gap-3 p-4 bg-[#F8F9FA] rounded-2xl border border-[#F1F3F5]">
+                    <div key={appt.id} className="flex items-center gap-3 p-4 bg-[#FDFBF9] rounded-2xl border border-[#F5F2F0]">
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs font-semibold text-[#374151] truncate">{appt.time} — {appt.patientName}</p>
+                        <p className="text-xs font-semibold text-[#4A433F] truncate">{appt.time} — {appt.patientName}</p>
                       </div>
                       <button
                         onClick={() => handleSendReminder(appt, 'whatsapp')}
                         title="Lembrete por WhatsApp"
-                        className="p-2 bg-[#4F634F] text-white rounded-xl shrink-0 hover:opacity-90 transition-all"
+                        className="p-2 bg-[#8BA888] text-white rounded-xl shrink-0 hover:opacity-90 transition-all"
                       >
                         <MessageCircle size={14} />
                       </button>
                       <button
                         onClick={() => handleSendReminder(appt, 'email')}
                         title="Lembrete por E-mail"
-                        className="p-2 bg-[#374151] text-white rounded-xl shrink-0 hover:opacity-90 transition-all"
+                        className="p-2 bg-[#4A433F] text-white rounded-xl shrink-0 hover:opacity-90 transition-all"
                       >
                         <Mail size={14} />
                       </button>
@@ -368,21 +368,21 @@ export default function Schedule({ user }: { user: FirebaseUser }) {
             </div>
           )}
 
-          <div className="bg-[#F8F9FA] rounded-[32px] p-8 border border-[#F1F3F5]">
+          <div className="bg-[#FDFBF9] rounded-[32px] p-8 border border-[#F5F2F0]">
             <h4 className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-[0.2em] mb-6">Legenda de Status</h4>
             <div className="space-y-4">
-              <LegendItem color="bg-[#D1C7BD]" label="Confirmado" />
-              <LegendItem color="bg-[#374151]" label="Agendado" />
+              <LegendItem color="bg-[#E8D8D0]" label="Confirmado" />
+              <LegendItem color="bg-[#4A433F]" label="Agendado" />
               <LegendItem color="bg-red-400" label="Cancelado" />
-              <LegendItem color="bg-[#E8F5E9]" label="Realizado" />
+              <LegendItem color="bg-[#F0F7F0]" label="Realizado" />
             </div>
           </div>
         </div>
 
         {/* Timeline View */}
-        <div className="flex-1 bg-white rounded-[40px] border border-[#F1F3F5] shadow-sm overflow-hidden min-h-[600px]">
-          <div className="p-8 border-b border-[#F1F3F5] bg-white flex items-center justify-between">
-            <span className="text-sm font-semibold text-[#374151]">Linha do Tempo</span>
+        <div className="flex-1 bg-white rounded-[40px] border border-[#F5F2F0] shadow-sm overflow-hidden min-h-[600px]">
+          <div className="p-8 border-b border-[#F5F2F0] bg-white flex items-center justify-between">
+            <span className="text-sm font-semibold text-[#4A433F]">Linha do Tempo</span>
             <span className="text-xs text-[#9CA3AF] font-bold uppercase tracking-widest">{dayAppointments.length} atendimentos hoje</span>
           </div>
           
@@ -395,26 +395,26 @@ export default function Schedule({ user }: { user: FirebaseUser }) {
                 return (
                   <div key={hour} className="flex gap-8 group">
                     <div className="w-16 py-4 text-xs font-bold text-[#9CA3AF] text-right tracking-widest">{hour}</div>
-                    <div className="flex-1 border-l border-[#F1F3F5] pl-8 py-4 relative">
-                      <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-[#F1F3F5] group-hover:bg-[#9CA3AF] transition-colors" />
+                    <div className="flex-1 border-l border-[#F5F2F0] pl-8 py-4 relative">
+                      <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-[#F5F2F0] group-hover:bg-[#9CA3AF] transition-colors" />
                       
                       {appt ? (
                         <motion.div 
                           initial={{ opacity: 0, x: 10 }}
                           animate={{ opacity: 1, x: 0 }}
                           className={`p-6 rounded-[24px] shadow-sm flex items-center justify-between group/card transition-all ${
-                            appt.status === 'confirmed' ? 'bg-[#D1C7BD]/10 border border-[#D1C7BD]/20' :
-                            appt.status === 'completed' ? 'bg-[#E8F5E9] border border-[#D0E7D2]' :
+                            appt.status === 'confirmed' ? 'bg-[#E8D8D0]/10 border border-[#E8D8D0]/20' :
+                            appt.status === 'completed' ? 'bg-[#F0F7F0] border border-[#E5EFE5]' :
                             appt.status === 'cancelled' ? 'bg-red-50 border border-red-100' :
-                            'bg-[#F8F9FA] border border-[#F1F3F5]'
+                            'bg-[#FDFBF9] border border-[#F5F2F0]'
                           }`}
                         >
                           <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center text-[#9CA3AF] border border-[#F1F3F5] shadow-sm">
+                            <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center text-[#9CA3AF] border border-[#F5F2F0] shadow-sm">
                               <User size={20} />
                             </div>
                             <div>
-                              <p className="text-sm font-semibold text-[#374151] flex items-center gap-2">
+                              <p className="text-sm font-semibold text-[#4A433F] flex items-center gap-2">
                                 {appt.patientName}
                                 {appt.checkedInAt && appt.status !== 'completed' && (
                                   <span className="text-[8px] bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full font-bold uppercase tracking-widest">Na fila</span>
@@ -432,7 +432,7 @@ export default function Schedule({ user }: { user: FirebaseUser }) {
                             <StatusBadge status={appt.status} />
                             <button
                               onClick={() => setOpenMenuId(openMenuId === appt.id ? null : appt.id!)}
-                              className="p-2 text-[#9CA3AF] hover:text-[#374151] transition-colors"
+                              className="p-2 text-[#9CA3AF] hover:text-[#4A433F] transition-colors"
                             >
                               <MoreHorizontal size={20} />
                             </button>
@@ -443,21 +443,21 @@ export default function Schedule({ user }: { user: FirebaseUser }) {
                                   initial={{ opacity: 0, y: 10 }}
                                   animate={{ opacity: 1, y: 0 }}
                                   exit={{ opacity: 0, y: 10 }}
-                                  className="absolute right-0 top-12 z-20 bg-white rounded-2xl border border-[#F1F3F5] shadow-xl py-3 w-52 overflow-hidden"
+                                  className="absolute right-0 top-12 z-20 bg-white rounded-2xl border border-[#F5F2F0] shadow-xl py-3 w-52 overflow-hidden"
                                 >
-                                  <MenuOption onClick={() => { setEditingAppointment(appt); setOpenMenuId(null); }} label="Editar" color="text-[#374151]" />
+                                  <MenuOption onClick={() => { setEditingAppointment(appt); setOpenMenuId(null); }} label="Editar" color="text-[#4A433F]" />
                                   {!appt.checkedInAt && appt.status !== 'completed' && appt.status !== 'cancelled' && (
                                     <>
                                       <MenuOption onClick={() => handleCheckIn(appt.id!)} label="Fazer Check-in Manual" color="text-amber-500" />
-                                      <MenuOption onClick={() => handleCopyCheckinLink(appt)} label="Copiar Link de Check-in" color="text-[#D1C7BD]" />
-                                      <MenuOption onClick={() => handleSendReminder(appt, 'whatsapp')} label="Lembrete por WhatsApp" color="text-[#4F634F]" />
-                                      <MenuOption onClick={() => handleSendReminder(appt, 'email')} label="Lembrete por E-mail" color="text-[#4F634F]" />
+                                      <MenuOption onClick={() => handleCopyCheckinLink(appt)} label="Copiar Link de Check-in" color="text-[#E8D8D0]" />
+                                      <MenuOption onClick={() => handleSendReminder(appt, 'whatsapp')} label="Lembrete por WhatsApp" color="text-[#8BA888]" />
+                                      <MenuOption onClick={() => handleSendReminder(appt, 'email')} label="Lembrete por E-mail" color="text-[#8BA888]" />
                                     </>
                                   )}
-                                  <MenuOption onClick={() => handleSetStatus(appt.id!, 'confirmed')} label="Confirmar" color="text-[#D1C7BD]" />
-                                  <MenuOption onClick={() => handleSetStatus(appt.id!, 'completed')} label="Marcar como realizado" color="text-[#4F634F]" />
+                                  <MenuOption onClick={() => handleSetStatus(appt.id!, 'confirmed')} label="Confirmar" color="text-[#E8D8D0]" />
+                                  <MenuOption onClick={() => handleSetStatus(appt.id!, 'completed')} label="Marcar como realizado" color="text-[#8BA888]" />
                                   <MenuOption onClick={() => handleSetStatus(appt.id!, 'cancelled')} label="Cancelar" color="text-red-400" />
-                                  <div className="h-px bg-[#F1F3F5] my-2" />
+                                  <div className="h-px bg-[#F5F2F0] my-2" />
                                   <MenuOption onClick={() => handleDeleteAppointment(appt.id!)} label="Excluir agendamento" color="text-red-500" />
                                 </motion.div>
                               )}
@@ -465,10 +465,10 @@ export default function Schedule({ user }: { user: FirebaseUser }) {
                           </div>
                         </motion.div>
                       ) : (
-                        <div className="h-20 flex items-center px-6 rounded-2xl border border-dashed border-transparent hover:border-[#F1F3F5] hover:bg-[#F8F9FA] transition-all">
+                        <div className="h-20 flex items-center px-6 rounded-2xl border border-dashed border-transparent hover:border-[#F5F2F0] hover:bg-[#FDFBF9] transition-all">
                           <button
                             onClick={() => { setPrefillTime(hour); setIsAdding(true); }}
-                            className="text-[#F1F3F5] group-hover:text-[#9CA3AF] flex items-center gap-3 text-xs font-bold uppercase tracking-widest transition-all"
+                            className="text-[#F5F2F0] group-hover:text-[#9CA3AF] flex items-center gap-3 text-xs font-bold uppercase tracking-widest transition-all"
                           >
                             <Plus size={18} />
                             <span>Horário Livre</span>
@@ -515,17 +515,17 @@ function LegendItem({ color, label }: any) {
   return (
     <div className="flex items-center gap-3">
       <div className={`w-2.5 h-2.5 rounded-full ${color}`} />
-      <span className="text-xs font-medium text-[#374151]">{label}</span>
+      <span className="text-xs font-medium text-[#4A433F]">{label}</span>
     </div>
   );
 }
 
 function StatusBadge({ status }: { status: string }) {
   const styles: any = {
-    confirmed: 'bg-[#D1C7BD] text-white',
-    completed: 'bg-[#E8F5E9] text-[#4F634F]',
+    confirmed: 'bg-[#E8D8D0] text-white',
+    completed: 'bg-[#F0F7F0] text-[#8BA888]',
     cancelled: 'bg-red-50 text-red-400 border border-red-100',
-    scheduled: 'bg-[#F8F9FA] text-[#9CA3AF] border border-[#F1F3F5]'
+    scheduled: 'bg-[#FDFBF9] text-[#9CA3AF] border border-[#F5F2F0]'
   };
   const labels: any = {
     confirmed: 'Confirmado',
@@ -542,7 +542,7 @@ function StatusBadge({ status }: { status: string }) {
 
 function MenuOption({ onClick, label, color }: any) {
   return (
-    <button onClick={onClick} className={`w-full text-left px-5 py-2.5 text-xs font-medium hover:bg-[#F8F9FA] transition-colors ${color}`}>
+    <button onClick={onClick} className={`w-full text-left px-5 py-2.5 text-xs font-medium hover:bg-[#FDFBF9] transition-colors ${color}`}>
       {label}
     </button>
   );
@@ -654,7 +654,7 @@ function AddAppointmentModal({ user, onClose, patients, appointments, initialDat
   };
 
   return (
-    <div className="fixed inset-0 bg-[#374151]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+    <div className="fixed inset-0 bg-[#4A433F]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
       <motion.div 
         initial={{ y: 30, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -662,13 +662,13 @@ function AddAppointmentModal({ user, onClose, patients, appointments, initialDat
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
         className="bg-white w-full max-w-lg rounded-[40px] p-10 shadow-2xl max-h-[90vh] overflow-y-auto"
       >
-        <h2 className="serif text-2xl text-[#374151] mb-8">{appointment ? 'Editar Agendamento' : 'Novo Agendamento'}</h2>
+        <h2 className="serif text-2xl text-[#4A433F] mb-8">{appointment ? 'Editar Agendamento' : 'Novo Agendamento'}</h2>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Paciente</label>
             <select 
               required
-              className="w-full bg-[#F8F9FA] border border-[#F1F3F5] rounded-2xl p-4 outline-none focus:border-[#D1C7BD]/30 transition-all font-light appearance-none text-sm"
+              className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#E8D8D0]/30 transition-all font-light appearance-none text-sm"
               value={patientId}
               onChange={e => setPatientId(e.target.value)}
             >
@@ -685,7 +685,7 @@ function AddAppointmentModal({ user, onClose, patients, appointments, initialDat
               <input 
                 type="date"
                 required
-                className="w-full bg-[#F8F9FA] border border-[#F1F3F5] rounded-2xl p-4 outline-none focus:border-[#D1C7BD]/30 transition-all font-light text-sm"
+                className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#E8D8D0]/30 transition-all font-light text-sm"
                 value={date}
                 onChange={e => setDate(e.target.value)}
               />
@@ -694,7 +694,7 @@ function AddAppointmentModal({ user, onClose, patients, appointments, initialDat
               <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Horário</label>
               <select 
                 required
-                className="w-full bg-[#F8F9FA] border border-[#F1F3F5] rounded-2xl p-4 outline-none focus:border-[#D1C7BD]/30 transition-all font-light appearance-none text-sm"
+                className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#E8D8D0]/30 transition-all font-light appearance-none text-sm"
                 value={time}
                 onChange={e => setTime(e.target.value)}
               >
@@ -711,7 +711,7 @@ function AddAppointmentModal({ user, onClose, patients, appointments, initialDat
             <div>
               <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Procedimento</label>
               <input 
-                className="w-full bg-[#F8F9FA] border border-[#F1F3F5] rounded-2xl p-4 outline-none focus:border-[#D1C7BD]/30 transition-all font-light text-sm"
+                className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#E8D8D0]/30 transition-all font-light text-sm"
                 value={notes}
                 onChange={e => setNotes(e.target.value)}
                 placeholder="ex: Harmonização Facial, Botox..."
@@ -723,7 +723,7 @@ function AddAppointmentModal({ user, onClose, patients, appointments, initialDat
                 type="number"
                 step="0.01"
                 min="0"
-                className="w-full bg-[#F8F9FA] border border-[#F1F3F5] rounded-2xl p-4 outline-none focus:border-[#D1C7BD]/30 transition-all font-light text-sm"
+                className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#E8D8D0]/30 transition-all font-light text-sm"
                 value={value}
                 onChange={e => setValue(e.target.value)}
                 placeholder="0,00"
@@ -732,10 +732,10 @@ function AddAppointmentModal({ user, onClose, patients, appointments, initialDat
           </div>
 
           {!appointment && (
-            <div className="p-6 bg-[#F8F9FA] rounded-3xl border border-[#F1F3F5] space-y-4">
+            <div className="p-6 bg-[#FDFBF9] rounded-3xl border border-[#F5F2F0] space-y-4">
               <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest ml-1">Recorrência</label>
               <select
-                className="w-full bg-white border border-[#F1F3F5] rounded-2xl p-4 outline-none focus:border-[#D1C7BD]/30 transition-all font-light appearance-none text-sm"
+                className="w-full bg-white border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#E8D8D0]/30 transition-all font-light appearance-none text-sm"
                 value={recurrence}
                 onChange={e => setRecurrence(e.target.value as any)}
               >
@@ -751,7 +751,7 @@ function AddAppointmentModal({ user, onClose, patients, appointments, initialDat
                     type="number"
                     min="2"
                     max="52"
-                    className="w-full bg-white border border-[#F1F3F5] rounded-2xl p-4 outline-none focus:border-[#D1C7BD]/30 transition-all font-light text-sm"
+                    className="w-full bg-white border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#E8D8D0]/30 transition-all font-light text-sm"
                     value={occurrences}
                     onChange={e => setOccurrences(parseInt(e.target.value) || 2)}
                   />
@@ -765,7 +765,7 @@ function AddAppointmentModal({ user, onClose, patients, appointments, initialDat
             <button 
               disabled={saving}
               type="submit" 
-              className="flex-1 py-4 bg-[#D1C7BD] text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-[#C5B9AD] transition-all"
+              className="flex-1 py-4 bg-[#E8D8D0] text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-[#DFCFBF] transition-all"
             >
               {saving ? 'Salvando...' : appointment ? 'Salvar Alterações' : 'Confirmar Agenda'}
             </button>

@@ -6,10 +6,10 @@
   --font-sans: 'Inter', sans-serif;
   --font-serif: 'Playfair Display', serif;
   
-  --color-primary: #374151;
+  --color-primary: #4A433F;
   --color-secondary: #9CA3AF;
-  --color-tertiary: #D1C7BD;
-  --color-bg-light: #F8F9FA;
+  --color-tertiary: #E8D8D0;
+  --color-bg-light: #FDFBF9;
 }
 
 body {

@@ -37,7 +37,7 @@ export function ToastHost() {
         <div
           key={t.id}
           className={`px-5 py-4 rounded-2xl shadow-lg text-sm font-medium text-white animate-[fadeIn_0.2s_ease-out] ${
-            t.kind === 'error' ? 'bg-[#A05252]' : t.kind === 'info' ? 'bg-[#4A4644]' : 'bg-[#4F634F]'
+            t.kind === 'error' ? 'bg-[#C27E7E]' : t.kind === 'info' ? 'bg-[#4A4644]' : 'bg-[#8BA888]'
           }`}
         >
           {t.text}

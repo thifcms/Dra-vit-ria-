@@ -152,15 +152,15 @@ export default function Finance({ user }: { user: User }) {
           label="Saldo Disponível" 
           value={balance} 
           icon={<DollarSign size={20} />} 
-          color="text-[#374151]" 
-          bg="bg-[#F8F9FA]"
+          color="text-[#4A433F]" 
+          bg="bg-[#FDFBF9]"
         />
         <BalanceCard 
           label="Entradas do Mês" 
           value={totalIncome} 
           icon={<ArrowUpCircle size={20} />} 
-          color="text-[#4F634F]" 
-          bg="bg-[#E8F5E9]"
+          color="text-[#8BA888]" 
+          bg="bg-[#F0F7F0]"
         />
         <BalanceCard 
           label="Saídas do Mês" 
@@ -175,10 +175,10 @@ export default function Finance({ user }: { user: User }) {
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-white rounded-[48px] border border-[#F1F3F5] p-10 shadow-sm"
+        className="bg-white rounded-[48px] border border-[#F5F2F0] p-10 shadow-sm"
       >
         <div className="mb-10">
-          <h3 className="serif text-2xl text-[#374151]">Fluxo de Caixa</h3>
+          <h3 className="serif text-2xl text-[#4A433F]">Fluxo de Caixa</h3>
           <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest mt-1">Comparativo de Entradas e Saídas • Últimos 6 meses</p>
         </div>
         <div className="h-[300px] w-full">
@@ -186,15 +186,15 @@ export default function Finance({ user }: { user: User }) {
             <AreaChart data={chartData}>
               <defs>
                 <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#4F634F" stopOpacity={0.2}/>
-                  <stop offset="95%" stopColor="#4F634F" stopOpacity={0}/>
+                  <stop offset="5%" stopColor="#8BA888" stopOpacity={0.2}/>
+                  <stop offset="95%" stopColor="#8BA888" stopOpacity={0}/>
                 </linearGradient>
                 <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#ef4444" stopOpacity={0.1}/>
-                  <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                  <stop offset="5%" stopColor="#F1A7A7" stopOpacity={0.1}/>
+                  <stop offset="95%" stopColor="#F1A7A7" stopOpacity={0}/>
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F3F5" />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F5F2F0" />
               <XAxis 
                 dataKey="name" 
                 axisLine={false} 
@@ -220,7 +220,7 @@ export default function Finance({ user }: { user: User }) {
               <Area 
                 type="monotone" 
                 dataKey="Entradas" 
-                stroke="#4F634F" 
+                stroke="#8BA888" 
                 strokeWidth={3}
                 fillOpacity={1} 
                 fill="url(#colorIncome)" 
@@ -229,7 +229,7 @@ export default function Finance({ user }: { user: User }) {
               <Area 
                 type="monotone" 
                 dataKey="Saídas" 
-                stroke="#ef4444" 
+                stroke="#F1A7A7" 
                 strokeWidth={3}
                 fillOpacity={1} 
                 fill="url(#colorExpense)" 
@@ -244,10 +244,10 @@ export default function Finance({ user }: { user: User }) {
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-[48px] border border-[#F1F3F5] p-10 shadow-sm"
+          className="bg-white rounded-[48px] border border-[#F5F2F0] p-10 shadow-sm"
         >
           <div className="mb-8">
-            <h3 className="serif text-2xl text-[#374151]">Resumo por Categoria</h3>
+            <h3 className="serif text-2xl text-[#4A433F]">Resumo por Categoria</h3>
             <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest mt-1">Onde entra e sai seu dinheiro</p>
           </div>
           <div className="space-y-3">
@@ -255,9 +255,9 @@ export default function Finance({ user }: { user: User }) {
               const maxTotal = categoryTotals[0].total || 1;
               return (
                 <div key={c.category} className="flex items-center gap-4">
-                  <span className="w-40 shrink-0 text-xs font-semibold text-[#374151] truncate">{c.category}</span>
-                  <div className="flex-1 h-3 bg-[#F8F9FA] rounded-full overflow-hidden flex">
-                    {c.income > 0 && <div className="h-full bg-[#4F634F]" style={{ width: `${(c.income / maxTotal) * 100}%` }} />}
+                  <span className="w-40 shrink-0 text-xs font-semibold text-[#4A433F] truncate">{c.category}</span>
+                  <div className="flex-1 h-3 bg-[#FDFBF9] rounded-full overflow-hidden flex">
+                    {c.income > 0 && <div className="h-full bg-[#8BA888]" style={{ width: `${(c.income / maxTotal) * 100}%` }} />}
                     {c.expense > 0 && <div className="h-full bg-red-400" style={{ width: `${(c.expense / maxTotal) * 100}%` }} />}
                   </div>
                   <span className="w-32 shrink-0 text-right text-xs font-bold text-[#9CA3AF]">
@@ -271,7 +271,7 @@ export default function Finance({ user }: { user: User }) {
       )}
       {/* Toolbar */}
       <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="flex bg-white rounded-2xl p-1 border border-[#F1F3F5] shadow-sm">
+        <div className="flex bg-white rounded-2xl p-1 border border-[#F5F2F0] shadow-sm">
           <FilterButton active={filter === 'all'} onClick={() => setFilter('all')} label="Todos" />
           <FilterButton active={filter === 'income'} onClick={() => setFilter('income')} label="Entradas" />
           <FilterButton active={filter === 'expense'} onClick={() => setFilter('expense')} label="Saídas" />
@@ -280,14 +280,14 @@ export default function Finance({ user }: { user: User }) {
         <div className="flex items-center gap-4 w-full md:w-auto">
           <button 
             onClick={handleExportCSV}
-            className="flex-1 md:flex-none p-4 bg-white border border-[#F1F3F5] text-[#9CA3AF] rounded-2xl hover:border-[#D1C7BD] transition-all flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-widest"
+            className="flex-1 md:flex-none p-4 bg-white border border-[#F5F2F0] text-[#9CA3AF] rounded-2xl hover:border-[#E8D8D0] transition-all flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-widest"
           >
             <Download size={18} />
             Relatório
           </button>
           <button 
             onClick={() => setIsAdding(true)}
-            className="flex-1 md:flex-none p-4 bg-[#D1C7BD] text-white rounded-2xl hover:bg-[#C5B9AD] transition-all flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-widest shadow-md"
+            className="flex-1 md:flex-none p-4 bg-[#E8D8D0] text-white rounded-2xl hover:bg-[#DFCFBF] transition-all flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-widest shadow-md"
           >
             <Plus size={18} />
             Lançar Fluxo
@@ -296,14 +296,14 @@ export default function Finance({ user }: { user: User }) {
       </div>
 
       {/* Transactions List */}
-      <div className="bg-white rounded-[40px] border border-[#F1F3F5] shadow-sm overflow-hidden min-h-[400px]">
+      <div className="bg-white rounded-[40px] border border-[#F5F2F0] shadow-sm overflow-hidden min-h-[400px]">
         {loading ? (
           <div className="p-20 text-center text-[#9CA3AF] font-light">Carregando...</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-[#F8F9FA] border-b border-[#F1F3F5]">
+                <tr className="bg-[#FDFBF9] border-b border-[#F5F2F0]">
                   <th className="p-6 text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF]">Data</th>
                   <th className="p-6 text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF]">Descrição</th>
                   <th className="p-6 text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF]">Categoria</th>
@@ -311,23 +311,23 @@ export default function Finance({ user }: { user: User }) {
                   <th className="p-6"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#F1F3F5]">
+              <tbody className="divide-y divide-[#F5F2F0]">
                 {filteredTransactions.map((t) => (
-                  <tr key={t.id} className="hover:bg-[#F8F9FA] transition-colors group">
+                  <tr key={t.id} className="hover:bg-[#FDFBF9] transition-colors group">
                     <td className="p-6 text-sm font-light text-[#9CA3AF]">{new Date(t.date).toLocaleDateString('pt-BR')}</td>
-                    <td className="p-6 font-medium text-[#374151]">{t.description}</td>
+                    <td className="p-6 font-medium text-[#4A433F]">{t.description}</td>
                     <td className="p-6">
-                      <span className="px-3 py-1 bg-[#F8F9FA] text-[#9CA3AF] text-[10px] font-bold uppercase tracking-widest rounded-lg border border-[#F1F3F5]">
+                      <span className="px-3 py-1 bg-[#FDFBF9] text-[#9CA3AF] text-[10px] font-bold uppercase tracking-widest rounded-lg border border-[#F5F2F0]">
                         {t.category}
                       </span>
                     </td>
-                    <td className={`p-6 font-semibold ${t.type === 'income' ? 'text-[#4F634F]' : 'text-red-400'}`}>
+                    <td className={`p-6 font-semibold ${t.type === 'income' ? 'text-[#8BA888]' : 'text-red-400'}`}>
                       {t.type === 'income' ? '+' : '-'} R$ {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </td>
                     <td className="p-6 text-right">
                       <button 
                         onClick={() => handleDelete(t.id!)}
-                        className="p-2 text-[#F1F3F5] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                        className="p-2 text-[#F5F2F0] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
                       >
                         <Trash2 size={18} />
                       </button>
@@ -361,7 +361,7 @@ export default function Finance({ user }: { user: User }) {
 
 function BalanceCard({ label, value, icon, color, bg }: any) {
   return (
-    <div className={`${bg} p-8 rounded-[32px] border border-[#F1F3F5] shadow-sm`}>
+    <div className={`${bg} p-8 rounded-[32px] border border-[#F5F2F0] shadow-sm`}>
       <div className="flex items-center gap-3 mb-4">
         <div className={`p-2 bg-white rounded-xl ${color} shadow-sm`}>{icon}</div>
         <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest">{label}</p>
@@ -378,7 +378,7 @@ function FilterButton({ active, onClick, label }: any) {
     <button 
       onClick={onClick}
       className={`px-6 py-3 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${
-        active ? 'bg-[#D1C7BD] text-white shadow-md' : 'text-[#9CA3AF] hover:bg-[#F8F9FA]'
+        active ? 'bg-[#E8D8D0] text-white shadow-md' : 'text-[#9CA3AF] hover:bg-[#FDFBF9]'
       }`}
     >
       {label}
@@ -451,7 +451,7 @@ function AddTransactionModal({ user, onClose }: any) {
   };
 
   return (
-    <div className="fixed inset-0 bg-[#374151]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+    <div className="fixed inset-0 bg-[#4A433F]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
       <motion.div 
         initial={{ y: 30, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -459,12 +459,12 @@ function AddTransactionModal({ user, onClose }: any) {
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
         className="bg-white w-full max-w-lg rounded-[40px] p-10 shadow-2xl"
       >
-        <h2 className="serif text-2xl text-[#374151] mb-8">Novo Lançamento</h2>
+        <h2 className="serif text-2xl text-[#4A433F] mb-8">Novo Lançamento</h2>
         
-        <div className="flex gap-4 mb-8 bg-[#F8F9FA] p-2 rounded-2xl">
+        <div className="flex gap-4 mb-8 bg-[#FDFBF9] p-2 rounded-2xl">
           <button 
             onClick={() => setType('income')}
-            className={`flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${type === 'income' ? 'bg-[#E8F5E9] text-[#4F634F] shadow-sm' : 'text-[#9CA3AF]'}`}
+            className={`flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${type === 'income' ? 'bg-[#F0F7F0] text-[#8BA888] shadow-sm' : 'text-[#9CA3AF]'}`}
           >
             Entrada
           </button>
@@ -483,7 +483,7 @@ function AddTransactionModal({ user, onClose }: any) {
               required
               type="text"
               placeholder="0,00"
-              className="w-full bg-[#F8F9FA] border border-[#F1F3F5] rounded-2xl p-4 text-2xl serif outline-none focus:border-[#D1C7BD]/30 transition-all"
+              className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 text-2xl serif outline-none focus:border-[#E8D8D0]/30 transition-all"
               value={amount}
               onChange={e => setAmount(e.target.value)}
             />
@@ -492,7 +492,7 @@ function AddTransactionModal({ user, onClose }: any) {
             <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Descrição</label>
             <input 
               required
-              className="w-full bg-[#F8F9FA] border border-[#F1F3F5] rounded-2xl p-4 outline-none focus:border-[#D1C7BD]/30 transition-all font-light"
+              className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#E8D8D0]/30 transition-all font-light"
               value={description}
               onChange={e => setDescription(e.target.value)}
               placeholder="Ex: Pagamento Consulta, Compra Insumos..."
@@ -507,7 +507,7 @@ function AddTransactionModal({ user, onClose }: any) {
                   type="button"
                   onClick={() => setCategory(cat)}
                   className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all border ${
-                    category === cat ? 'bg-[#D1C7BD] border-[#D1C7BD] text-white' : 'bg-white border-[#F1F3F5] text-[#9CA3AF] hover:border-[#D1C7BD]'
+                    category === cat ? 'bg-[#E8D8D0] border-[#E8D8D0] text-white' : 'bg-white border-[#F5F2F0] text-[#9CA3AF] hover:border-[#E8D8D0]'
                   }`}
                 >
                   {cat}
@@ -516,7 +516,7 @@ function AddTransactionModal({ user, onClose }: any) {
             </div>
             <input 
               required
-              className="w-full bg-[#F8F9FA] border border-[#F1F3F5] rounded-2xl p-4 outline-none focus:border-[#D1C7BD]/30 transition-all font-light"
+              className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#E8D8D0]/30 transition-all font-light"
               value={category}
               onChange={e => setCategory(e.target.value)}
               placeholder="Ou digite outra categoria..."
@@ -524,15 +524,15 @@ function AddTransactionModal({ user, onClose }: any) {
           </div>
 
           {type === 'expense' && (
-            <div className="p-6 bg-[#F8F9FA] rounded-3xl border border-[#F1F3F5] space-y-4">
+            <div className="p-6 bg-[#FDFBF9] rounded-3xl border border-[#F5F2F0] space-y-4">
               <button
                 type="button"
                 onClick={() => setIsRecurring(!isRecurring)}
                 className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all border text-left w-full ${
-                  isRecurring ? 'bg-[#E8F5E9] border-[#E8F5E9] text-[#4F634F]' : 'bg-white border-[#F1F3F5] text-[#9CA3AF]'
+                  isRecurring ? 'bg-[#F0F7F0] border-[#F0F7F0] text-[#8BA888]' : 'bg-white border-[#F5F2F0] text-[#9CA3AF]'
                 }`}
               >
-                <div className={`w-4 h-4 rounded border flex items-center justify-center ${isRecurring ? 'bg-[#4F634F] border-[#4F634F]' : 'bg-white border-[#F1F3F5]'}`}>
+                <div className={`w-4 h-4 rounded border flex items-center justify-center ${isRecurring ? 'bg-[#8BA888] border-[#8BA888]' : 'bg-white border-[#F5F2F0]'}`}>
                   {isRecurring && <CheckCircle2 size={10} className="text-white" />}
                 </div>
                 <span className="text-[10px] font-bold uppercase tracking-widest">Despesa recorrente (ex: aluguel, insumos mensais)</span>
@@ -544,7 +544,7 @@ function AddTransactionModal({ user, onClose }: any) {
                     type="number"
                     min="2"
                     max="36"
-                    className="w-full bg-white border border-[#F1F3F5] rounded-2xl p-4 outline-none focus:border-[#D1C7BD]/30 transition-all font-light text-sm"
+                    className="w-full bg-white border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#E8D8D0]/30 transition-all font-light text-sm"
                     value={months}
                     onChange={e => setMonths(parseInt(e.target.value) || 2)}
                   />
@@ -558,7 +558,7 @@ function AddTransactionModal({ user, onClose }: any) {
             <button 
               disabled={saving}
               type="submit" 
-              className="flex-1 py-4 bg-[#D1C7BD] text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-[#C5B9AD] transition-all"
+              className="flex-1 py-4 bg-[#E8D8D0] text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-[#DFCFBF] transition-all"
             >
               {saving ? 'Salvando...' : 'Confirmar Lançamento'}
             </button>
