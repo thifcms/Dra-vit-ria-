@@ -99,16 +99,17 @@ function AuthenticatedApp() {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-white">
         <motion.div 
-          initial={{ opacity: 0, scale: 0.75 }}
+          initial={{ opacity: 0, scale: 0.55, filter: 'blur(10px)' }}
           animate={{ 
-            opacity: [0, 1, 1, 0.85, 1],
-            scale: [0.75, 1.08, 1, 1.04, 1],
+            opacity: [0, 0.3, 1, 1, 0.85, 1],
+            scale: [0.55, 0.8, 1.08, 1, 1.04, 1],
+            filter: ['blur(10px)', 'blur(6px)', 'blur(0px)', 'blur(0px)', 'blur(0px)', 'blur(0px)'],
           }} 
           transition={{ 
-            duration: 2.6,
-            times: [0, 0.4, 0.55, 0.8, 1],
+            duration: 5,
+            times: [0, 0.3, 0.65, 0.78, 0.9, 1],
             repeat: Infinity,
-            repeatDelay: 0.3,
+            repeatDelay: 0.6,
             ease: 'easeInOut',
           }}
         >
