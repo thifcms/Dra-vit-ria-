@@ -172,7 +172,7 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
 
   const handleSendReminder = (appt: any) => {
     if (!clinicSettings) return;
-    const phone = appt.guestPhone || appt.patientPhone; // No prontuário pode ser patientPhone
+    const phone = appt.guestPhone;
     if (!phone) return;
 
     const checkinUrl = checkinLink(appt.id, appt.checkinToken, appt.date, appt.time);

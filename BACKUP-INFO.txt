@@ -1,0 +1,22 @@
+Backup de segurança — Clínica Digital
+======================================
+
+Commit exato deste backup: d0d614e2f1ec8d5778ca59993731efe4dbcf8297
+Data: 2026-07-24 21:59:03 +0000
+Repositório: github.com/thifcms/Dra-vit-ria-
+
+Este é o código-fonte completo (sem node_modules, sem histórico do git,
+sem a pasta dist de build) exatamente como está publicado agora em:
+https://thifcms.github.io/Dra-vit-ria-/
+
+IMPORTANTE — isso é só o CÓDIGO. Os dados reais (pacientes, agendamentos,
+financeiro, estoque) ficam no Firestore, não aqui. Pra fazer backup dos
+DADOS, use o botão "Backup Completo (JSON)" em Configurações dentro do
+próprio app — isso baixa um arquivo com tudo do banco.
+
+Como restaurar este código, se precisar algum dia:
+1. Crie um repositório novo no GitHub (ou reaproveite um existente)
+2. Extraia este zip dentro dele
+3. npm install
+4. npm run build (pra conferir que compila)
+5. git add -A && git commit -m "restauração do backup" && git push

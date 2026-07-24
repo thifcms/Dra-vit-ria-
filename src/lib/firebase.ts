@@ -1,11 +1,15 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import { initializeFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+// ignoreUndefinedProperties: sem isso, o Firestore recusa (lança erro) qualquer escrita que
+// tenha um campo com valor `undefined` — o que acontece toda vez que um campo opcional
+// (ex: e-mail, CPF, valor do procedimento) é deixado em branco e cai como `undefined` no
+// objeto salvo. Isso já causava falha silenciosa em vários formulários do app.
+export const db = initializeFirestore(app, { ignoreUndefinedProperties: true }, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
 export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();
