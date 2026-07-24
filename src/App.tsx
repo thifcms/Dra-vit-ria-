@@ -99,18 +99,17 @@ function AuthenticatedApp() {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-white">
         <motion.div 
-          initial={{ opacity: 0, scale: 0.55, filter: 'blur(10px)' }}
+          initial={{ opacity: 0, scale: 0.9, filter: 'blur(14px)' }}
           animate={{ 
-            opacity: [0, 0.3, 1, 1, 0.85, 1],
-            scale: [0.55, 0.8, 1.08, 1, 1.04, 1],
-            filter: ['blur(10px)', 'blur(6px)', 'blur(0px)', 'blur(0px)', 'blur(0px)', 'blur(0px)'],
+            opacity: 1,
+            scale: 1,
+            filter: 'blur(0px)',
           }} 
           transition={{ 
             duration: 5,
-            times: [0, 0.3, 0.65, 0.78, 0.9, 1],
             repeat: Infinity,
-            repeatDelay: 0.6,
-            ease: 'easeInOut',
+            repeatType: 'reverse',
+            ease: [0.65, 0, 0.35, 1],
           }}
         >
           <img src="/Dra-vit-ria-/logo/logo-full.png" alt="Dra. Vitória Oliveira — Estética Orofacial" className="h-24 w-auto object-contain" />
