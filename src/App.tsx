@@ -55,7 +55,9 @@ export default function App() {
 
 function AuthenticatedApp() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [minSplashElapsed, setMinSplashElapsed] = useState(false);
+  const loading = !authChecked || !minSplashElapsed;
   const [activeView, setActiveView] = useState<View>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [clinicSettings, setClinicSettings] = useState<ClinicSettings | null>(null);
@@ -74,9 +76,16 @@ function AuthenticatedApp() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u);
-      setLoading(false);
+      setAuthChecked(true);
     });
     return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    // Segura a tela de abertura por tempo suficiente pra dar pra ver a animação da logo
+    // por completo, mesmo quando o Firebase confirma o login quase instantaneamente.
+    const timer = setTimeout(() => setMinSplashElapsed(true), 5000);
+    return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
@@ -97,9 +106,9 @@ function AuthenticatedApp() {
 
   if (loading) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-white">
+      <div className="h-screen w-screen flex items-center justify-center bg-white overflow-hidden">
         <motion.div 
-          initial={{ opacity: 0, scale: 0.9, filter: 'blur(14px)' }}
+          initial={{ opacity: 0, scale: 0.12, filter: 'blur(24px)' }}
           animate={{ 
             opacity: 1,
             scale: 1,
@@ -107,9 +116,7 @@ function AuthenticatedApp() {
           }} 
           transition={{ 
             duration: 5,
-            repeat: Infinity,
-            repeatType: 'reverse',
-            ease: [0.65, 0, 0.35, 1],
+            ease: [0.16, 1, 0.3, 1],
           }}
         >
           <img src="/Dra-vit-ria-/logo/logo-full.png" alt="Dra. Vitória Oliveira — Estética Orofacial" className="h-24 w-auto object-contain" />
