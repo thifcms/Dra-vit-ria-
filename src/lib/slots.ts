@@ -19,3 +19,15 @@ export function checkinLink(appointmentId: string, token: string, date: string, 
   const base = window.location.href.split('#')[0];
   return `${base}#checkin?apt=${appointmentId}&token=${token}&date=${date}&time=${time}`;
 }
+
+// Normaliza telefone (só dígitos, com DDI 55 se não tiver) — usado como base do ID
+// determinístico no índice telefone → paciente (patientPhoneIndex).
+export function normalizePhone(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.startsWith('55') && digits.length >= 12) return digits;
+  return `55${digits}`;
+}
+
+export function phoneIndexKey(clinicId: string, phone: string): string {
+  return `${clinicId}_${normalizePhone(phone)}`;
+}

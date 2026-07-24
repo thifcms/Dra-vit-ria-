@@ -333,7 +333,7 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
                       </p>
                     </div>
                     <button
-                      onClick={() => handleSetStatus(appt.id!, 'completed')}
+                      onClick={() => handleOpenPatient(appt)}
                       className="px-3 py-2 bg-[#8BA888] text-white rounded-xl text-[9px] font-bold uppercase tracking-widest shrink-0 hover:opacity-90 transition-all"
                     >
                       Atender
@@ -464,6 +464,7 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
                                   exit={{ opacity: 0, y: 10 }}
                                   className="absolute right-0 top-12 z-20 bg-white rounded-2xl border border-[#F5F2F0] shadow-xl py-3 w-52 overflow-hidden"
                                 >
+                                  <MenuOption onClick={() => { handleOpenPatient(appt); setOpenMenuId(null); }} label="Abrir Prontuário" color="text-[#EADFD4]" />
                                   <MenuOption onClick={() => { setEditingAppointment(appt); setOpenMenuId(null); }} label="Editar" color="text-[#5C544E]" />
                                   {!appt.checkedInAt && appt.status !== 'completed' && appt.status !== 'cancelled' && (
                                     <>

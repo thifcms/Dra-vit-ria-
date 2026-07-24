@@ -17,7 +17,8 @@ import {
   X,
   Search,
   User as UserIcon,
-  CreditCard
+  CreditCard,
+  ArrowLeft
 } from 'lucide-react';
 
 // Views — carregadas sob demanda (code-splitting), só a tela ativa entra no bundle inicial
@@ -290,6 +291,15 @@ function AuthenticatedApp() {
         <header className="h-auto min-h-28 bg-white flex items-center justify-between px-6 md:px-10 py-6 z-10 border-b border-[#F5F2F0]">
           <div className="space-y-1">
             <div className="flex items-center gap-x-3 gap-y-1 whitespace-nowrap">
+              {activeView !== 'dashboard' && (
+                <button
+                  onClick={() => setActiveView('dashboard')}
+                  className="p-2 -ml-2 text-[#9CA3AF] hover:text-[#EADFD4] hover:bg-[#FDFBF9] rounded-xl transition-all"
+                  title="Voltar ao início"
+                >
+                  <ArrowLeft size={20} />
+                </button>
+              )}
               <h1 className="serif text-xl md:text-2xl text-[#5C544E] leading-none">
                 {activeView === 'dashboard' ? '' : 
                  activeView === 'patients' ? 'Pacientes' :

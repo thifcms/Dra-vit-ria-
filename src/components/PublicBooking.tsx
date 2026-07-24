@@ -1,16 +1,18 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { doc, getDoc, setDoc, addDoc, deleteDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { slotId, checkinLink, CLINIC_HOURS } from '../lib/slots';
-import { motion, AnimatePresence } from 'motion/react';
-import { Calendar, Phone, User as UserIcon, ChevronLeft, ChevronRight, CheckCircle2, MessageSquare } from 'lucide-react';
-import type { PublicBookingConfig, BusySlot } from '../types';
+import { slotId, checkinLink, CLINIC_HOURS, phoneIndexKey } from '../lib/slots';
 import { buildReminderMessage, whatsappLink } from '../lib/reminders';
+import { motion, AnimatePresence } from 'motion/react';
+import { Calendar, Phone, User as UserIcon, Mail, IdCard, ChevronLeft, ChevronRight, CheckCircle2, MessageSquare } from 'lucide-react';
+import type { PublicBookingConfig, BusySlot } from '../types';
+
+type Step = 'calendar' | 'phone' | 'register' | 'confirm';
 
 // Página pública de agendamento — acessada via link (ex: no Instagram/site), sem exigir login.
-// Mostra só os horários realmente livres (a coleção 'busySlots' é pública mas só tem
-// data/hora, nenhum dado de paciente) e cria o agendamento direto, sem precisar de
-// confirmação manual da clínica.
+// Mostra só os horários realmente livres e cria o agendamento direto, sem precisar de
+// confirmação manual da clínica. Reconhece pacientes que já agendaram antes pelo telefone,
+// evitando pedir os dados de novo, e cria o cadastro completo automaticamente pra quem é novo.
 export default function PublicBooking() {
   const [config, setConfig] = useState<PublicBookingConfig | null>(null);
   const [loadingConfig, setLoadingConfig] = useState(true);
@@ -20,13 +22,19 @@ export default function PublicBooking() {
   const [busySlotsToday, setBusySlotsToday] = useState<Set<string>>(new Set());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
 
-  const [name, setName] = useState('');
+  const [step, setStep] = useState<Step>('calendar');
   const [phone, setPhone] = useState('');
+  const [checkingPhone, setCheckingPhone] = useState(false);
+  const [existingPatientId, setExistingPatientId] = useState<string | null>(null);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [cpf, setCpf] = useState('');
+  const [birthDate, setBirthDate] = useState('');
   const [procedureInterest, setProcedureInterest] = useState('');
+
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [checkinUrl, setCheckinUrl] = useState('');
-  const [step, setStep] = useState<'calendar' | 'details'>('calendar');
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
@@ -76,14 +84,38 @@ export default function PublicBooking() {
     d.setDate(d.getDate() + delta);
     const todayStr = new Date().toISOString().split('T')[0];
     const newStr = d.toISOString().split('T')[0];
-    if (newStr < todayStr) return; // não deixa voltar antes de hoje
+    if (newStr < todayStr) return;
     setSelectedDate(newStr);
     setSelectedTime(null);
   };
 
   const handleSelectTime = (time: string) => {
     setSelectedTime(time);
-    setStep('details');
+    setStep('phone');
+  };
+
+  // Verifica se esse telefone já pertence a um paciente cadastrado desta clínica.
+  // Se sim, pula direto pra confirmação (sem pedir os dados de novo). Se não, pede cadastro completo.
+  const handleCheckPhone = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!config || checkingPhone) return;
+    setCheckingPhone(true);
+    try {
+      const key = phoneIndexKey(config.ownerId, phone);
+      const snap = await getDoc(doc(db, 'patientPhoneIndex', key));
+      if (snap.exists()) {
+        const data = snap.data();
+        setExistingPatientId(data.patientId);
+        setName(data.name);
+        setStep('confirm');
+      } else {
+        setExistingPatientId(null);
+        setStep('register');
+      }
+    } catch (err) {
+      showError('Não foi possível verificar o telefone agora. Tente novamente.');
+    }
+    setCheckingPhone(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -91,12 +123,9 @@ export default function PublicBooking() {
     if (submitting || !config || !selectedTime) return;
     setSubmitting(true);
 
-    const id = slotId(config.ownerId, selectedDate, selectedTime);
+    const slotDocId = slotId(config.ownerId, selectedDate, selectedTime);
     try {
-      // Tenta "reservar" o horário criando o busySlot — se alguém acabou de pegar esse
-      // horário, essa escrita vira um "update" sobre um documento já existente, e a
-      // regra de segurança nega automaticamente (impede reserva duplicada).
-      await setDoc(doc(db, 'busySlots', id), {
+      await setDoc(doc(db, 'busySlots', slotDocId), {
         clinicId: config.ownerId,
         date: selectedDate,
         time: selectedTime,
@@ -110,9 +139,30 @@ export default function PublicBooking() {
     }
 
     try {
+      let patientId = existingPatientId;
+
+      if (!patientId) {
+        const patientRef = await addDoc(collection(db, 'patients'), {
+          userId: config.ownerId,
+          name,
+          phone,
+          email: email || undefined,
+          cpf: cpf || undefined,
+          birthDate: birthDate || undefined,
+          updatedAt: new Date().toISOString(),
+        });
+        patientId = patientRef.id;
+        await setDoc(doc(db, 'patientPhoneIndex', phoneIndexKey(config.ownerId, phone)), {
+          clinicId: config.ownerId,
+          patientId,
+          name,
+        }).catch(() => {});
+      }
+
       const token = crypto.randomUUID();
       const payload: any = {
         userId: config.ownerId,
+        patientId,
         patientName: name,
         guestPhone: phone,
         date: selectedDate,
@@ -127,8 +177,7 @@ export default function PublicBooking() {
       setCheckinUrl(checkinLink(ref.id, token, selectedDate, selectedTime));
       setSubmitted(true);
     } catch (err) {
-      // Se o agendamento falhar depois de reservado o horário, libera o horário de volta
-      await deleteDoc(doc(db, 'busySlots', id)).catch(() => {});
+      await deleteDoc(doc(db, 'busySlots', slotDocId)).catch(() => {});
       showError('Não foi possível confirmar seu agendamento agora. Tente novamente.');
     }
     setSubmitting(false);
@@ -178,10 +227,9 @@ export default function PublicBooking() {
                 clinicName: config.clinicName,
                 professionalName: config.professionalName,
                 dateLabel: new Date(selectedDate + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' }),
-                time: selectedTime,
-                checkinUrl: checkinUrl
+                time: selectedTime!,
+                checkinUrl: checkinUrl,
               });
-              // Abre o WhatsApp do paciente com a mensagem para ele mesmo (ou para enviar para alguém)
               window.open(whatsappLink(phone, msg), '_blank');
             }}
             className="w-full py-4 bg-[#25D366] text-white rounded-2xl font-medium flex items-center justify-center gap-3 hover:bg-[#20bd5c] transition-all shadow-sm mb-8"
@@ -242,24 +290,16 @@ export default function PublicBooking() {
         )}
 
         <AnimatePresence mode="wait">
-          {step === 'calendar' ? (
+          {step === 'calendar' && (
             <motion.div key="calendar" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <div className="flex items-center justify-between mb-6">
-                <button
-                  type="button"
-                  onClick={() => changeDay(-1)}
-                  className="p-2 text-[#9CA3AF] hover:text-[#5C544E] hover:bg-[#FDFBF9] rounded-xl transition-all"
-                >
+                <button type="button" onClick={() => changeDay(-1)} className="p-2 text-[#9CA3AF] hover:text-[#5C544E] hover:bg-[#FDFBF9] rounded-xl transition-all">
                   <ChevronLeft size={20} />
                 </button>
                 <p className="text-sm font-semibold text-[#5C544E] capitalize">
                   {new Date(selectedDate + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
                 </p>
-                <button
-                  type="button"
-                  onClick={() => changeDay(1)}
-                  className="p-2 text-[#9CA3AF] hover:text-[#5C544E] hover:bg-[#FDFBF9] rounded-xl transition-all"
-                >
+                <button type="button" onClick={() => changeDay(1)} className="p-2 text-[#9CA3AF] hover:text-[#5C544E] hover:bg-[#FDFBF9] rounded-xl transition-all">
                   <ChevronRight size={20} />
                 </button>
               </div>
@@ -283,8 +323,10 @@ export default function PublicBooking() {
                 </div>
               )}
             </motion.div>
-          ) : (
-            <motion.div key="details" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+          )}
+
+          {step === 'phone' && (
+            <motion.div key="phone" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <button
                 type="button"
                 onClick={() => { setStep('calendar'); setSelectedTime(null); }}
@@ -300,13 +342,104 @@ export default function PublicBooking() {
                 <p className="text-2xl font-light text-[#EADFD4] serif mt-1">{selectedTime}</p>
               </div>
 
+              <form onSubmit={handleCheckPhone} className="space-y-5">
+                <div>
+                  <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Seu WhatsApp / Telefone</label>
+                  <div className="relative">
+                    <Phone size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
+                    <input
+                      required
+                      type="tel"
+                      autoFocus
+                      className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 pl-12 outline-none focus:border-[#EADFD4]/30 transition-all font-light text-sm"
+                      value={phone}
+                      onChange={e => setPhone(e.target.value)}
+                      placeholder="(11) 99999-9999"
+                    />
+                  </div>
+                  <p className="text-[10px] text-[#9CA3AF] font-light mt-2 ml-1">
+                    Se você já é paciente, isso evita ter que preencher seus dados de novo.
+                  </p>
+                </div>
+                <button
+                  disabled={checkingPhone}
+                  type="submit"
+                  className="w-full py-4 bg-[#EADFD4] text-white rounded-2xl font-medium hover:bg-[#DFCFBF] transition-all shadow-sm active:scale-[0.98] disabled:opacity-50"
+                >
+                  {checkingPhone ? 'Verificando...' : 'Continuar'}
+                </button>
+              </form>
+            </motion.div>
+          )}
+
+          {step === 'confirm' && (
+            <motion.div key="confirm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <button
+                type="button"
+                onClick={() => { setStep('phone'); setExistingPatientId(null); setName(''); }}
+                className="flex items-center gap-2 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-6 hover:text-[#5C544E] transition-all"
+              >
+                <ChevronLeft size={14} /> Não sou eu / trocar telefone
+              </button>
+
+              <div className="mb-6 text-center">
+                <div className="w-16 h-16 bg-[#F0F7F0] rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle2 className="text-[#8BA888] w-8 h-8" />
+                </div>
+                <p className="text-lg font-medium text-[#5C544E]">Bem-vindo(a) de volta, {name.split(' ')[0]}!</p>
+                <p className="text-xs text-[#9CA3AF] font-light mt-1">Já reconhecemos seu cadastro — não precisa preencher tudo de novo.</p>
+              </div>
+
+              <div className="mb-6 p-4 bg-[#FDFBF9] rounded-2xl border border-[#F5F2F0] text-center">
+                <p className="text-sm font-semibold text-[#5C544E] capitalize">
+                  {new Date(selectedDate + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
+                </p>
+                <p className="text-2xl font-light text-[#EADFD4] serif mt-1">{selectedTime}</p>
+              </div>
+
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div>
-                  <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Seu nome</label>
+                  <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Procedimento de interesse (opcional)</label>
+                  <input
+                    className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all font-light text-sm"
+                    value={procedureInterest}
+                    onChange={e => setProcedureInterest(e.target.value)}
+                    placeholder="ex: Harmonização Facial, Botox..."
+                  />
+                </div>
+                <button
+                  disabled={submitting}
+                  type="submit"
+                  className="w-full py-4 bg-[#EADFD4] text-white rounded-2xl font-medium hover:bg-[#DFCFBF] transition-all shadow-sm active:scale-[0.98] disabled:opacity-50"
+                >
+                  {submitting ? 'Confirmando...' : 'Confirmar Agendamento'}
+                </button>
+              </form>
+            </motion.div>
+          )}
+
+          {step === 'register' && (
+            <motion.div key="register" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <button
+                type="button"
+                onClick={() => setStep('phone')}
+                className="flex items-center gap-2 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-6 hover:text-[#5C544E] transition-all"
+              >
+                <ChevronLeft size={14} /> Voltar
+              </button>
+
+              <p className="text-xs text-[#9CA3AF] font-light mb-6 text-center">
+                Primeira vez por aqui — vamos criar seu cadastro
+              </p>
+
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <div>
+                  <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Nome completo</label>
                   <div className="relative">
                     <UserIcon size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
                     <input
                       required
+                      autoFocus
                       className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 pl-12 outline-none focus:border-[#EADFD4]/30 transition-all font-light text-sm"
                       value={name}
                       onChange={e => setName(e.target.value)}
@@ -315,17 +448,40 @@ export default function PublicBooking() {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">WhatsApp / Telefone</label>
-                  <div className="relative">
-                    <Phone size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">CPF (opcional)</label>
+                    <div className="relative">
+                      <IdCard size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
+                      <input
+                        className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 pl-12 outline-none focus:border-[#EADFD4]/30 transition-all font-light text-sm"
+                        value={cpf}
+                        onChange={e => setCpf(e.target.value)}
+                        placeholder="000.000.000-00"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Nascimento (opcional)</label>
                     <input
-                      required
-                      type="tel"
+                      type="date"
+                      className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all font-light text-sm"
+                      value={birthDate}
+                      onChange={e => setBirthDate(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">E-mail (opcional)</label>
+                  <div className="relative">
+                    <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
+                    <input
+                      type="email"
                       className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 pl-12 outline-none focus:border-[#EADFD4]/30 transition-all font-light text-sm"
-                      value={phone}
-                      onChange={e => setPhone(e.target.value)}
-                      placeholder="(11) 99999-9999"
+                      value={email}
+                      onChange={e => setEmail(e.target.value)}
+                      placeholder="seu@email.com"
                     />
                   </div>
                 </div>
@@ -345,7 +501,7 @@ export default function PublicBooking() {
                   type="submit"
                   className="w-full py-4 bg-[#EADFD4] text-white rounded-2xl font-medium hover:bg-[#DFCFBF] transition-all shadow-sm active:scale-[0.98] disabled:opacity-50"
                 >
-                  {submitting ? 'Confirmando...' : 'Confirmar Agendamento'}
+                  {submitting ? 'Confirmando...' : 'Criar Cadastro e Confirmar'}
                 </button>
               </form>
             </motion.div>

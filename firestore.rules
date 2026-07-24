@@ -115,10 +115,31 @@ service cloud.firestore {
         && data.time is string;
     }
 
-    // Rules for Patients — só o dono do dado (userId) pode ler/escrever
+    // Índice de telefone → paciente — coleção pública minimalista (só clinicId + patientId,
+    // NENHUM nome/dado pessoal) que a página de agendamento usa pra reconhecer um paciente que
+    // já tem cadastro, sem precisar pedir os dados de novo. Só permite CRIAR uma entrada nova
+    // (nunca sobrescrever uma existente — mesmo princípio do busySlots, evita que alguém
+    // "sequestre" o índice de um telefone já vinculado a outro paciente).
+    function isValidPhoneIndexEntry(data) {
+      return data.clinicId is string
+        && data.patientId is string && isValidId(data.patientId)
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 200;
+    }
+
+    // Criação pública de paciente, direto na página de agendamento (#agendar), sem login —
+    // só permitida com o userId batendo com o dono real da clínica (mesma checagem usada nos
+    // agendamentos públicos). Continua exigindo o mesmo formato de dado (isValidPatient).
+    function isPublicPatientCreate(data) {
+      return !isSignedIn()
+        && data.userId == get(/databases/$(database)/documents/publicConfig/booking).data.ownerId;
+    }
+
+    // Rules for Patients — só o dono do dado (userId) pode ler; criar é permitido também
+    // pela página pública de agendamento (ver isPublicPatientCreate)
     match /patients/{patientId} {
       allow read: if ownsExisting();
-      allow create: if isValidPatient(incoming()) && isValidId(patientId);
+      allow create: if isValidPatient(incoming()) && isValidId(patientId)
+        && (isOwner() || isPublicPatientCreate(incoming()));
       allow update: if ownsExisting() && isValidPatient(incoming()) && incoming().userId == resource.data.userId;
       allow delete: if ownsExisting();
     }
@@ -180,6 +201,18 @@ service cloud.firestore {
     match /publicConfig/booking {
       allow read: if true; // Página pública precisa ler pra mostrar o nome da clínica
       allow write: if isSignedIn(); // Apenas logados podem setar (em Settings.tsx)
+    }
+
+    // Índice público telefone → paciente (ver isValidPhoneIndexEntry acima)
+    match /patientPhoneIndex/{phoneKey} {
+      allow read: if true;
+      allow create: if isValidPhoneIndexEntry(incoming()) && isValidId(phoneKey)
+        && (
+          (isSignedIn() && incoming().clinicId == request.auth.uid) ||
+          (!isSignedIn() && incoming().clinicId == get(/databases/$(database)/documents/publicConfig/booking).data.ownerId)
+        );
+      allow update: if false;
+      allow delete: if isSignedIn();
     }
 
     // Rules for Settings — um documento por usuário (settings/{uid})
