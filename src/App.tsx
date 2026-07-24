@@ -281,7 +281,7 @@ export default function App() {
               transition={{ duration: 0.2 }}
             >
               <Suspense fallback={<ViewLoadingFallback />}>
-                {activeView === 'dashboard' && <Dashboard user={user} onNavigate={setActiveView} />}
+                {activeView === 'dashboard' && <Dashboard user={user} onNavigate={setActiveView} professionalName={professionalName} />}
                 {activeView === 'patients' && (
                   <Patients
                     user={user}

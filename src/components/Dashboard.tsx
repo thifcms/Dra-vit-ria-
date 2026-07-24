@@ -27,7 +27,7 @@ import {
   ResponsiveContainer 
 } from 'recharts';
 
-export default function Dashboard({ user, onNavigate }: { user: User, onNavigate: (view: any) => void }) {
+export default function Dashboard({ user, onNavigate, professionalName }: { user: User, onNavigate: (view: any) => void, professionalName: string }) {
   const [stats, setStats] = useState({
     totalPatients: 0,
     monthRevenue: 0,
@@ -155,7 +155,7 @@ export default function Dashboard({ user, onNavigate }: { user: User, onNavigate
         >
           <div className="relative z-10">
             <h2 className="text-4xl font-light mb-4 serif">
-              Olá, <span className="italic">Dra. Vitória</span>
+              Olá, <span className="italic">{professionalName}</span>
             </h2>
             <p className="text-white/60 font-light max-w-sm leading-relaxed text-lg">
               Sua clínica está operando com <span className="text-[#D1C7BD] font-medium">excelência</span> hoje. Confira os destaques do seu consultório.

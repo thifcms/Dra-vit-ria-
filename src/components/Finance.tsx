@@ -14,7 +14,8 @@ import {
   Trash2,
   TrendingUp,
   CreditCard,
-  DollarSign
+  DollarSign,
+  CheckCircle2
 } from 'lucide-react';
 import { showToast } from '../lib/toast';
 import { 
@@ -60,9 +61,20 @@ export default function Finance({ user }: { user: User }) {
     [transactions, filter]
   );
 
-  const { totalIncome, totalExpense, chartData } = useMemo(() => {
+  const { totalIncome, totalExpense, chartData, categoryTotals } = useMemo(() => {
     const income = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
     const expense = transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
+
+    // Totais por categoria (para o relatório), separados por tipo
+    const catMap = new Map<string, { income: number, expense: number }>();
+    transactions.forEach(t => {
+      const entry = catMap.get(t.category) || { income: 0, expense: 0 };
+      if (t.type === 'income') entry.income += t.amount; else entry.expense += t.amount;
+      catMap.set(t.category, entry);
+    });
+    const categoryTotals = Array.from(catMap.entries())
+      .map(([category, v]) => ({ category, ...v, total: v.income + v.expense }))
+      .sort((a, b) => b.total - a.total);
 
     // Prepare chart data for last 6 months
     const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
@@ -97,7 +109,8 @@ export default function Finance({ user }: { user: User }) {
     return { 
       totalIncome: income, 
       totalExpense: expense,
-      chartData: lastSix
+      chartData: lastSix,
+      categoryTotals
     };
   }, [transactions]);
 
@@ -226,7 +239,36 @@ export default function Finance({ user }: { user: User }) {
           </ResponsiveContainer>
         </div>
       </motion.div>
-
+      {/* Relatório por Categoria */}
+      {categoryTotals.length > 0 && (
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white rounded-[48px] border border-[#F1F3F5] p-10 shadow-sm"
+        >
+          <div className="mb-8">
+            <h3 className="serif text-2xl text-[#374151]">Resumo por Categoria</h3>
+            <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest mt-1">Onde entra e sai seu dinheiro</p>
+          </div>
+          <div className="space-y-3">
+            {categoryTotals.map(c => {
+              const maxTotal = categoryTotals[0].total || 1;
+              return (
+                <div key={c.category} className="flex items-center gap-4">
+                  <span className="w-40 shrink-0 text-xs font-semibold text-[#374151] truncate">{c.category}</span>
+                  <div className="flex-1 h-3 bg-[#F8F9FA] rounded-full overflow-hidden flex">
+                    {c.income > 0 && <div className="h-full bg-[#4F634F]" style={{ width: `${(c.income / maxTotal) * 100}%` }} />}
+                    {c.expense > 0 && <div className="h-full bg-red-400" style={{ width: `${(c.expense / maxTotal) * 100}%` }} />}
+                  </div>
+                  <span className="w-32 shrink-0 text-right text-xs font-bold text-[#9CA3AF]">
+                    R$ {c.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </motion.div>
+      )}
       {/* Toolbar */}
       <div className="flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="flex bg-white rounded-2xl p-1 border border-[#F1F3F5] shadow-sm">
@@ -349,6 +391,8 @@ function AddTransactionModal({ user, onClose }: any) {
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('');
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [months, setMonths] = useState(12);
   const [saving, setSaving] = useState(false);
 
   const categories = [
@@ -368,16 +412,37 @@ function AddTransactionModal({ user, onClose }: any) {
     e.preventDefault();
     if (saving) return;
     setSaving(true);
+    const numericAmount = parseFloat(amount.replace(',', '.'));
     try {
-      await addDoc(collection(db, 'transactions'), {
-        userId: user.uid,
-        type,
-        amount: parseFloat(amount.replace(',', '.')),
-        description,
-        category,
-        date: Timestamp.now()
-      });
-      showToast('Lançamento realizado');
+      if (type === 'expense' && isRecurring) {
+        // Gera um lançamento por mês (o app não tem backend com agendador, então cria todos de uma vez)
+        const seriesId = `series-${Date.now()}`;
+        const baseDate = new Date();
+        for (let i = 0; i < months; i++) {
+          const d = new Date(baseDate);
+          d.setMonth(d.getMonth() + i);
+          await addDoc(collection(db, 'transactions'), {
+            userId: user.uid,
+            type,
+            amount: numericAmount,
+            description,
+            category,
+            date: Timestamp.fromDate(d),
+            seriesId,
+          });
+        }
+        showToast(`${months} lançamentos recorrentes criados`);
+      } else {
+        await addDoc(collection(db, 'transactions'), {
+          userId: user.uid,
+          type,
+          amount: numericAmount,
+          description,
+          category,
+          date: Timestamp.now()
+        });
+        showToast('Lançamento realizado');
+      }
       onClose();
     } catch (err) {
       showToast('Erro ao salvar', 'error');
@@ -457,6 +522,36 @@ function AddTransactionModal({ user, onClose }: any) {
               placeholder="Ou digite outra categoria..."
             />
           </div>
+
+          {type === 'expense' && (
+            <div className="p-6 bg-[#F8F9FA] rounded-3xl border border-[#F1F3F5] space-y-4">
+              <button
+                type="button"
+                onClick={() => setIsRecurring(!isRecurring)}
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all border text-left w-full ${
+                  isRecurring ? 'bg-[#E8F5E9] border-[#E8F5E9] text-[#4F634F]' : 'bg-white border-[#F1F3F5] text-[#9CA3AF]'
+                }`}
+              >
+                <div className={`w-4 h-4 rounded border flex items-center justify-center ${isRecurring ? 'bg-[#4F634F] border-[#4F634F]' : 'bg-white border-[#F1F3F5]'}`}>
+                  {isRecurring && <CheckCircle2 size={10} className="text-white" />}
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-widest">Despesa recorrente (ex: aluguel, insumos mensais)</span>
+              </button>
+              {isRecurring && (
+                <div>
+                  <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Repetir por quantos meses?</label>
+                  <input 
+                    type="number"
+                    min="2"
+                    max="36"
+                    className="w-full bg-white border border-[#F1F3F5] rounded-2xl p-4 outline-none focus:border-[#D1C7BD]/30 transition-all font-light text-sm"
+                    value={months}
+                    onChange={e => setMonths(parseInt(e.target.value) || 2)}
+                  />
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="flex gap-4 pt-4">
             <button type="button" onClick={onClose} className="flex-1 py-4 text-[#9CA3AF] font-bold text-[10px] uppercase">Cancelar</button>

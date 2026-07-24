@@ -32,6 +32,7 @@ const COLORS = ['#D1C7BD', '#374151', '#9CA3AF', '#F1F3F5', '#E8F5E9'];
 export default function Inventory({ user }: { user: User }) {
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [isAdding, setIsAdding] = useState(false);
+  const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -51,6 +52,13 @@ export default function Inventory({ user }: { user: User }) {
   ), [items, searchTerm]);
 
   const lowStockItems = useMemo(() => items.filter(item => item.quantity <= item.minThreshold), [items]);
+
+  const expiringItems = useMemo(() => {
+    const now = new Date();
+    const in30days = new Date();
+    in30days.setDate(now.getDate() + 30);
+    return items.filter(item => item.expiryDate && new Date(item.expiryDate) <= in30days);
+  }, [items]);
 
   // Prepare chart data
   const categoryData = useMemo(() => items.reduce((acc: any[], item) => {
@@ -117,6 +125,13 @@ export default function Inventory({ user }: { user: User }) {
                 {lowStockItems.length > 0 && <AlertTriangle size={14} className="text-red-400" />}
               </div>
               <p className={`text-4xl font-light serif ${lowStockItems.length > 0 ? 'text-red-400' : 'text-white'}`}>{lowStockItems.length}</p>
+            </div>
+            <div className={`p-6 rounded-3xl flex-1 border ${expiringItems.length > 0 ? 'bg-amber-400/20 border-amber-400/30' : 'bg-white/10 border-white/5'}`}>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">Vencendo em 30d</p>
+                {expiringItems.length > 0 && <AlertTriangle size={14} className="text-amber-400" />}
+              </div>
+              <p className={`text-4xl font-light serif ${expiringItems.length > 0 ? 'text-amber-400' : 'text-white'}`}>{expiringItems.length}</p>
             </div>
           </div>
 
@@ -200,6 +215,7 @@ export default function Inventory({ user }: { user: User }) {
                   <th className="p-6 text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF]">Categoria</th>
                   <th className="p-6 text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF]">Qtd. Atual</th>
                   <th className="p-6 text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF]">Mínimo</th>
+                  <th className="p-6 text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF]">Validade</th>
                   <th className="p-6 text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF]">Controles</th>
                   <th className="p-6"></th>
                 </tr>
@@ -225,6 +241,19 @@ export default function Inventory({ user }: { user: User }) {
                     </td>
                     <td className="p-6 text-sm text-[#9CA3AF] font-light">{item.minThreshold} {item.unit || 'unid.'}</td>
                     <td className="p-6">
+                      {item.expiryDate ? (
+                        <span className={`text-[10px] font-bold uppercase tracking-widest ${
+                          new Date(item.expiryDate) < new Date() ? 'text-red-500' :
+                          new Date(item.expiryDate) <= new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) ? 'text-amber-500' :
+                          'text-[#9CA3AF]'
+                        }`}>
+                          {new Date(item.expiryDate).toLocaleDateString('pt-BR')}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-[#F1F3F5] uppercase">---</span>
+                      )}
+                    </td>
+                    <td className="p-6">
                       <div className="flex items-center gap-3">
                         <button 
                           onClick={() => updateQuantity(item.id!, -1)}
@@ -241,12 +270,20 @@ export default function Inventory({ user }: { user: User }) {
                       </div>
                     </td>
                     <td className="p-6 text-right">
-                      <button 
-                        onClick={() => handleDelete(item.id!)}
-                        className="p-2 text-[#F1F3F5] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
-                      >
-                        <Trash2 size={18} />
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        <button 
+                          onClick={() => setEditingItem(item)}
+                          className="p-2 text-[#F1F3F5] hover:text-[#D1C7BD] opacity-0 group-hover:opacity-100 transition-all"
+                        >
+                          <Edit2 size={18} />
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(item.id!)}
+                          className="p-2 text-[#F1F3F5] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -270,17 +307,25 @@ export default function Inventory({ user }: { user: User }) {
             onClose={() => setIsAdding(false)} 
           />
         )}
+        {editingItem && (
+          <AddItemModal 
+            user={user} 
+            onClose={() => setEditingItem(null)} 
+            item={editingItem}
+          />
+        )}
       </AnimatePresence>
     </div>
   );
 }
 
-function AddItemModal({ user, onClose }: any) {
-  const [name, setName] = useState('');
-  const [category, setCategory] = useState('');
-  const [quantity, setQuantity] = useState('');
-  const [minThreshold, setMinThreshold] = useState('');
-  const [unit, setUnit] = useState('unid.');
+function AddItemModal({ user, onClose, item }: any) {
+  const [name, setName] = useState(item?.name || '');
+  const [category, setCategory] = useState(item?.category || '');
+  const [quantity, setQuantity] = useState(item?.quantity != null ? String(item.quantity) : '');
+  const [minThreshold, setMinThreshold] = useState(item?.minThreshold != null ? String(item.minThreshold) : '');
+  const [unit, setUnit] = useState(item?.unit || 'unid.');
+  const [expiryDate, setExpiryDate] = useState(item?.expiryDate || '');
   const [saving, setSaving] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -288,19 +333,33 @@ function AddItemModal({ user, onClose }: any) {
     if (saving) return;
     setSaving(true);
     try {
-      await addDoc(collection(db, 'inventory'), {
-        userId: user.uid,
-        name,
-        category,
-        quantity: parseInt(quantity),
-        minThreshold: parseInt(minThreshold),
-        unit,
-        updatedAt: new Date().toISOString()
-      });
-      showToast('Insumo cadastrado');
+      if (item?.id) {
+        await updateDoc(doc(db, 'inventory', item.id), {
+          name,
+          category,
+          quantity: parseInt(quantity),
+          minThreshold: parseInt(minThreshold),
+          unit,
+          expiryDate,
+          updatedAt: new Date().toISOString()
+        });
+        showToast('Insumo atualizado');
+      } else {
+        await addDoc(collection(db, 'inventory'), {
+          userId: user.uid,
+          name,
+          category,
+          quantity: parseInt(quantity),
+          minThreshold: parseInt(minThreshold),
+          unit,
+          expiryDate,
+          updatedAt: new Date().toISOString()
+        });
+        showToast('Insumo cadastrado');
+      }
       onClose();
     } catch (err) {
-      showToast('Erro ao cadastrar', 'error');
+      showToast('Erro ao salvar', 'error');
     }
     setSaving(false);
   };
@@ -312,9 +371,9 @@ function AddItemModal({ user, onClose }: any) {
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 30, opacity: 0 }}
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        className="bg-white w-full max-w-lg rounded-[40px] p-10 shadow-2xl"
+        className="bg-white w-full max-w-lg rounded-[40px] p-10 shadow-2xl max-h-[90vh] overflow-y-auto"
       >
-        <h2 className="serif text-2xl text-[#374151] mb-8">Novo Insumo</h2>
+        <h2 className="serif text-2xl text-[#374151] mb-8">{item ? 'Editar Insumo' : 'Novo Insumo'}</h2>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Nome do Material</label>
@@ -322,14 +381,14 @@ function AddItemModal({ user, onClose }: any) {
               required
               className="w-full bg-[#F8F9FA] border border-[#F1F3F5] rounded-2xl p-4 outline-none focus:border-[#D1C7BD]/30 transition-all font-light"
               value={name}
-              onChange={e => setName(e.target.value)}
+              onChange={setName ? (e: any) => setName(e.target.value) : undefined}
               placeholder="ex: Toxina Botulínica, Agulha 30G..."
             />
           </div>
           
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Qtd. Inicial</label>
+              <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Qtd. Atual</label>
               <input 
                 required
                 type="number"
@@ -375,6 +434,16 @@ function AddItemModal({ user, onClose }: any) {
             </div>
           </div>
 
+          <div>
+            <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Data de Validade (Opcional)</label>
+            <input 
+              type="date"
+              className="w-full bg-[#F8F9FA] border border-[#F1F3F5] rounded-2xl p-4 outline-none focus:border-[#D1C7BD]/30 transition-all font-light text-sm"
+              value={expiryDate}
+              onChange={e => setExpiryDate(e.target.value)}
+            />
+          </div>
+
           <div className="flex gap-4 pt-4">
             <button type="button" onClick={onClose} className="flex-1 py-4 text-[#9CA3AF] font-bold text-[10px] uppercase">Cancelar</button>
             <button 
@@ -382,7 +451,7 @@ function AddItemModal({ user, onClose }: any) {
               type="submit" 
               className="flex-1 py-4 bg-[#D1C7BD] text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-[#C5B9AD] transition-all"
             >
-              {saving ? 'Cadastrando...' : 'Confirmar Estoque'}
+              {saving ? 'Salvando...' : item ? 'Salvar Alterações' : 'Confirmar Estoque'}
             </button>
           </div>
         </form>
