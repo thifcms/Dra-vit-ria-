@@ -22,6 +22,7 @@ import {
   Download
 } from 'lucide-react';
 import { showToast } from '../lib/toast';
+import { hashPin, isValidPinFormat } from '../lib/pin';
 
 export default function Settings({ user }: { user: User }) {
   const [settings, setSettings] = useState<ClinicSettings>({
@@ -93,7 +94,43 @@ export default function Settings({ user }: { user: User }) {
     showToast('Modelo removido');
   };
 
-  const toggleBiometric = () => persist({ ...settings, biometricEnabled: !settings.biometricEnabled });
+  const handleToggleSecurityPin = () => {
+    if (!settings.biometricEnabled && !settings.pinHash) {
+      showToast('Defina um PIN antes de ativar', 'error');
+      setPinDraft('');
+      setPinConfirm('');
+      setShowPinModal(true);
+      return;
+    }
+    persist({ ...settings, biometricEnabled: !settings.biometricEnabled });
+  };
+
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [pinDraft, setPinDraft] = useState('');
+  const [pinConfirm, setPinConfirm] = useState('');
+  const [savingPin, setSavingPin] = useState(false);
+
+  const handleSavePin = async () => {
+    if (!isValidPinFormat(pinDraft)) {
+      showToast('O PIN precisa ter exatamente 6 números', 'error');
+      return;
+    }
+    if (pinDraft !== pinConfirm) {
+      showToast('Os PINs não coincidem', 'error');
+      return;
+    }
+    setSavingPin(true);
+    try {
+      const pinHash = await hashPin(pinDraft);
+      await persist({ ...settings, pinHash, biometricEnabled: true });
+      showToast('PIN definido com sucesso');
+      setShowPinModal(false);
+    } catch (err) {
+      showToast('Erro ao salvar o PIN', 'error');
+    }
+    setSavingPin(false);
+  };
+
   const toggleCloudBackup = () => persist({ ...settings, cloudBackupEnabled: !settings.cloudBackupEnabled });
 
   const handleSaveAll = async () => {
@@ -296,10 +333,17 @@ export default function Settings({ user }: { user: User }) {
               <div className="space-y-4">
                 <ToggleButton 
                   active={settings.biometricEnabled} 
-                  onClick={toggleBiometric}
-                  label="Acesso Biométrico"
+                  onClick={handleToggleSecurityPin}
+                  label="PIN de Segurança"
                   icon={<Fingerprint size={18} />}
                 />
+                <button
+                  onClick={() => { setPinDraft(''); setPinConfirm(''); setShowPinModal(true); }}
+                  className="w-full flex items-center gap-3 px-6 py-4 bg-white/10 rounded-2xl text-white text-xs font-semibold hover:bg-white/15 transition-all"
+                >
+                  <Fingerprint size={16} className="text-[#EADFD4]" />
+                  {settings.pinHash ? 'Alterar PIN' : 'Definir PIN'}
+                </button>
                 <ToggleButton 
                   active={settings.cloudBackupEnabled} 
                   onClick={toggleCloudBackup}
@@ -354,6 +398,61 @@ export default function Settings({ user }: { user: User }) {
           </div>
         )}
       </AnimatePresence>
+
+      {showPinModal && (
+        <div className="fixed inset-0 bg-[#5C544E]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+          <motion.div
+            initial={{ y: 30, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 30, opacity: 0 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            className="bg-white w-full max-w-sm rounded-[32px] p-8 shadow-2xl"
+          >
+            <h3 className="serif text-xl text-[#5C544E] mb-2">
+              {settings.pinHash ? 'Alterar PIN' : 'Definir PIN'}
+            </h3>
+            <p className="text-xs text-[#9CA3AF] font-light mb-6">
+              Escolha 6 números. Esse PIN será exigido, além do login com Google, sempre que o app abrir.
+            </p>
+            <div className="space-y-4">
+              <input
+                autoFocus
+                type="password"
+                inputMode="numeric"
+                maxLength={6}
+                value={pinDraft}
+                onChange={e => setPinDraft(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="Novo PIN (6 dígitos)"
+                className="w-full bg-[#FDFBF9] border border-[#F1F3F5] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all font-light text-center tracking-[0.5em] text-lg"
+              />
+              <input
+                type="password"
+                inputMode="numeric"
+                maxLength={6}
+                value={pinConfirm}
+                onChange={e => setPinConfirm(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="Confirme o PIN"
+                className="w-full bg-[#FDFBF9] border border-[#F1F3F5] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all font-light text-center tracking-[0.5em] text-lg"
+              />
+            </div>
+            <div className="flex gap-4 pt-6">
+              <button
+                onClick={() => setShowPinModal(false)}
+                className="flex-1 py-4 text-[#9CA3AF] font-bold text-[10px] uppercase"
+              >
+                Cancelar
+              </button>
+              <button
+                disabled={savingPin}
+                onClick={handleSavePin}
+                className="flex-1 py-4 bg-[#EADFD4] text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-[#DFCFBF] transition-all disabled:opacity-50"
+              >
+                {savingPin ? 'Salvando...' : 'Salvar PIN'}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

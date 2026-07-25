@@ -158,6 +158,7 @@ export interface ClinicSettings {
   contactEmail?: string;
   consentTemplates?: ConsentTemplate[];
   biometricEnabled?: boolean;
+  pinHash?: string; // hash SHA-256 do PIN de 6 dígitos — nunca guardamos o PIN em texto puro
   cloudBackupEnabled?: boolean;
   whatsappNumber?: string;
 }

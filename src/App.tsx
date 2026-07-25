@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { auth, signInWithGoogle, db } from './lib/firebase';
-import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { onAuthStateChanged, User as FirebaseUser, signOut } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
 import { ToastHost, showToast } from './lib/toast';
+import { hashPin, isValidPinFormat } from './lib/pin';
 import type { ClinicSettings, Patient } from './types';
 import { 
   Users, 
@@ -136,6 +137,39 @@ function AuthenticatedApp() {
     };
   }, [user]);
 
+  // PIN de segurança extra, além do login do Google — desbloqueado uma vez por sessão
+  // (sessionStorage some quando a aba/app fecha, pedindo o PIN de novo na próxima abertura)
+  const [pinUnlocked, setPinUnlocked] = useState(() => sessionStorage.getItem('pinUnlocked') === 'true');
+  const [pinEntry, setPinEntry] = useState('');
+  const [pinError, setPinError] = useState(false);
+  const [checkingPin, setCheckingPin] = useState(false);
+  const needsPinCheck = !!(clinicSettings?.biometricEnabled && clinicSettings?.pinHash) && !pinUnlocked;
+
+  const handleCheckPin = async () => {
+    if (!isValidPinFormat(pinEntry) || !clinicSettings?.pinHash || checkingPin) return;
+    setCheckingPin(true);
+    const hash = await hashPin(pinEntry);
+    if (hash === clinicSettings.pinHash) {
+      sessionStorage.setItem('pinUnlocked', 'true');
+      setPinUnlocked(true);
+    } else {
+      setPinError(true);
+      setPinEntry('');
+      setTimeout(() => setPinError(false), 1500);
+    }
+    setCheckingPin(false);
+  };
+
+  const handleForgotPin = async () => {
+    if (!user) return;
+    // Saída de emergência: desativa a exigência de PIN direto (sem precisar entrar em
+    // Configurações, já que é justamente isso que ficaria trancado). Pra usar PIN nesse
+    // celular de novo, é só definir um novo em Configurações → Segurança.
+    await updateDoc(doc(db, 'settings', user.uid), { biometricEnabled: false }).catch(() => {});
+    sessionStorage.setItem('pinUnlocked', 'true');
+    setPinUnlocked(true);
+  };
+
   return (
     <AnimatePresence mode="wait">
     {loading ? (
@@ -168,6 +202,51 @@ function AuthenticatedApp() {
           <p className="mt-8 text-xs text-[#9CA3AF] font-light uppercase tracking-[0.2em]">Acesso Seguro & Criptografado</p>
         </div>
         
+        <ToastHost />
+      </motion.div>
+    ) : needsPinCheck ? (
+      <motion.div key="pin" {...PAGE_FADE} className="h-screen w-screen flex flex-col items-center justify-center bg-[#FDFBF9] p-6">
+        <motion.div
+          animate={pinError ? { x: [0, -10, 10, -10, 10, 0] } : {}}
+          transition={{ duration: 0.4 }}
+          className="w-full max-w-sm bg-white p-10 rounded-[32px] shadow-sm border border-[#F5F2F0] text-center"
+        >
+          <div className="w-20 h-20 bg-[#EADFD4]/10 rounded-full flex items-center justify-center mx-auto mb-8">
+            <UserIcon className="text-[#EADFD4] w-10 h-10" />
+          </div>
+          <h1 className="text-2xl font-light text-[#5C544E] mb-2 serif">Digite seu PIN</h1>
+          <p className="text-[#9CA3AF] mb-8 font-light text-sm">Segurança extra pra abrir o app</p>
+
+          <input
+            autoFocus
+            type="password"
+            inputMode="numeric"
+            maxLength={6}
+            value={pinEntry}
+            onChange={e => {
+              const v = e.target.value.replace(/\D/g, '').slice(0, 6);
+              setPinEntry(v);
+              if (v.length === 6) setTimeout(() => handleCheckPin(), 50);
+            }}
+            placeholder="••••••"
+            className={`w-full bg-[#FDFBF9] border rounded-2xl p-4 outline-none transition-all font-light text-center tracking-[0.6em] text-2xl mb-4 ${
+              pinError ? 'border-red-300' : 'border-[#F1F3F5] focus:border-[#EADFD4]/30'
+            }`}
+          />
+          {pinError && <p className="text-xs text-red-400 mb-4">PIN incorreto, tente de novo</p>}
+
+          <button
+            disabled={pinEntry.length !== 6 || checkingPin}
+            onClick={handleCheckPin}
+            className="w-full py-4 bg-[#EADFD4] text-white rounded-2xl font-medium hover:bg-[#DFCFBF] transition-all shadow-sm active:scale-[0.98] disabled:opacity-50 mb-4"
+          >
+            {checkingPin ? 'Verificando...' : 'Entrar'}
+          </button>
+
+          <button onClick={handleForgotPin} className="text-xs text-[#9CA3AF] hover:text-[#5C544E] transition-all">
+            Esqueci o PIN
+          </button>
+        </motion.div>
         <ToastHost />
       </motion.div>
     ) : (
@@ -288,7 +367,7 @@ function AuthenticatedApp() {
                   </div>
                 </div>
                 <button 
-                  onClick={() => signOut(auth)}
+                  onClick={() => { sessionStorage.removeItem('pinUnlocked'); signOut(auth); }}
                   className="w-full flex items-center gap-4 px-6 py-4 text-[#9CA3AF] hover:text-red-400 hover:bg-red-50/30 rounded-2xl transition-all font-medium text-sm group"
                 >
                   <LogOut size={20} className="group-hover:translate-x-1 transition-transform" />
