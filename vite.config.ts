@@ -12,13 +12,13 @@ export default defineConfig(() => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate', // atualiza o app sozinho a cada novo deploy, sem cache velho travando
-        includeAssets: [
-          'favicon-v2.png',
-          'icons/icon-192-v2.png', 'icons/icon-512-v2.png',
-          'icons/icon-192-maskable-v2.png', 'icons/icon-512-maskable-v2.png',
-          'icons/apple-touch-icon-v2.png',
-          'logo/logo-full-v2.png', 'logo/logo-mark-v2.png',
-        ],        manifest: {
+        // Ícones/logo saíram daqui de propósito — ver o runtimeCaching de imagens abaixo.
+        // O precache "empacotado" (includeAssets) tem um bug conhecido no Safari/iOS com
+        // arquivos de imagem maiores (o Safari faz pedidos parciais/"Range" que esse tipo de
+        // cache não lida bem, resultando no ícone de imagem quebrada mesmo com o arquivo
+        // correto). Uma estratégia de cache em tempo de execução (runtime) evita isso.
+        includeAssets: [],
+        manifest: {
           name: 'Clínica Digital',
           short_name: 'Clínica Digital',
           description: 'Gestão Clínica Estética & Financeira',
@@ -49,6 +49,24 @@ export default defineConfig(() => {
                 url.hostname.includes('firebasestorage.googleapis.com') ||
                 url.hostname.includes('identitytoolkit.googleapis.com'),
               handler: 'NetworkOnly',
+            },
+            {
+              // Estratégia própria pra imagens (logo, ícones, favicon): busca da rede
+              // normalmente e guarda em cache à parte do "app shell" — evita o bug do
+              // Safari com precache de imagens grandes, e ainda funciona offline depois
+              // do primeiro carregamento.
+              urlPattern: ({request}) => request.destination === 'image',
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'images-cache',
+                expiration: {
+                  maxEntries: 40,
+                  maxAgeSeconds: 30 * 24 * 60 * 60,
+                },
+                cacheableResponse: {
+                  statuses: [0, 200],
+                },
+              },
             },
           ],
         },
