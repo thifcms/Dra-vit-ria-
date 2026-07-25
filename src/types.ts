@@ -159,6 +159,7 @@ export interface ClinicSettings {
   consentTemplates?: ConsentTemplate[];
   biometricEnabled?: boolean;
   pinHash?: string; // hash SHA-256 do PIN de 6 dígitos — nunca guardamos o PIN em texto puro
+  webauthnCredentialId?: string; // id da credencial de biometria (Face ID/Touch ID/digital) — nenhum dado biométrico é guardado, só esse identificador
   cloudBackupEnabled?: boolean;
   whatsappNumber?: string;
 }

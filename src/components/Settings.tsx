@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { showToast } from '../lib/toast';
 import { hashPin, isValidPinFormat } from '../lib/pin';
+import { isPlatformAuthenticatorAvailable, registerBiometric } from '../lib/webauthn';
 
 export default function Settings({ user }: { user: User }) {
   const [settings, setSettings] = useState<ClinicSettings>({
@@ -129,6 +130,30 @@ export default function Settings({ user }: { user: User }) {
       showToast('Erro ao salvar o PIN', 'error');
     }
     setSavingPin(false);
+  };
+
+  const [webauthnSupported, setWebauthnSupported] = useState(false);
+  useEffect(() => {
+    isPlatformAuthenticatorAvailable().then(setWebauthnSupported);
+  }, []);
+
+  const handleToggleBiometric = async () => {
+    if (settings.webauthnCredentialId) {
+      await persist({ ...settings, webauthnCredentialId: undefined });
+      showToast('Biometria desativada');
+      return;
+    }
+    try {
+      const credentialId = await registerBiometric(
+        user.uid,
+        user.email || '',
+        user.displayName || settings.professionalName || ''
+      );
+      await persist({ ...settings, webauthnCredentialId: credentialId });
+      showToast('Biometria ativada com sucesso');
+    } catch (err) {
+      showToast('Não foi possível ativar a biometria. Tente novamente.', 'error');
+    }
   };
 
   const toggleCloudBackup = () => persist({ ...settings, cloudBackupEnabled: !settings.cloudBackupEnabled });
@@ -350,6 +375,15 @@ export default function Settings({ user }: { user: User }) {
                   label="Backup em Nuvem"
                   icon={<Cloud size={18} />}
                 />
+                {webauthnSupported && (
+                  <button
+                    onClick={handleToggleBiometric}
+                    className="w-full flex items-center gap-3 px-6 py-4 bg-white/10 rounded-2xl text-white text-xs font-semibold hover:bg-white/15 transition-all"
+                  >
+                    <Fingerprint size={16} className="text-[#EADFD4]" />
+                    {settings.webauthnCredentialId ? 'Desativar Biometria' : 'Ativar Biometria (Face ID / Digital)'}
+                  </button>
+                )}
               </div>
             </div>
             <div className="absolute right-0 bottom-0 w-32 h-32 bg-white/5 rounded-full translate-x-1/2 translate-y-1/2" />

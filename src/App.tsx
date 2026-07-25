@@ -5,6 +5,7 @@ import { onAuthStateChanged, User as FirebaseUser, signOut } from 'firebase/auth
 import { motion, AnimatePresence } from 'motion/react';
 import { ToastHost, showToast } from './lib/toast';
 import { hashPin, isValidPinFormat } from './lib/pin';
+import { verifyBiometric } from './lib/webauthn';
 import type { ClinicSettings, Patient } from './types';
 import { 
   Users, 
@@ -18,6 +19,7 @@ import {
   X,
   Search,
   User as UserIcon,
+  Fingerprint,
   CreditCard,
   ArrowLeft
 } from 'lucide-react';
@@ -137,13 +139,15 @@ function AuthenticatedApp() {
     };
   }, [user]);
 
-  // PIN de segurança extra, além do login do Google — desbloqueado uma vez por sessão
-  // (sessionStorage some quando a aba/app fecha, pedindo o PIN de novo na próxima abertura)
+  // PIN/biometria de segurança extra, além do login do Google — desbloqueado uma vez por
+  // sessão (sessionStorage some quando a aba/app fecha, pedindo de novo na próxima abertura)
   const [pinUnlocked, setPinUnlocked] = useState(() => sessionStorage.getItem('pinUnlocked') === 'true');
   const [pinEntry, setPinEntry] = useState('');
   const [pinError, setPinError] = useState(false);
   const [checkingPin, setCheckingPin] = useState(false);
-  const needsPinCheck = !!(clinicSettings?.biometricEnabled && clinicSettings?.pinHash) && !pinUnlocked;
+  const [checkingBiometric, setCheckingBiometric] = useState(false);
+  const [biometricFailed, setBiometricFailed] = useState(false);
+  const needsPinCheck = !!((clinicSettings?.biometricEnabled && clinicSettings?.pinHash) || clinicSettings?.webauthnCredentialId) && !pinUnlocked;
 
   const handleCheckPin = async () => {
     if (!isValidPinFormat(pinEntry) || !clinicSettings?.pinHash || checkingPin) return;
@@ -160,12 +164,35 @@ function AuthenticatedApp() {
     setCheckingPin(false);
   };
 
+  const handleCheckBiometric = async () => {
+    if (!clinicSettings?.webauthnCredentialId || checkingBiometric) return;
+    setCheckingBiometric(true);
+    setBiometricFailed(false);
+    const ok = await verifyBiometric(clinicSettings.webauthnCredentialId);
+    if (ok) {
+      sessionStorage.setItem('pinUnlocked', 'true');
+      setPinUnlocked(true);
+    } else {
+      setBiometricFailed(true);
+    }
+    setCheckingBiometric(false);
+  };
+
+  // Tenta a biometria sozinho assim que a tela aparece, se tiver cadastrada — evita um
+  // toque a mais, já que o Face ID/Touch ID tende a aparecer na hora de qualquer jeito
+  useEffect(() => {
+    if (needsPinCheck && clinicSettings?.webauthnCredentialId) {
+      handleCheckBiometric();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [needsPinCheck]);
+
   const handleForgotPin = async () => {
     if (!user) return;
-    // Saída de emergência: desativa a exigência de PIN direto (sem precisar entrar em
-    // Configurações, já que é justamente isso que ficaria trancado). Pra usar PIN nesse
-    // celular de novo, é só definir um novo em Configurações → Segurança.
-    await updateDoc(doc(db, 'settings', user.uid), { biometricEnabled: false }).catch(() => {});
+    // Saída de emergência: desativa a exigência de PIN/biometria direto (sem precisar
+    // entrar em Configurações, já que é justamente isso que ficaria trancado). Pra usar
+    // de novo nesse celular, é só reativar em Configurações → Segurança.
+    await updateDoc(doc(db, 'settings', user.uid), { biometricEnabled: false, webauthnCredentialId: undefined }).catch(() => {});
     sessionStorage.setItem('pinUnlocked', 'true');
     setPinUnlocked(true);
   };
@@ -214,11 +241,34 @@ function AuthenticatedApp() {
           <div className="w-20 h-20 bg-[#EADFD4]/10 rounded-full flex items-center justify-center mx-auto mb-8">
             <UserIcon className="text-[#EADFD4] w-10 h-10" />
           </div>
-          <h1 className="text-2xl font-light text-[#5C544E] mb-2 serif">Digite seu PIN</h1>
+          <h1 className="text-2xl font-light text-[#5C544E] mb-2 serif">
+            {clinicSettings?.webauthnCredentialId ? 'Confirme sua identidade' : 'Digite seu PIN'}
+          </h1>
           <p className="text-[#9CA3AF] mb-8 font-light text-sm">Segurança extra pra abrir o app</p>
 
+          {clinicSettings?.webauthnCredentialId && (
+            <>
+              <button
+                onClick={handleCheckBiometric}
+                disabled={checkingBiometric}
+                className="w-full py-4 px-6 bg-[#EADFD4] text-white rounded-2xl flex items-center justify-center gap-3 hover:bg-[#DFCFBF] transition-all shadow-sm active:scale-[0.98] font-medium mb-4 disabled:opacity-50"
+              >
+                <Fingerprint size={20} />
+                {checkingBiometric ? 'Verificando...' : 'Usar Face ID / Digital'}
+              </button>
+              {biometricFailed && (
+                <p className="text-xs text-red-400 mb-4">Não reconhecido. Tente de novo ou use o PIN.</p>
+              )}
+              {clinicSettings?.pinHash && (
+                <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest mb-4">ou digite o PIN</p>
+              )}
+            </>
+          )}
+
+          {clinicSettings?.pinHash && (
+            <>
           <input
-            autoFocus
+            autoFocus={!clinicSettings?.webauthnCredentialId}
             type="password"
             inputMode="numeric"
             maxLength={6}
@@ -242,9 +292,11 @@ function AuthenticatedApp() {
           >
             {checkingPin ? 'Verificando...' : 'Entrar'}
           </button>
+            </>
+          )}
 
           <button onClick={handleForgotPin} className="text-xs text-[#9CA3AF] hover:text-[#5C544E] transition-all">
-            Esqueci o PIN
+            Esqueci o PIN / biometria
           </button>
         </motion.div>
         <ToastHost />
