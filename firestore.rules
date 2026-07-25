@@ -27,9 +27,11 @@ service cloud.firestore {
       return isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
-    // Patient Validation
+    // Patient Validation — só o formato dos dados, independente de quem está criando
+    // (quem pode criar de fato é decidido separadamente nas regras de create/update abaixo —
+    // mesmo padrão usado em appointments)
     function isValidPatient(data) {
-      return data.userId is string && data.userId == request.auth.uid
+      return data.userId is string
         && data.name is string && data.name.size() > 0 && data.name.size() <= 200
         && (!('email' in data) || data.email is string)
         && (!('phone' in data) || data.phone is string)
