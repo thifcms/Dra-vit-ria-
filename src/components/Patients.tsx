@@ -663,9 +663,9 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
         <span>Voltar para lista</span>
       </button>
 
-      <div className="bg-white rounded-[40px] border border-[#F5F2F0] shadow-sm overflow-hidden min-h-[600px] flex flex-col lg:flex-row">
+      <div className="bg-white rounded-[40px] border border-[#F5F2F0] shadow-sm min-h-[600px] flex flex-col lg:flex-row">
         {/* Patient Detail Sidebar */}
-        <div className="w-full lg:w-80 bg-[#FDFBF9] border-r border-[#F5F2F0] p-8 flex flex-col">
+        <div className="w-full lg:w-80 bg-[#FDFBF9] border-r border-[#F5F2F0] p-8 flex flex-col rounded-t-[40px] lg:rounded-l-[40px] lg:rounded-tr-none">
           <div className="text-center mb-10">
             <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center text-[#EADFD4] mx-auto mb-6 border-4 border-white shadow-md overflow-hidden relative group">
               <UserIcon size={48} />
