@@ -62,6 +62,15 @@ export default function App() {
   return <AuthenticatedApp />;
 }
 
+// Transição de fade sutil, usada tanto entre a abertura → login → app quanto entre as
+// páginas internas — mantém tudo consistente, sem nenhum movimento, só opacidade.
+const PAGE_FADE = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1 },
+  exit: { opacity: 0 },
+  transition: { duration: 0.35, ease: 'easeInOut' },
+};
+
 function AuthenticatedApp() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
@@ -113,9 +122,10 @@ function AuthenticatedApp() {
     };
   }, [user]);
 
-  if (loading) {
-    return (
-      <div className="h-screen w-screen flex items-center justify-center bg-white">
+  return (
+    <AnimatePresence mode="wait">
+    {loading ? (
+      <motion.div key="loading" {...PAGE_FADE} className="h-screen w-screen flex items-center justify-center bg-white">
         <motion.img
           src="/Dra-vit-ria-/logo/logo-full-v2.png"
           alt="Dra. Vitória Oliveira — Estética Orofacial"
@@ -124,18 +134,10 @@ function AuthenticatedApp() {
           animate={{ opacity: 1 }}
           transition={{ duration: 5, ease: 'easeInOut' }}
         />
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="h-screen w-screen flex flex-col items-center justify-center bg-[#FDFBF9] p-6">
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-md bg-white p-10 rounded-[32px] shadow-sm border border-[#F5F2F0] text-center"
-        >
+      </motion.div>
+    ) : !user ? (
+      <motion.div key="login" {...PAGE_FADE} className="h-screen w-screen flex flex-col items-center justify-center bg-[#FDFBF9] p-6">
+        <div className="w-full max-w-md bg-white p-10 rounded-[32px] shadow-sm border border-[#F5F2F0] text-center">
           <div className="w-20 h-20 bg-[#EADFD4]/10 rounded-full flex items-center justify-center mx-auto mb-8">
             <UserIcon className="text-[#EADFD4] w-10 h-10" />
           </div>
@@ -150,15 +152,12 @@ function AuthenticatedApp() {
           </button>
           
           <p className="mt-8 text-xs text-[#9CA3AF] font-light uppercase tracking-[0.2em]">Acesso Seguro & Criptografado</p>
-        </motion.div>
+        </div>
         
         <ToastHost />
-      </div>
-    );
-  }
-          
-  return (
-    <div className="flex h-screen bg-[#FDFBF9] text-[#5C544E] overflow-hidden relative">
+      </motion.div>
+    ) : (
+    <motion.div key="app" {...PAGE_FADE} className="flex h-screen bg-[#FDFBF9] text-[#5C544E] overflow-hidden relative">
       <ToastHost />
       {/* Sidebar - Retractable Drawer */}
       <AnimatePresence>
@@ -331,10 +330,7 @@ function AuthenticatedApp() {
           <AnimatePresence mode="wait">
             <motion.div
               key={activeView}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
+              {...PAGE_FADE}
             >
               <Suspense fallback={<ViewLoadingFallback />}>
                 {activeView === 'dashboard' && <Dashboard user={user} onNavigate={setActiveView} professionalName={professionalName} />}
@@ -358,7 +354,9 @@ function AuthenticatedApp() {
           </AnimatePresence>
         </div>
       </main>
-    </div>
+    </motion.div>
+    )}
+    </AnimatePresence>
   );
 }
 
