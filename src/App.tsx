@@ -115,36 +115,15 @@ function AuthenticatedApp() {
 
   if (loading) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-white overflow-hidden relative">
-        {/* Brilho suave atrás da logo, surge devagar antes dela */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.5 }}
-          animate={{ opacity: 1, scale: 1.4 }}
-          transition={{ duration: 6, ease: 'easeOut' }}
-          className="absolute w-[420px] h-[420px] rounded-full pointer-events-none"
-          style={{ background: 'radial-gradient(circle, rgba(234,223,212,0.55) 0%, rgba(234,223,212,0) 70%)' }}
+      <div className="h-screen w-screen flex items-center justify-center bg-white">
+        <motion.img
+          src="/Dra-vit-ria-/logo/logo-full.png"
+          alt="Dra. Vitória Oliveira — Estética Orofacial"
+          className="h-24 w-auto object-contain"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 5, ease: 'easeInOut' }}
         />
-
-        <motion.div
-          initial={{ opacity: 0, scale: 0.12, filter: 'blur(24px)' }}
-          animate={{
-            opacity: 1,
-            scale: [0.12, 1.03, 1, 1.015, 1],
-            filter: 'blur(0px)',
-          }}
-          transition={{
-            opacity: { duration: 3.2, ease: [0.16, 1, 0.3, 1] },
-            filter: { duration: 3.2, ease: [0.16, 1, 0.3, 1] },
-            scale: {
-              duration: 5,
-              times: [0, 0.64, 0.78, 0.9, 1],
-              ease: [0.16, 1, 0.3, 1],
-            },
-          }}
-          className="relative"
-        >
-          <img src="/Dra-vit-ria-/logo/logo-full.png" alt="Dra. Vitória Oliveira — Estética Orofacial" className="h-24 w-auto object-contain relative z-10" />
-        </motion.div>
       </div>
     );
   }
