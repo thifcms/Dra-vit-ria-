@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
-import { auth, signInWithGoogle, db } from './lib/firebase';
+import { auth, signInWithGoogle, getRedirectResult, db } from './lib/firebase';
 import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { onAuthStateChanged, User as FirebaseUser, signOut } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
-import { ToastHost } from './lib/toast';
+import { ToastHost, showToast } from './lib/toast';
 import type { ClinicSettings, Patient } from './types';
 import { 
   Users, 
@@ -97,6 +97,18 @@ function AuthenticatedApp() {
       setAuthChecked(true);
     });
     return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    // Captura erros do login por redirect (ex: aberto de dentro do WhatsApp/Instagram,
+    // que o Google recusa por segurança) — sem isso, o erro passava em silêncio.
+    getRedirectResult(auth).catch((err) => {
+      if (err?.code === 'auth/operation-not-supported-in-this-environment') {
+        showToast('Não é possível fazer login dentro deste app. Abra o link no Safari/Chrome direto.', 'error');
+      } else if (err?.code) {
+        showToast('Não foi possível entrar com o Google. Tente novamente.', 'error');
+      }
+    });
   }, []);
 
   useEffect(() => {
