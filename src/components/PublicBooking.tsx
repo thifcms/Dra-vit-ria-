@@ -7,6 +7,100 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Calendar, Phone, User as UserIcon, Mail, IdCard, ChevronLeft, ChevronRight, CheckCircle2, MessageSquare } from 'lucide-react';
 import type { PublicBookingConfig, BusySlot } from '../types';
 
+const PROCEDURE_OPTIONS = [
+  'Botox',
+  'Harmonização Facial',
+  'Bioestimulador',
+  'Preenchimento Labial',
+  'Revitalização Labial',
+  'Tecnologias',
+  'Cirurgia',
+  'Avaliação',
+];
+
+// Seleção do procedimento de interesse — caixas fixas + "Outros" abrindo um campo de texto
+function ProcedurePicker({
+  value, onChange, showOtherDialog, setShowOtherDialog, otherDraft, setOtherDraft,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  showOtherDialog: boolean;
+  setShowOtherDialog: (v: boolean) => void;
+  otherDraft: string;
+  setOtherDraft: (v: string) => void;
+}) {
+  const isCustom = value !== '' && !PROCEDURE_OPTIONS.includes(value);
+
+  return (
+    <div>
+      <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Procedimento de interesse (opcional)</label>
+      <div className="flex flex-wrap gap-2">
+        {PROCEDURE_OPTIONS.map(opt => (
+          <button
+            key={opt}
+            type="button"
+            onClick={() => onChange(value === opt ? '' : opt)}
+            className={`px-4 py-2.5 rounded-xl text-xs font-medium border transition-all ${
+              value === opt
+                ? 'bg-[#EADFD4] text-white border-[#EADFD4]'
+                : 'bg-[#FDFBF9] text-[#5C544E] border-[#F5F2F0] hover:border-[#EADFD4]'
+            }`}
+          >
+            {opt}
+          </button>
+        ))}
+        <button
+          type="button"
+          onClick={() => { setOtherDraft(isCustom ? value : ''); setShowOtherDialog(true); }}
+          className={`px-4 py-2.5 rounded-xl text-xs font-medium border transition-all ${
+            isCustom
+              ? 'bg-[#EADFD4] text-white border-[#EADFD4]'
+              : 'bg-[#FDFBF9] text-[#5C544E] border-[#F5F2F0] hover:border-[#EADFD4]'
+          }`}
+        >
+          {isCustom ? value : 'Outros'}
+        </button>
+      </div>
+
+      {showOtherDialog && (
+        <div className="fixed inset-0 bg-[#5C544E]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6" onClick={() => setShowOtherDialog(false)}>
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            onClick={e => e.stopPropagation()}
+            className="bg-white w-full max-w-sm rounded-[32px] p-8 shadow-2xl"
+          >
+            <h3 className="serif text-lg text-[#5C544E] mb-4">Qual procedimento?</h3>
+            <input
+              autoFocus
+              value={otherDraft}
+              onChange={e => setOtherDraft(e.target.value)}
+              placeholder="Digite aqui..."
+              className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all font-light text-sm mb-6"
+            />
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowOtherDialog(false)}
+                className="flex-1 py-3 text-[#9CA3AF] font-bold text-[10px] uppercase"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => { onChange(otherDraft.trim()); setShowOtherDialog(false); }}
+                className="flex-1 py-3 bg-[#EADFD4] text-white rounded-xl font-bold text-[10px] uppercase"
+              >
+                Confirmar
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 type Step = 'calendar' | 'phone' | 'register' | 'confirm';
 
 // Página pública de agendamento — acessada via link (ex: no Instagram/site), sem exigir login.
@@ -31,6 +125,8 @@ export default function PublicBooking() {
   const [cpf, setCpf] = useState('');
   const [birthDate, setBirthDate] = useState('');
   const [procedureInterest, setProcedureInterest] = useState('');
+  const [showOtherDialog, setShowOtherDialog] = useState(false);
+  const [otherDraft, setOtherDraft] = useState('');
 
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -429,15 +525,14 @@ export default function PublicBooking() {
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-5">
-                <div>
-                  <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Procedimento de interesse (opcional)</label>
-                  <input
-                    className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all font-light text-sm"
-                    value={procedureInterest}
-                    onChange={e => setProcedureInterest(e.target.value)}
-                    placeholder="ex: Harmonização Facial, Botox..."
-                  />
-                </div>
+                <ProcedurePicker
+                  value={procedureInterest}
+                  onChange={setProcedureInterest}
+                  showOtherDialog={showOtherDialog}
+                  setShowOtherDialog={setShowOtherDialog}
+                  otherDraft={otherDraft}
+                  setOtherDraft={setOtherDraft}
+                />
                 <button
                   disabled={submitting}
                   type="submit"
@@ -517,15 +612,14 @@ export default function PublicBooking() {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Procedimento de interesse (opcional)</label>
-                  <input
-                    className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all font-light text-sm"
-                    value={procedureInterest}
-                    onChange={e => setProcedureInterest(e.target.value)}
-                    placeholder="ex: Harmonização Facial, Botox..."
-                  />
-                </div>
+                <ProcedurePicker
+                  value={procedureInterest}
+                  onChange={setProcedureInterest}
+                  showOtherDialog={showOtherDialog}
+                  setShowOtherDialog={setShowOtherDialog}
+                  otherDraft={otherDraft}
+                  setOtherDraft={setOtherDraft}
+                />
 
                 <button
                   disabled={submitting}
