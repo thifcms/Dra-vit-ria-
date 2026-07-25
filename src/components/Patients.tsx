@@ -459,7 +459,6 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
   const [activeTab, setActiveTab] = useState<'anamnesis' | 'evolution' | 'photos' | 'files' | 'consent' | 'prescriptions'>('anamnesis');
   const [phoneDraft, setPhoneDraft] = useState(patient.phone || '');
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deletingPatient, setDeletingPatient] = useState(false);
   
   // Normalização para garantir que dados legados não quebrem a interface nova de checkboxes
@@ -568,7 +567,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
   };
 
   const handleDeletePatient = async () => {
-    if (deleteConfirmText !== patient.name || deletingPatient) return;
+    if (deletingPatient) return;
     setDeletingPatient(true);
     try {
       await deleteDoc(doc(db, 'patients', patient.id!));
@@ -729,33 +728,23 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
                 Isso apaga permanentemente o prontuário de <strong className="text-[#5C544E]">{patient.name}</strong> —
                 anamnese, evolução, receituários, termos e fotos. Não pode ser desfeito.
               </p>
-              <p className="text-xs text-[#9CA3AF] font-light mb-6 italic">
+              <p className="text-xs text-[#9CA3AF] font-light mb-8 italic">
                 Agendamentos e lançamentos financeiros já existentes não são apagados, só deixam de estar
                 vinculados a um cadastro de paciente.
               </p>
-              <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">
-                Digite o nome do paciente pra confirmar
-              </label>
-              <input
-                autoFocus
-                value={deleteConfirmText}
-                onChange={e => setDeleteConfirmText(e.target.value)}
-                placeholder={patient.name}
-                className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-red-200 transition-all font-light mb-6"
-              />
               <div className="flex gap-4">
                 <button
-                  onClick={() => { setConfirmingDelete(false); setDeleteConfirmText(''); }}
+                  onClick={() => setConfirmingDelete(false)}
                   className="flex-1 py-4 text-[#9CA3AF] font-bold text-[10px] uppercase"
                 >
-                  Cancelar
+                  Não, cancelar
                 </button>
                 <button
-                  disabled={deleteConfirmText !== patient.name || deletingPatient}
+                  disabled={deletingPatient}
                   onClick={handleDeletePatient}
                   className="flex-1 py-4 bg-red-400 text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-red-500 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  {deletingPatient ? 'Excluindo...' : 'Excluir Definitivamente'}
+                  {deletingPatient ? 'Excluindo...' : 'Sim, excluir'}
                 </button>
               </div>
             </motion.div>
