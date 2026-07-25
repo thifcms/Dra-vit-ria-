@@ -586,10 +586,11 @@ export default function PublicBooking() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">CPF (opcional)</label>
+                    <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">CPF</label>
                     <div className="relative">
                       <IdCard size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
                       <input
+                        required
                         className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 pl-12 outline-none focus:border-[#EADFD4]/30 transition-all font-light text-sm"
                         value={cpf}
                         onChange={e => setCpf(e.target.value)}
@@ -609,10 +610,11 @@ export default function PublicBooking() {
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">E-mail (opcional)</label>
+                  <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">E-mail</label>
                   <div className="relative">
                     <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
                     <input
+                      required
                       type="email"
                       className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 pl-12 outline-none focus:border-[#EADFD4]/30 transition-all font-light text-sm"
                       value={email}
