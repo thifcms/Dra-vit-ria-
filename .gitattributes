@@ -1,0 +1,7 @@
+# Garante que imagens sejam sempre tratadas como binário puro, nunca passando
+# por nenhuma conversão de texto/linha — proteção contra corrupção de arquivo
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.svg binary
