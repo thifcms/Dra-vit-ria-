@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { doc, getDoc, setDoc, addDoc, deleteDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { slotId, checkinLink, cancelLink, CLINIC_HOURS, phoneIndexKey } from '../lib/slots';
+import { slotId, checkinLink, cancelLink, CLINIC_HOURS, phoneIndexKey, EMAIL_SERVICE_URL } from '../lib/slots';
 import { buildReminderMessage, whatsappLink } from '../lib/reminders';
 import { motion, AnimatePresence } from 'motion/react';
 import { Calendar, Phone, User as UserIcon, Mail, IdCard, ChevronLeft, ChevronRight, CheckCircle2, MessageSquare } from 'lucide-react';
@@ -279,6 +279,16 @@ export default function PublicBooking() {
       setCheckinUrl(checkinLink(apptRef.id, token, selectedDate, selectedTime));
       setCancelUrl(cancelLink(apptRef.id, token, selectedDate, selectedTime, config.ownerId));
       setSubmitted(true);
+
+      // Dispara o e-mail de confirmação automático (serviço independente do app principal).
+      // Best-effort: se o serviço estiver fora do ar, ou o paciente não tiver e-mail, o
+      // agendamento em si já está confirmado de qualquer forma — isso nunca deve travar
+      // nem mostrar erro pro paciente.
+      fetch(`${EMAIL_SERVICE_URL}/api/send-confirmation-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appointmentId: apptRef.id }),
+      }).catch(() => {});
     } catch (err) {
       await deleteDoc(doc(db, 'busySlots', slotDocId)).catch(() => {});
       showError('Não foi possível confirmar seu agendamento agora. Tente novamente.');

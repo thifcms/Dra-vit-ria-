@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, setDoc, doc, getDoc, where, orderBy } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Appointment, Patient, ClinicSettings } from '../types';
-import { slotId, checkinLink, cancelLink, CLINIC_HOURS } from '../lib/slots';
+import { slotId, checkinLink, cancelLink, CLINIC_HOURS, EMAIL_SERVICE_URL } from '../lib/slots';
 import { buildReminderMessage, whatsappLink, emailLink } from '../lib/reminders';
 import { User as FirebaseUser } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
@@ -647,6 +647,13 @@ function AddAppointmentModal({ user, onClose, patients, appointments, initialDat
           createdAt: new Date().toISOString()
         });
         await setDoc(doc(db, 'busySlots', slotId(user.uid, date, time)), { clinicId: user.uid, date, time, apt: ref.id }).catch(() => {});
+        if (patient?.email) {
+          fetch(`${EMAIL_SERVICE_URL}/api/send-confirmation-email`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ appointmentId: ref.id }),
+          }).catch(() => {});
+        }
         showToast('Agendamento realizado');
       } else {
         // Agendamento recorrente: cria N ocorrências de uma vez, pulando horários já ocupados
