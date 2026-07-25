@@ -12,7 +12,13 @@ export default defineConfig(() => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate', // atualiza o app sozinho a cada novo deploy, sem cache velho travando
-        includeAssets: ['favicon.png', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-192-maskable.png', 'icons/icon-512-maskable.png', 'icons/apple-touch-icon.png'],        manifest: {
+        includeAssets: [
+          'favicon.png',
+          'icons/icon-192.png', 'icons/icon-512.png',
+          'icons/icon-192-maskable.png', 'icons/icon-512-maskable.png',
+          'icons/apple-touch-icon.png',
+          'logo/logo-full.png', 'logo/logo-mark.png',
+        ],        manifest: {
           name: 'Clínica Digital',
           short_name: 'Clínica Digital',
           description: 'Gestão Clínica Estética & Financeira',
