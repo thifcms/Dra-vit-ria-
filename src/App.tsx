@@ -117,7 +117,7 @@ function AuthenticatedApp() {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-white">
         <motion.img
-          src="/Dra-vit-ria-/logo/logo-full.png"
+          src="/Dra-vit-ria-/logo/logo-full-v2.png"
           alt="Dra. Vitória Oliveira — Estética Orofacial"
           className="h-24 w-auto object-contain"
           initial={{ opacity: 0 }}
