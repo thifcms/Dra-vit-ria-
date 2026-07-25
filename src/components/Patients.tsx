@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { collection, query, onSnapshot, addDoc, updateDoc, setDoc, getDoc, doc, where, orderBy } from 'firebase/firestore';
+import { collection, query, onSnapshot, addDoc, updateDoc, setDoc, deleteDoc, getDoc, doc, where, orderBy } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, storage } from '../lib/firebase';
 import { Patient, ClinicSettings } from '../types';
@@ -458,6 +458,9 @@ function AddPatientModal({ user, onClose }: { user: User, onClose: () => void })
 function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient, onBack: () => void }) {
   const [activeTab, setActiveTab] = useState<'anamnesis' | 'evolution' | 'photos' | 'files' | 'consent' | 'prescriptions'>('anamnesis');
   const [phoneDraft, setPhoneDraft] = useState(patient.phone || '');
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deletingPatient, setDeletingPatient] = useState(false);
   
   // Normalização para garantir que dados legados não quebrem a interface nova de checkboxes
   const normalizeAnamnesis = (a: any) => {
@@ -561,6 +564,23 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
       showToast('Erro no upload das fotos', 'error');
     } finally {
       e.target.value = '';
+    }
+  };
+
+  const handleDeletePatient = async () => {
+    if (deleteConfirmText !== patient.name || deletingPatient) return;
+    setDeletingPatient(true);
+    try {
+      await deleteDoc(doc(db, 'patients', patient.id!));
+      // Melhor esforço: libera o índice de telefone também, se existir
+      if (patient.phone) {
+        await deleteDoc(doc(db, 'patientPhoneIndex', phoneIndexKey(user.uid, patient.phone))).catch(() => {});
+      }
+      showToast('Paciente excluído');
+      onBack();
+    } catch (err) {
+      showToast('Erro ao excluir paciente', 'error');
+      setDeletingPatient(false);
     }
   };
 
@@ -677,7 +697,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
             <TabButton active={activeTab === 'files'} onClick={() => setActiveTab('files')} icon={<Paperclip size={20} />} label="Exames e Anexos" />
           </nav>
 
-          <div className="mt-auto pt-10 border-t border-[#F5F2F0]">
+          <div className="mt-auto pt-10 border-t border-[#F5F2F0] space-y-3">
             <button
               onClick={() => exportPatientRecord(patient)}
               className="w-full py-4 px-6 bg-white text-[#9CA3AF] border border-[#F5F2F0] rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-[#FDFBF9] hover:text-[#5C544E] transition-all shadow-sm"
@@ -685,8 +705,62 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
               <Download size={18} />
               Exportar Prontuário
             </button>
+            <button
+              onClick={() => setConfirmingDelete(true)}
+              className="w-full py-4 px-6 bg-white text-red-300 border border-red-100 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-red-50 hover:text-red-500 transition-all shadow-sm"
+            >
+              <Trash2 size={18} />
+              Excluir Paciente
+            </button>
           </div>
         </div>
+
+        {confirmingDelete && (
+          <div className="fixed inset-0 bg-[#5C544E]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+            <motion.div
+              initial={{ y: 30, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 30, opacity: 0 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="bg-white w-full max-w-md rounded-[40px] p-10 shadow-2xl"
+            >
+              <h2 className="serif text-2xl text-[#5C544E] mb-2">Excluir paciente?</h2>
+              <p className="text-sm text-[#9CA3AF] font-light mb-2">
+                Isso apaga permanentemente o prontuário de <strong className="text-[#5C544E]">{patient.name}</strong> —
+                anamnese, evolução, receituários, termos e fotos. Não pode ser desfeito.
+              </p>
+              <p className="text-xs text-[#9CA3AF] font-light mb-6 italic">
+                Agendamentos e lançamentos financeiros já existentes não são apagados, só deixam de estar
+                vinculados a um cadastro de paciente.
+              </p>
+              <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">
+                Digite o nome do paciente pra confirmar
+              </label>
+              <input
+                autoFocus
+                value={deleteConfirmText}
+                onChange={e => setDeleteConfirmText(e.target.value)}
+                placeholder={patient.name}
+                className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-red-200 transition-all font-light mb-6"
+              />
+              <div className="flex gap-4">
+                <button
+                  onClick={() => { setConfirmingDelete(false); setDeleteConfirmText(''); }}
+                  className="flex-1 py-4 text-[#9CA3AF] font-bold text-[10px] uppercase"
+                >
+                  Cancelar
+                </button>
+                <button
+                  disabled={deleteConfirmText !== patient.name || deletingPatient}
+                  onClick={handleDeletePatient}
+                  className="flex-1 py-4 bg-red-400 text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-red-500 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {deletingPatient ? 'Excluindo...' : 'Excluir Definitivamente'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
 
         {/* Content Area */}
         <div className="flex-1 p-10 bg-white overflow-y-auto">
