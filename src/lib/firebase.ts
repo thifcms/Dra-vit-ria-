@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { initializeFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import firebaseConfig from '../../firebase-applet-config.json';
@@ -14,12 +14,11 @@ export const auth = getAuth(app);
 export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();
 
-// signInWithPopup é bem instável no Safari/iOS (o Safari costuma bloquear o popup, e
-// navegadores embutidos de outros apps — WhatsApp, Instagram etc — o Google recusa de
-// propósito por segurança). signInWithRedirect troca a página inteira em vez de abrir
-// popup, e funciona de forma muito mais confiável em qualquer navegador/dispositivo.
-export const signInWithGoogle = () => signInWithRedirect(auth, googleProvider);
-export { getRedirectResult };
+// Voltou a usar signInWithPopup: signInWithRedirect causava um loop de login nesse app
+// (a volta do redirecionamento não estava sendo reconhecida em alguns navegadores/contas,
+// mandando de volta pra tela de login em vez de completar o acesso). Popup é o método
+// mais previsível aqui, dado esse comportamento observado.
+export const signInWithGoogle = () => signInWithPopup(auth, googleProvider);
 
 async function testConnection() {
   try {

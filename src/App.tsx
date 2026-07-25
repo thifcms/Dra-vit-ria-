@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
-import { auth, signInWithGoogle, getRedirectResult, db } from './lib/firebase';
+import { auth, signInWithGoogle, db } from './lib/firebase';
 import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { onAuthStateChanged, User as FirebaseUser, signOut } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
@@ -99,17 +99,19 @@ function AuthenticatedApp() {
     return unsubscribe;
   }, []);
 
-  useEffect(() => {
-    // Captura erros do login por redirect (ex: aberto de dentro do WhatsApp/Instagram,
-    // que o Google recusa por segurança) — sem isso, o erro passava em silêncio.
-    getRedirectResult(auth).catch((err) => {
-      if (err?.code === 'auth/operation-not-supported-in-this-environment') {
+  const handleSignIn = async () => {
+    try {
+      await signInWithGoogle();
+    } catch (err: any) {
+      if (err?.code === 'auth/popup-blocked') {
+        showToast('O navegador bloqueou a janela de login. Permita pop-ups para este site e tente de novo.', 'error');
+      } else if (err?.code === 'auth/operation-not-supported-in-this-environment') {
         showToast('Não é possível fazer login dentro deste app. Abra o link no Safari/Chrome direto.', 'error');
-      } else if (err?.code) {
+      } else if (err?.code && err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
         showToast('Não foi possível entrar com o Google. Tente novamente.', 'error');
       }
-    });
-  }, []);
+    }
+  };
 
   useEffect(() => {
     // Segura a tela de abertura por tempo suficiente pra dar pra ver a animação da logo
@@ -157,7 +159,7 @@ function AuthenticatedApp() {
           <p className="text-[#9CA3AF] mb-10 font-light italic">Gestão moderna e delicada</p>
           
           <button 
-            onClick={signInWithGoogle}
+            onClick={handleSignIn}
             className="w-full py-4 px-6 bg-[#EADFD4] text-white rounded-2xl flex items-center justify-center gap-3 hover:bg-[#DFCFBF] transition-all shadow-sm active:scale-[0.98] font-medium"
           >
             <span className="tracking-wide">Entrar com Google</span>
