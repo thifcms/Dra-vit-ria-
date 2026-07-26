@@ -390,11 +390,14 @@ export default function PublicBooking() {
               });
               window.open(whatsappLink(phone, msg), '_blank');
             }}
-            className="w-full py-4 bg-[#25D366] text-white rounded-2xl font-medium flex items-center justify-center gap-3 hover:bg-[#20bd5c] transition-all shadow-sm mb-8"
+            className="w-full py-4 bg-[#25D366] text-white rounded-2xl font-medium flex items-center justify-center gap-3 hover:bg-[#20bd5c] transition-all shadow-sm"
           >
             <MessageSquare size={20} />
-            Receber no meu WhatsApp
+            Salvar Confirmação no Meu WhatsApp
           </button>
+          <p className="text-[10px] text-[#9CA3AF] font-light text-center mt-3 mb-8 leading-relaxed">
+            Isso abre uma conversa com você mesmo no seu WhatsApp, só pra guardar os detalhes e o link salvos. Não é enviado pra ninguém.
+          </p>
 
           {checkinUrl && (
             <div className="mt-8 p-5 bg-[#FDFBF9] rounded-2xl border border-[#F5F2F0] text-left">
