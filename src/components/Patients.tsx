@@ -105,7 +105,6 @@ function exportPatientRecord(patient: Patient) {
     `Hábitos: ${habitsList}`,
     `Dieta: ${a?.habits?.diet || '-'}`,
     '',
-    `Fototipo (Fitzpatrick): ${a?.fitzpatrickType || '-'}`,
     `Avaliação da pele: ${a?.skinEvaluation || '-'}`,
     `Avaliação facial: ${a?.faceEvaluation || '-'}`,
     '',
@@ -843,24 +842,6 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
                     <h4 className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-[#EADFD4]" /> Avaliação Física
                     </h4>
-                    <div className="mb-8">
-                      <p className="text-[9px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-4 ml-1">Fototipo de Fitzpatrick</p>
-                      <div className="flex flex-wrap gap-3">
-                        {['I', 'II', 'III', 'IV', 'V', 'VI'].map(type => (
-                          <button
-                            key={type}
-                            onClick={() => setAnamnesis({...anamnesis, fitzpatrickType: type})}
-                            className={`w-14 h-14 rounded-2xl border transition-all font-serif text-lg ${
-                              anamnesis.fitzpatrickType === type 
-                                ? 'bg-[#EADFD4] text-white border-[#EADFD4] shadow-md scale-110' 
-                                : 'bg-[#FDFBF9] text-[#9CA3AF] border-[#F5F2F0] hover:border-[#EADFD4]/30'
-                            }`}
-                          >
-                            {type}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       <FormField label="Avaliação da Pele" value={anamnesis.skinEvaluation} onChange={v => setAnamnesis({...anamnesis, skinEvaluation: v})} textarea />
                       <FormField label="Avaliação Facial / Corporal" value={anamnesis.faceEvaluation} onChange={v => setAnamnesis({...anamnesis, faceEvaluation: v})} textarea />
