@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, deleteDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { ClinicSettings, ConsentTemplate } from '../types';
 import { User } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Building2, 
+  Calendar,
   User as UserIcon, 
   MapPin, 
   Hash,
@@ -234,6 +235,30 @@ export default function Settings({ user }: { user: User }) {
     setBackingUp(false);
   };
 
+  const [clearingSlots, setClearingSlots] = useState(false);
+  const handleClearStuckSlots = async () => {
+    setClearingSlots(true);
+    try {
+      const snap = await getDocs(query(collection(db, 'busySlots'), where('clinicId', '==', user.uid)));
+      let cleared = 0;
+      for (const slotDoc of snap.docs) {
+        const data = slotDoc.data();
+        if (!data.apt) continue; // sem vínculo com agendamento — não mexe (não dá pra saber se está travado)
+        const apptSnap = await getDoc(doc(db, 'appointments', data.apt));
+        if (!apptSnap.exists()) {
+          // O agendamento nunca chegou a ser criado (falhou no meio do caminho) — o horário
+          // ficou travado sem necessidade. Libera.
+          await deleteDoc(slotDoc.ref);
+          cleared++;
+        }
+      }
+      showToast(cleared > 0 ? `${cleared} horário(s) destravado(s)` : 'Nenhum horário travado encontrado');
+    } catch (err) {
+      showToast('Erro ao verificar horários', 'error');
+    }
+    setClearingSlots(false);
+  };
+
   if (loading) return (
     <div className="py-20 text-center text-[#9CA3AF] font-light italic">Carregando configurações...</div>
   );
@@ -405,6 +430,15 @@ export default function Settings({ user }: { user: User }) {
           >
             <Download size={20} />
             <span>{backingUp ? 'Gerando backup...' : 'Backup Completo (JSON)'}</span>
+          </button>
+
+          <button 
+            onClick={handleClearStuckSlots}
+            disabled={clearingSlots}
+            className="w-full py-5 bg-white border border-[#F5F2F0] text-[#5C544E] rounded-[28px] font-medium flex items-center justify-center gap-3 hover:border-[#EADFD4] transition-all shadow-sm active:scale-95 disabled:opacity-50"
+          >
+            <Calendar size={20} />
+            <span>{clearingSlots ? 'Verificando...' : 'Destravar Horários da Agenda'}</span>
           </button>
         </div>
       </div>
