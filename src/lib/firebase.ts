@@ -13,6 +13,9 @@ export const db = initializeFirestore(app, { ignoreUndefinedProperties: true }, 
 export const auth = getAuth(app);
 export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();
+// Sem isso, o Google costuma pular direto pra última conta usada nesse aparelho, sem
+// mostrar a lista de contas pra escolher. Isso força sempre aparecer a tela de escolha.
+googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 // Voltou a usar signInWithPopup: signInWithRedirect causava um loop de login nesse app
 // (a volta do redirecionamento não estava sendo reconhecida em alguns navegadores/contas,
