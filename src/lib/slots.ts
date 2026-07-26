@@ -44,4 +44,4 @@ export function phoneIndexKey(clinicId: string, phone: string): string {
 // Atualize este valor depois de publicar o serviço no Render (ou onde for hospedado).
 // Enquanto estiver com o valor de exemplo abaixo, o envio automático de e-mail fica
 // silenciosamente desativado (falha graciosamente, sem quebrar o agendamento).
-export const EMAIL_SERVICE_URL = 'https://clinica-email-service.onrender.com';
+export const EMAIL_SERVICE_URL = 'https://clinica-email-service.vercel.app';
