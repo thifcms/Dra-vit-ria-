@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { doc, getDoc, setDoc, addDoc, deleteDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { slotId, checkinLink, cancelLink, CLINIC_HOURS, phoneIndexKey, EMAIL_SERVICE_URL } from '../lib/slots';
 import { buildReminderMessage, whatsappLink } from '../lib/reminders';
+import { PRIVACY_POLICY_TEXT } from '../lib/privacyPolicy';
 import { motion, AnimatePresence } from 'motion/react';
-import { Calendar, Phone, User as UserIcon, Mail, IdCard, ChevronLeft, ChevronRight, CheckCircle2, MessageSquare } from 'lucide-react';
+import { Calendar, Phone, User as UserIcon, Mail, IdCard, ChevronLeft, ChevronRight, CheckCircle2, MessageSquare, X } from 'lucide-react';
 import type { PublicBookingConfig, BusySlot } from '../types';
 
 const PROCEDURE_OPTIONS = [
@@ -103,6 +104,36 @@ function ProcedurePicker({
 
 type Step = 'calendar' | 'phone' | 'register' | 'confirm';
 
+// Checkbox de consentimento com a Política de Privacidade, com botão "Leia mais" que
+// abre o texto completo. Sem marcar, o agendamento não pode ser confirmado.
+function PrivacyConsent({ accepted, onChange, onReadMore }: {
+  accepted: boolean;
+  onChange: (v: boolean) => void;
+  onReadMore: () => void;
+}) {
+  return (
+    <label className="flex items-start gap-3 p-4 bg-[#FDFBF9] rounded-2xl border border-[#F1F3F5] cursor-pointer">
+      <input
+        type="checkbox"
+        checked={accepted}
+        onChange={e => onChange(e.target.checked)}
+        className="mt-0.5 w-4 h-4 accent-[#EADFD4] shrink-0"
+      />
+      <span className="text-xs text-[#9CA3AF] font-light leading-relaxed">
+        Li e concordo com a{' '}
+        <button
+          type="button"
+          onClick={(e) => { e.preventDefault(); onReadMore(); }}
+          className="text-[#5C544E] font-medium underline underline-offset-2"
+        >
+          Política de Privacidade
+        </button>
+        {' '}(leia mais) pra que meus dados sejam usados no agendamento e atendimento.
+      </span>
+    </label>
+  );
+}
+
 // Página pública de agendamento — acessada via link (ex: no Instagram/site), sem exigir login.
 // Mostra só os horários realmente livres e cria o agendamento direto, sem precisar de
 // confirmação manual da clínica. Reconhece pacientes que já agendaram antes pelo telefone,
@@ -125,6 +156,8 @@ export default function PublicBooking() {
   const [cpf, setCpf] = useState('');
   const [birthDate, setBirthDate] = useState('');
   const [procedureInterest, setProcedureInterest] = useState('');
+  const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showOtherDialog, setShowOtherDialog] = useState(false);
   const [otherDraft, setOtherDraft] = useState('');
 
@@ -218,6 +251,10 @@ export default function PublicBooking() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting || !config || !selectedTime) return;
+    if (!acceptedPrivacy) {
+      showError('É preciso aceitar a Política de Privacidade pra confirmar o agendamento.');
+      return;
+    }
     setSubmitting(true);
 
     // Gera o ID do agendamento antes de criar qualquer coisa, pra poder vincular o horário
@@ -242,6 +279,7 @@ export default function PublicBooking() {
 
     try {
       let patientId = existingPatientId;
+      const consentTimestamp = new Date().toISOString();
 
       if (!patientId) {
         const patientRef = await addDoc(collection(db, 'patients'), {
@@ -251,6 +289,7 @@ export default function PublicBooking() {
           email: email || undefined,
           cpf: cpf || undefined,
           birthDate: birthDate || undefined,
+          privacyConsentAt: consentTimestamp,
           updatedAt: new Date().toISOString(),
         });
         patientId = patientRef.id;
@@ -259,6 +298,10 @@ export default function PublicBooking() {
           patientId,
           name,
         }).catch(() => {});
+      } else {
+        // Paciente que já existe: registra o novo aceite também (renova a comprovação a
+        // cada agendamento, em vez de confiar só no consentimento da primeira vez)
+        await updateDoc(doc(db, 'patients', patientId), { privacyConsentAt: consentTimestamp }).catch(() => {});
       }
 
       const token = crypto.randomUUID();
@@ -543,8 +586,13 @@ export default function PublicBooking() {
                   otherDraft={otherDraft}
                   setOtherDraft={setOtherDraft}
                 />
+                <PrivacyConsent
+                  accepted={acceptedPrivacy}
+                  onChange={setAcceptedPrivacy}
+                  onReadMore={() => setShowPrivacyModal(true)}
+                />
                 <button
-                  disabled={submitting}
+                  disabled={submitting || !acceptedPrivacy}
                   type="submit"
                   className="w-full py-4 bg-[#EADFD4] text-white rounded-2xl font-medium hover:bg-[#DFCFBF] transition-all shadow-sm active:scale-[0.98] disabled:opacity-50"
                 >
@@ -633,8 +681,13 @@ export default function PublicBooking() {
                   setOtherDraft={setOtherDraft}
                 />
 
+                <PrivacyConsent
+                  accepted={acceptedPrivacy}
+                  onChange={setAcceptedPrivacy}
+                  onReadMore={() => setShowPrivacyModal(true)}
+                />
                 <button
-                  disabled={submitting}
+                  disabled={submitting || !acceptedPrivacy}
                   type="submit"
                   className="w-full py-4 bg-[#EADFD4] text-white rounded-2xl font-medium hover:bg-[#DFCFBF] transition-all shadow-sm active:scale-[0.98] disabled:opacity-50"
                 >
@@ -645,6 +698,33 @@ export default function PublicBooking() {
           )}
         </AnimatePresence>
       </motion.div>
+
+      {showPrivacyModal && (
+        <div className="fixed inset-0 bg-[#5C544E]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6" onClick={() => setShowPrivacyModal(false)}>
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            onClick={e => e.stopPropagation()}
+            className="bg-white w-full max-w-lg rounded-[32px] p-8 shadow-2xl max-h-[80vh] overflow-y-auto"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="serif text-xl text-[#5C544E]">Política de Privacidade</h3>
+              <button onClick={() => setShowPrivacyModal(false)} className="p-2 text-[#9CA3AF] hover:text-[#5C544E]">
+                <X size={22} />
+              </button>
+            </div>
+            <div className="text-xs text-[#9CA3AF] font-light leading-relaxed whitespace-pre-line">
+              {PRIVACY_POLICY_TEXT}
+            </div>
+            <button
+              onClick={() => { setAcceptedPrivacy(true); setShowPrivacyModal(false); }}
+              className="w-full mt-6 py-4 bg-[#EADFD4] text-white rounded-2xl font-medium hover:bg-[#DFCFBF] transition-all shadow-sm"
+            >
+              Li e Concordo
+            </button>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }
