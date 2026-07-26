@@ -396,7 +396,7 @@ export default function PublicBooking() {
             Salvar Confirmação no Meu WhatsApp
           </button>
           <p className="text-[10px] text-[#9CA3AF] font-light text-center mt-3 mb-8 leading-relaxed">
-            Isso abre uma conversa com você mesmo no seu WhatsApp, só pra guardar os detalhes e o link salvos. Não é enviado pra ninguém.
+            Isso abre uma conversa com você mesmo no seu WhatsApp, só pra guardar salvos os detalhes da consulta — incluindo o link de confirmação de chegada e o link de cancelamento (caso precise desmarcar). Não é enviado pra ninguém.
           </p>
 
           {checkinUrl && (
