@@ -332,9 +332,10 @@ export default function PublicBooking() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ appointmentId: apptRef.id }),
       }).catch(() => {});
-    } catch (err) {
+    } catch (err: any) {
       await deleteDoc(doc(db, 'busySlots', slotDocId)).catch(() => {});
-      showError('Não foi possível confirmar seu agendamento agora. Tente novamente.');
+      const detail = err?.code || err?.message || 'erro desconhecido';
+      showError(`Não foi possível confirmar seu agendamento agora. (${detail})`);
     }
     setSubmitting(false);
   };

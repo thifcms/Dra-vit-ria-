@@ -212,13 +212,18 @@ service cloud.firestore {
           (!isSignedIn() && incoming().clinicId == get(/databases/$(database)/documents/publicConfig/booking).data.ownerId)
         );
       allow update: if false;
-      // Liberar o horário: o dono sempre pode (ex: cancelou/excluiu pelo app). Sem login, só é
-      // permitido se o slot referenciar um agendamento (campo 'apt') que JÁ ESTÁ cancelado —
-      // e isso só acontece através do cancelamento com token (isPublicCancel acima). Ou seja,
-      // ninguém libera um horário alheio sem antes ter cancelado o agendamento certo com o token.
+      // Liberar o horário: o dono sempre pode (ex: cancelou/excluiu pelo app). Sem login,
+      // permitido em dois casos: (1) o slot referencia um agendamento (campo 'apt') que JÁ
+      // ESTÁ cancelado — só acontece via cancelamento com token (isPublicCancel acima); ou
+      // (2) esse agendamento nunca chegou a ser criado de verdade (o agendamento falhou no
+      // meio do caminho, depois de reservar o horário mas antes de criar o registro) — nesse
+      // caso não há nada pra proteger, e travar o horário pra sempre seria pior que liberar.
       allow delete: if isSignedIn()
         || (resource.data.apt is string
-            && get(/databases/$(database)/documents/appointments/$(resource.data.apt)).data.status == 'cancelled');
+            && (
+              !exists(/databases/$(database)/documents/appointments/$(resource.data.apt))
+              || get(/databases/$(database)/documents/appointments/$(resource.data.apt)).data.status == 'cancelled'
+            ));
     }
 
     // Configuração pública usada pela página de agendamento (nome da clínica)
