@@ -34,6 +34,7 @@ const Settings = lazy(() => import('./components/Settings'));
 const PublicBooking = lazy(() => import('./components/PublicBooking'));
 const CheckIn = lazy(() => import('./components/CheckIn'));
 const Cancel = lazy(() => import('./components/Cancel'));
+const ComingSoon = lazy(() => import('./components/ComingSoon'));
 
 type View = 'dashboard' | 'patients' | 'schedule' | 'inventory' | 'finance' | 'settings';
 
@@ -71,7 +72,14 @@ export default function App() {
       </Suspense>
     );
   }
-  return <AuthenticatedApp />;
+  if (hash.startsWith('#app')) {
+    return <AuthenticatedApp />;
+  }
+  return (
+    <Suspense fallback={<ViewLoadingFallback />}>
+      <ComingSoon />
+    </Suspense>
+  );
 }
 
 // Transição de fade sutil, usada tanto entre a abertura → login → app quanto entre as

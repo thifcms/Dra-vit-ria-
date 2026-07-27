@@ -163,6 +163,14 @@ export interface ClinicSettings {
   webauthnCredentialId?: string; // id da credencial de biometria (Face ID/Touch ID/digital) — nenhum dado biométrico é guardado, só esse identificador
   cloudBackupEnabled?: boolean;
   whatsappNumber?: string;
+  // Horário de atendimento — controla quais dias/horários aparecem como disponíveis na
+  // página pública de agendamento (#agendar)
+  workingDays?: number[]; // 0=domingo, 1=segunda ... 6=sábado
+  workingHoursStart?: string; // "08:00"
+  workingHoursEnd?: string; // "18:00"
+  appointmentInterval?: number; // minutos entre um horário e outro: 15, 20, 30, 45, 60
+  agendaBlocked?: boolean; // fecha a agenda inteira temporariamente, sem precisar mexer em cada dia
+  blockedDates?: string[]; // datas específicas bloqueadas (AAAA-MM-DD) — feriado, viagem, etc.
 }
 
 // Documento público (legível por qualquer um, sem login) usado pela página de agendamento
@@ -172,6 +180,12 @@ export interface PublicBookingConfig {
   clinicName: string;
   professionalName: string;
   whatsappNumber?: string;
+  workingDays?: number[];
+  workingHoursStart?: string;
+  workingHoursEnd?: string;
+  appointmentInterval?: number;
+  agendaBlocked?: boolean;
+  blockedDates?: string[];
 }
 
 // Marca um horário como ocupado — coleção pública (só data/hora, sem nenhum dado do paciente),

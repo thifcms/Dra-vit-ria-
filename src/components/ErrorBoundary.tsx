@@ -18,8 +18,8 @@ export default class ErrorBoundary extends React.Component<
   }
 
   handleReload = () => {
-    // Limpa a rota (hash) e recarrega, pra evitar ficar preso numa tela quebrada
-    window.location.hash = '';
+    // Recarrega mantendo a página atual (#app, #agendar etc) — antes limpava o link, o
+    // que jogava até quem estava no sistema de volta pra página "em construção" da raiz.
     window.location.reload();
   };
 

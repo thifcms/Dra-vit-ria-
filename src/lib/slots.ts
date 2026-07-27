@@ -1,8 +1,26 @@
-// Horário de atendimento padrão usado tanto na agenda interna quanto na página pública
+// Horário de atendimento padrão (usado só se a clínica ainda não configurou nada em
+// Configurações → Horário de Atendimento)
 export const CLINIC_HOURS = Array.from({ length: 14 }, (_, i) => {
   const h = i + 8;
   return `${h < 10 ? '0' + h : h}:00`;
 });
+
+// Gera a lista de horários disponíveis a partir da configuração real da clínica
+// (início, fim, intervalo entre atendimentos) — usado pela página pública de agendamento.
+export function generateTimeSlots(start: string, end: string, intervalMinutes: number): string[] {
+  const slots: string[] = [];
+  const [startH, startM] = start.split(':').map(Number);
+  const [endH, endM] = end.split(':').map(Number);
+  let current = startH * 60 + startM;
+  const endTotal = endH * 60 + endM;
+  while (current < endTotal) {
+    const h = Math.floor(current / 60);
+    const m = current % 60;
+    slots.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+    current += intervalMinutes;
+  }
+  return slots;
+}
 
 // ID determinístico do documento em busySlots — usado pra "reservar" um horário de forma
 // atômica: se o slot já existir, a escrita cai na regra de update (sempre negada), então

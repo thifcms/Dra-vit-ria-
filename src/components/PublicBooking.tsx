@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { slotId, checkinLink, cancelLink, CLINIC_HOURS, phoneIndexKey, EMAIL_SERVICE_URL, localDateStr, todayLocalStr } from '../lib/slots';
+import { slotId, checkinLink, cancelLink, generateTimeSlots, phoneIndexKey, EMAIL_SERVICE_URL, localDateStr, todayLocalStr } from '../lib/slots';
 import { buildReminderMessage, whatsappLink } from '../lib/reminders';
 import { PRIVACY_POLICY_TEXT } from '../lib/privacyPolicy';
 import { motion, AnimatePresence } from 'motion/react';
@@ -193,8 +193,26 @@ export default function PublicBooking() {
   const isToday = selectedDate === todayLocalStr();
   const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
 
+  const isWorkingDay = useMemo(() => {
+    if (!config) return true;
+    const days = config.workingDays ?? [1, 2, 3, 4, 5];
+    const dow = new Date(selectedDate + 'T00:00:00').getDay();
+    return days.includes(dow);
+  }, [config, selectedDate]);
+
+  const isDateBlocked = useMemo(() => {
+    if (!config) return false;
+    return !!config.agendaBlocked || (config.blockedDates || []).includes(selectedDate);
+  }, [config, selectedDate]);
+
   const availableTimes = useMemo(() => {
-    return CLINIC_HOURS.filter(t => {
+    if (!config || isDateBlocked || !isWorkingDay) return [];
+    const hours = generateTimeSlots(
+      config.workingHoursStart || '08:00',
+      config.workingHoursEnd || '18:00',
+      config.appointmentInterval || 60
+    );
+    return hours.filter(t => {
       if (busySlotsToday.has(t)) return false;
       if (isToday) {
         const [h, m] = t.split(':').map(Number);
@@ -202,7 +220,7 @@ export default function PublicBooking() {
       }
       return true;
     });
-  }, [busySlotsToday, isToday, nowMinutes]);
+  }, [config, busySlotsToday, isToday, nowMinutes, isWorkingDay, isDateBlocked]);
 
   const showError = (msg: string) => {
     setErrorMsg(msg);
@@ -490,7 +508,13 @@ export default function PublicBooking() {
 
               {availableTimes.length === 0 ? (
                 <p className="text-center text-sm text-[#9CA3AF] font-light italic py-10">
-                  Nenhum horário livre neste dia. Tente o próximo.
+                  {config?.agendaBlocked
+                    ? 'Agenda temporariamente fechada para novos agendamentos. Entre em contato diretamente com a clínica.'
+                    : !isWorkingDay
+                    ? 'A clínica não atende neste dia da semana. Tente outra data.'
+                    : isDateBlocked
+                    ? 'Não há atendimento nesta data específica. Tente outro dia.'
+                    : 'Nenhum horário livre neste dia. Tente o próximo.'}
                 </p>
               ) : (
                 <div className="grid grid-cols-3 gap-3">

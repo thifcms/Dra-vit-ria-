@@ -23,7 +23,7 @@ export default defineConfig(() => {
           short_name: 'Clínica Digital',
           description: 'Gestão Clínica Estética & Financeira',
           lang: 'pt-BR',
-          start_url: '/',
+          start_url: '/#app',
           scope: '/',
           display: 'standalone',
           orientation: 'portrait',
