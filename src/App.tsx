@@ -40,7 +40,16 @@ type View = 'dashboard' | 'patients' | 'schedule' | 'inventory' | 'finance' | 's
 export default function App() {
   // Páginas públicas — sem login, acessíveis de qualquer link externo.
   // Ficam num componente separado pra não misturar hooks condicionais com o resto do app.
-  const hash = window.location.hash;
+  // Guardado em estado (não só lido direto de window.location) e atualizado pelo evento
+  // hashchange — sem isso, trocar de #agendar pra fora dele não atualizava a tela sozinho,
+  // ficando presa na página de agendamento até fechar e abrir o app de novo.
+  const [hash, setHash] = useState(window.location.hash);
+  useEffect(() => {
+    const onHashChange = () => setHash(window.location.hash);
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+
   if (hash.startsWith('#agendar')) {
     return (
       <Suspense fallback={<ViewLoadingFallback />}>
