@@ -21,7 +21,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { doc, getDoc } from 'firebase/firestore';
 import { buildReminderMessage, whatsappLink } from '../lib/reminders';
-import { checkinLink, cancelLink } from '../lib/slots';
+import { checkinLink, cancelLink, todayLocalStr } from '../lib/slots';
 import { ClinicSettings } from '../types';
 import { 
   AreaChart, 
@@ -67,7 +67,7 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
     });
 
     // Schedule for today
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayLocalStr();
     const qSchedule = query(
       collection(db, 'appointments'),
       where('userId', '==', user.uid),
@@ -182,7 +182,7 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
       clinicName: clinicSettings.clinicName || 'Nossa Clínica',
       professionalName: clinicSettings.professionalName,
       address: clinicSettings.clinicAddress,
-      dateLabel: appt.date === new Date().toISOString().split('T')[0] ? 'Hoje' : new Date(appt.date + 'T00:00:00').toLocaleDateString('pt-BR'),
+      dateLabel: appt.date === todayLocalStr() ? 'Hoje' : new Date(appt.date + 'T00:00:00').toLocaleDateString('pt-BR'),
       time: appt.time,
       checkinUrl,
       cancelUrl: cancel,

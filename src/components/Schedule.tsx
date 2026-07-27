@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, setDoc, doc, getDoc, where, orderBy } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Appointment, Patient, ClinicSettings } from '../types';
-import { slotId, checkinLink, cancelLink, CLINIC_HOURS, EMAIL_SERVICE_URL } from '../lib/slots';
+import { slotId, checkinLink, cancelLink, CLINIC_HOURS, EMAIL_SERVICE_URL, localDateStr, todayLocalStr } from '../lib/slots';
 import { buildReminderMessage, whatsappLink, emailLink } from '../lib/reminders';
 import { User as FirebaseUser } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
@@ -75,7 +75,7 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
   const [prefillTime, setPrefillTime] = useState<string | null>(null);
 
-  const dateStr = selectedDate.toISOString().split('T')[0];
+  const dateStr = localDateStr(selectedDate);
   const dayAppointments = useMemo(
     () => appointments.filter(a => a.date === dateStr),
     [appointments, dateStr]
@@ -88,7 +88,7 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
     [dayAppointments]
   );
 
-  const isViewingToday = dateStr === new Date().toISOString().split('T')[0];
+  const isViewingToday = dateStr === todayLocalStr();
   const todaysReminders = useMemo(
     () => isViewingToday
       ? dayAppointments
@@ -664,7 +664,7 @@ function AddAppointmentModal({ user, onClose, patients, appointments, initialDat
         let skipped = 0;
         for (let i = 0; i < occurrences; i++) {
           const occDate = addInterval(baseDate, recurrence, i);
-          const occDateStr = occDate.toISOString().split('T')[0];
+          const occDateStr = localDateStr(occDate);
           const hasConflict = appointments.some((a: any) =>
             a.date === occDateStr && a.time === time && a.status !== 'cancelled'
           );

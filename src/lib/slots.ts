@@ -36,6 +36,22 @@ export function normalizePhone(phone: string): string {
   return `55${digits}`;
 }
 
+// Data de hoje (ou de qualquer Date) no formato AAAA-MM-DD, no FUSO HORÁRIO LOCAL do
+// navegador — nunca use `.toISOString().split('T')[0]` pra isso, porque toISOString()
+// sempre converte pra UTC/Greenwich. No Brasil (3h atrás de Greenwich), isso fazia o
+// sistema achar que já era "amanhã" a partir das 21h, gerando agendamentos com a data
+// errada e a agenda não batendo com o que o usuário via no relógio.
+export function localDateStr(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+export function todayLocalStr(): string {
+  return localDateStr(new Date());
+}
+
 export function phoneIndexKey(clinicId: string, phone: string): string {
   return `${clinicId}_${normalizePhone(phone)}`;
 }

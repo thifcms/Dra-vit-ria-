@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { slotId, checkinLink, cancelLink, CLINIC_HOURS, phoneIndexKey, EMAIL_SERVICE_URL } from '../lib/slots';
+import { slotId, checkinLink, cancelLink, CLINIC_HOURS, phoneIndexKey, EMAIL_SERVICE_URL, localDateStr, todayLocalStr } from '../lib/slots';
 import { buildReminderMessage, whatsappLink } from '../lib/reminders';
 import { PRIVACY_POLICY_TEXT } from '../lib/privacyPolicy';
 import { motion, AnimatePresence } from 'motion/react';
@@ -143,7 +143,7 @@ export default function PublicBooking() {
   const [loadingConfig, setLoadingConfig] = useState(true);
   const [configError, setConfigError] = useState(false);
 
-  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(() => todayLocalStr());
   const [busySlotsToday, setBusySlotsToday] = useState<Set<string>>(new Set());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
 
@@ -190,7 +190,7 @@ export default function PublicBooking() {
     return unsub;
   }, [config, selectedDate]);
 
-  const isToday = selectedDate === new Date().toISOString().split('T')[0];
+  const isToday = selectedDate === todayLocalStr();
   const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
 
   const availableTimes = useMemo(() => {
@@ -212,8 +212,8 @@ export default function PublicBooking() {
   const changeDay = (delta: number) => {
     const d = new Date(selectedDate + 'T00:00:00');
     d.setDate(d.getDate() + delta);
-    const todayStr = new Date().toISOString().split('T')[0];
-    const newStr = d.toISOString().split('T')[0];
+    const todayStr = todayLocalStr();
+    const newStr = localDateStr(d);
     if (newStr < todayStr) return;
     setSelectedDate(newStr);
     setSelectedTime(null);
