@@ -6,7 +6,7 @@ import {VitePWA} from 'vite-plugin-pwa';
 
 export default defineConfig(() => {
   return {
-    base: '/Dra-vit-ria-/',
+    base: '/',
     plugins: [
       react(),
       tailwindcss(),
@@ -23,17 +23,17 @@ export default defineConfig(() => {
           short_name: 'Clínica Digital',
           description: 'Gestão Clínica Estética & Financeira',
           lang: 'pt-BR',
-          start_url: '/Dra-vit-ria-/',
-          scope: '/Dra-vit-ria-/',
+          start_url: '/',
+          scope: '/',
           display: 'standalone',
           orientation: 'portrait',
           background_color: '#FDFBF9',
           theme_color: '#EADFD4',
           icons: [
-            { src: '/Dra-vit-ria-/icons/icon-192-v2.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
-            { src: '/Dra-vit-ria-/icons/icon-512-v2.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
-            { src: '/Dra-vit-ria-/icons/icon-192-maskable-v2.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
-            { src: '/Dra-vit-ria-/icons/icon-512-maskable-v2.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+            { src: '/icons/icon-192-v2.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+            { src: '/icons/icon-512-v2.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+            { src: '/icons/icon-192-maskable-v2.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
+            { src: '/icons/icon-512-maskable-v2.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
           ],
         },
         workbox: {
