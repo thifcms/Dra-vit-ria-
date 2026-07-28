@@ -199,28 +199,28 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
         <motion.div 
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="lg:col-span-2 bg-[#5C544E] rounded-[48px] p-12 text-white relative overflow-hidden flex flex-col justify-between min-h-[300px] shadow-2xl"
+          className="lg:col-span-2 bg-[#EADFD4] rounded-[48px] p-12 text-[#5C544E] relative overflow-hidden flex flex-col justify-between min-h-[300px] shadow-xl"
         >
           <div className="relative z-10">
             <h2 className="text-4xl font-light mb-4 serif">
               Olá, <span className="italic">{professionalName}</span>
             </h2>
-            <p className="text-white/60 font-light max-w-sm leading-relaxed text-lg">
-              Sua clínica está operando com <span className="text-[#EADFD4] font-medium">excelência</span> hoje. Confira os destaques do seu consultório.
+            <p className="text-[#5C544E]/70 font-light max-w-sm leading-relaxed text-lg">
+              Sua clínica está operando com <span className="text-[#5C544E] font-medium">excelência</span> hoje. Confira os destaques do seu consultório.
             </p>
           </div>
           
           <div className="relative z-10 flex gap-4 mt-8">
             <button 
               onClick={() => onNavigate('schedule')}
-              className="px-10 py-5 bg-[#EADFD4] text-white rounded-2xl hover:bg-[#DFCFBF] transition-all shadow-lg font-bold text-[10px] uppercase tracking-widest flex items-center gap-3"
+              className="px-10 py-5 bg-[#5C544E] text-white rounded-2xl hover:bg-[#4A433D] transition-all shadow-lg font-bold text-[10px] uppercase tracking-widest flex items-center gap-3"
             >
               Agenda de Hoje <ArrowRight size={16} />
             </button>
           </div>
 
-          <div className="absolute right-0 top-0 w-80 h-80 bg-white/5 rounded-full -translate-y-1/3 translate-x-1/3 blur-3xl" />
-          <div className="absolute left-1/4 bottom-0 w-40 h-40 bg-[#EADFD4]/10 rounded-full translate-y-1/2 blur-2xl" />
+          <div className="absolute right-0 top-0 w-80 h-80 bg-white/30 rounded-full -translate-y-1/3 translate-x-1/3 blur-3xl" />
+          <div className="absolute left-1/4 bottom-0 w-40 h-40 bg-[#5C544E]/5 rounded-full translate-y-1/2 blur-2xl" />
         </motion.div>
 
         <AnimatePresence>
