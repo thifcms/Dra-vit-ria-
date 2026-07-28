@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
 import { collection, query, onSnapshot, addDoc, updateDoc, setDoc, deleteDoc, getDoc, doc, where, orderBy } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, storage } from '../lib/firebase';
@@ -19,6 +19,7 @@ import {
   Save,
   Trash2,
   Paperclip,
+  Bone,
   CheckCircle2,
   X,
   FileDown,
@@ -28,6 +29,7 @@ import {
 } from 'lucide-react';
 import SignaturePad from 'react-signature-canvas';
 import { showToast } from '../lib/toast';
+const AnatomyViewer = lazy(() => import('./AnatomyViewer'));
 import { 
   LineChart, 
   Line, 
@@ -459,6 +461,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
   const [phoneDraft, setPhoneDraft] = useState(patient.phone || '');
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deletingPatient, setDeletingPatient] = useState(false);
+  const [showAnatomyModal, setShowAnatomyModal] = useState(false);
   
   // Normalização para garantir que dados legados não quebrem a interface nova de checkboxes
   const normalizeAnamnesis = (a: any) => {
@@ -694,6 +697,14 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
             <TabButton active={activeTab === 'photos'} onClick={() => setActiveTab('photos')} icon={<Camera size={20} />} label="Galeria de Fotos" />
             <TabButton active={activeTab === 'files'} onClick={() => setActiveTab('files')} icon={<Paperclip size={20} />} label="Exames e Anexos" />
           </nav>
+
+          <button
+            onClick={() => setShowAnatomyModal(true)}
+            className="mt-4 w-full flex items-center gap-3 px-5 py-4 rounded-2xl bg-[#EADFD4]/15 border border-[#EADFD4]/40 text-[#5C544E] hover:bg-[#EADFD4]/25 transition-all"
+          >
+            <Bone size={20} className="text-[#EADFD4]" />
+            <span className="text-sm font-medium">Anatomia 3D</span>
+          </button>
 
           <div className="mt-auto pt-10 border-t border-[#F5F2F0] space-y-3">
             <button
@@ -1115,6 +1126,16 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
           </AnimatePresence>
         </div>
       </div>
+
+      {showAnatomyModal && (
+        <Suspense fallback={
+          <div className="fixed inset-0 z-50 bg-[#FDFBF9] flex items-center justify-center">
+            <div className="w-8 h-8 border-2 border-[#EADFD4] border-t-transparent rounded-full animate-spin" />
+          </div>
+        }>
+          <AnatomyViewer onClose={() => setShowAnatomyModal(false)} />
+        </Suspense>
+      )}
     </div>
   );
 }

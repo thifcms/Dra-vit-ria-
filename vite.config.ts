@@ -86,6 +86,10 @@ export default defineConfig(() => {
               if (id.includes('recharts') || id.includes('d3-')) return 'vendor-charts';
               if (id.includes('motion')) return 'vendor-motion';
               if (id.includes('react-signature-canvas')) return 'vendor-signature';
+              // three.js só é usado pelo AnatomyViewer (carregado sob demanda) — sem
+              // isolar num chunk próprio, ele ia pro pacote "vendor" geral e todo mundo
+              // baixaria isso, mesmo quem nunca abre o visualizador 3D
+              if (id.includes('/three/') || id.includes('\\three\\')) return 'vendor-three';
               return 'vendor';
             }
           },

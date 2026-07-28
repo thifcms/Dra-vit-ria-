@@ -15,7 +15,6 @@ import {
   Settings as SettingsIcon, 
   LogOut, 
   LayoutDashboard,
-  Bone,
   MoreVertical,
   X,
   Search,
@@ -36,7 +35,6 @@ const PublicBooking = lazy(() => import('./components/PublicBooking'));
 const CheckIn = lazy(() => import('./components/CheckIn'));
 const Cancel = lazy(() => import('./components/Cancel'));
 const ComingSoon = lazy(() => import('./components/ComingSoon'));
-const AnatomyViewer = lazy(() => import('./components/AnatomyViewer'));
 
 type View = 'dashboard' | 'patients' | 'schedule' | 'inventory' | 'finance' | 'settings';
 
@@ -99,7 +97,6 @@ function AuthenticatedApp() {
   const [minSplashElapsed, setMinSplashElapsed] = useState(false);
   const loading = !authChecked || !minSplashElapsed;
   const [activeView, setActiveView] = useState<View>('dashboard');
-  const [showAnatomyModal, setShowAnatomyModal] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [clinicSettings, setClinicSettings] = useState<ClinicSettings | null>(null);
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -422,12 +419,6 @@ function AuthenticatedApp() {
                   icon={<SettingsIcon size={20} />}
                   label="Configurações"
                 />
-                <NavItemExpanded 
-                  active={false} 
-                  onClick={() => { setShowAnatomyModal(true); setIsSidebarOpen(false); }}
-                  icon={<Bone size={20} />}
-                  label="Anatomia 3D"
-                />
               </div>
 
               <div className="mt-auto pt-8 border-t border-[#F5F2F0]">
@@ -525,11 +516,6 @@ function AuthenticatedApp() {
           </AnimatePresence>
         </div>
       </main>
-      {showAnatomyModal && (
-        <Suspense fallback={<ViewLoadingFallback />}>
-          <AnatomyViewer onClose={() => setShowAnatomyModal(false)} />
-        </Suspense>
-      )}
     </motion.div>
     )}
     </AnimatePresence>

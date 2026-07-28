@@ -119,7 +119,7 @@ export default function AnatomyViewer({ onClose }: { onClose: () => void }) {
 
     const loader = new GLTFLoader();
     loader.load(
-      '/models/anatomy-lex.glb',
+      '/models/head-anatomy.glb',
       (gltf) => {
         const model = gltf.scene;
         scene.add(model);
@@ -228,31 +228,31 @@ export default function AnatomyViewer({ onClose }: { onClose: () => void }) {
   });
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#2A2622] flex flex-col md:flex-row">
+    <div className="fixed inset-0 z-50 bg-[#FDFBF9] flex flex-col md:flex-row">
       {/* Área 3D */}
-      <div className="relative flex-1 min-h-[45vh] md:min-h-0">
+      <div className="relative flex-1 min-h-[45vh] md:min-h-0 bg-[#F5F2F0]">
         <div ref={containerRef} className="absolute inset-0" />
 
         {loading && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-[#EADFD4]">
-            <div className="w-8 h-8 border-2 border-[#EADFD4]/20 border-t-[#EADFD4] rounded-full animate-spin" />
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-[#9CA3AF]">
+            <div className="w-8 h-8 border-2 border-[#EADFD4]/40 border-t-[#EADFD4] rounded-full animate-spin" />
             <p className="text-[11px] uppercase tracking-widest font-medium opacity-70">Carregando modelo</p>
           </div>
         )}
         {loadError && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-[#EADFD4] px-8 text-center">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-[#9CA3AF] px-8 text-center">
             <p className="text-sm">Não foi possível carregar o modelo 3D.</p>
           </div>
         )}
 
         <div className="absolute top-6 left-6 right-6 flex items-start justify-between pointer-events-none">
           <div>
-            <h1 className="serif text-white text-xl mb-1">Anatomia Orofacial</h1>
-            <p className="text-white/50 text-[11px] uppercase tracking-widest font-medium">Arraste para girar · Role para aproximar</p>
+            <h1 className="serif text-[#5C544E] text-xl mb-1">Anatomia Orofacial</h1>
+            <p className="text-[#9CA3AF] text-[11px] uppercase tracking-widest font-medium">Arraste para girar · Role para aproximar</p>
           </div>
           <button
             onClick={onClose}
-            className="pointer-events-auto w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur flex items-center justify-center text-white transition-all"
+            className="pointer-events-auto w-11 h-11 rounded-full bg-white hover:bg-[#F5F2F0] shadow-sm border border-[#F5F2F0] flex items-center justify-center text-[#5C544E] transition-all"
           >
             <X size={20} />
           </button>
@@ -260,20 +260,20 @@ export default function AnatomyViewer({ onClose }: { onClose: () => void }) {
 
         <button
           onClick={resetCamera}
-          className="absolute bottom-6 left-6 flex items-center gap-2 px-4 py-2.5 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur text-white text-[11px] font-medium uppercase tracking-widest transition-all"
+          className="absolute bottom-6 left-6 flex items-center gap-2 px-4 py-2.5 rounded-full bg-white hover:bg-[#FDFBF9] shadow-sm border border-[#F5F2F0] text-[#5C544E] text-[11px] font-medium uppercase tracking-widest transition-all"
         >
           <RotateCcw size={14} /> Resetar vista
         </button>
 
-        <p className="absolute bottom-6 right-6 text-white/30 text-[10px] text-right max-w-[240px] leading-relaxed hidden md:block">
+        <p className="absolute bottom-6 right-6 text-[#9CA3AF] text-[10px] text-right max-w-[240px] leading-relaxed hidden md:block">
           Modelo "anAtomic Lex" — Kent Trammell / CG Cookie, licença Royalty Free
         </p>
       </div>
 
       {/* Painel de camadas */}
-      <div className="w-full md:w-[300px] bg-[#26221E] border-t md:border-t-0 md:border-l border-white/10 flex flex-col max-h-[55vh] md:max-h-none">
-        <div className="p-5 border-b border-white/10">
-          <p className="text-[10px] font-bold text-[#EADFD4] uppercase tracking-[0.2em] mb-3">Atalhos</p>
+      <div className="w-full md:w-[300px] bg-white border-t md:border-t-0 md:border-l border-[#F5F2F0] flex flex-col max-h-[55vh] md:max-h-none">
+        <div className="p-5 border-b border-[#F5F2F0]">
+          <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-[0.2em] mb-3">Atalhos</p>
           <div className="grid grid-cols-2 gap-2">
             {[
               { key: 'all', label: 'Tudo' },
@@ -287,8 +287,8 @@ export default function AnatomyViewer({ onClose }: { onClose: () => void }) {
                 onClick={() => applyPreset(p.key)}
                 className={`py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all ${
                   activePreset === p.key
-                    ? 'bg-[#EADFD4] text-[#2A2622]'
-                    : 'bg-white/5 text-[#EADFD4] border border-white/10 hover:bg-white/10'
+                    ? 'bg-[#EADFD4] text-white'
+                    : 'bg-[#FDFBF9] text-[#5C544E] border border-[#F5F2F0] hover:border-[#EADFD4]/40'
                 }`}
               >
                 {p.label}
@@ -300,17 +300,17 @@ export default function AnatomyViewer({ onClose }: { onClose: () => void }) {
         <div className="flex-1 overflow-y-auto p-5 space-y-6">
           {Object.entries(grouped).map(([groupName, keys]) => (
             <div key={groupName}>
-              <p className="text-[10px] font-bold text-white/40 uppercase tracking-[0.2em] mb-2">{groupName}</p>
+              <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-[0.2em] mb-2">{groupName}</p>
               <div className="space-y-1.5">
                 {keys.map((key) => (
                   <button
                     key={key}
                     onClick={() => toggleLayer(key)}
-                    className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-white/5 transition-all text-left"
+                    className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-[#FDFBF9] transition-all text-left"
                   >
-                    <span className="text-[12px] text-white/85">{LAYER_LABELS[key] || key}</span>
-                    <div className={`w-8 h-[18px] rounded-full relative shrink-0 ml-3 transition-colors ${visibility[key] ? 'bg-[#EADFD4]' : 'bg-white/15'}`}>
-                      <div className={`absolute top-[2px] w-[14px] h-[14px] rounded-full bg-white transition-all ${visibility[key] ? 'left-[16px]' : 'left-[2px]'}`} />
+                    <span className="text-[12px] text-[#5C544E]">{LAYER_LABELS[key] || key}</span>
+                    <div className={`w-8 h-[18px] rounded-full relative shrink-0 ml-3 transition-colors ${visibility[key] ? 'bg-[#EADFD4]' : 'bg-[#F1F3F5]'}`}>
+                      <div className={`absolute top-[2px] w-[14px] h-[14px] rounded-full bg-white shadow-sm transition-all ${visibility[key] ? 'left-[16px]' : 'left-[2px]'}`} />
                     </div>
                   </button>
                 ))}
