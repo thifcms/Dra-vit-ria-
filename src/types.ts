@@ -206,6 +206,9 @@ export interface FaceMarkingPoint {
   y: number;
   label: string;
   color: string;
+  inventoryItemId?: string; // se preenchido, dar baixa automática no estoque ao salvar
+  inventoryItemName?: string; // guardado junto pra manter o histórico legível mesmo se o item for renomeado/excluído depois
+  inventoryQuantity?: number;
 }
 
 // Uma "sessão" de marcação salva no histórico do paciente — guarda o sexo usado no

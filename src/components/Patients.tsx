@@ -808,7 +808,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
           <AnimatePresence mode="wait">
             {activeTab === 'facemap' && (
               <motion.div key="facemap" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                <FaceMarkingTab patient={patient} />
+                <FaceMarkingTab patient={patient} user={user} />
               </motion.div>
             )}
             {activeTab === 'anamnesis' && (

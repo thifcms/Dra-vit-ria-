@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
-import { doc, updateDoc } from 'firebase/firestore';
+import React, { useState, useEffect } from 'react';
+import { doc, updateDoc, collection, query, where, onSnapshot, addDoc, increment } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { Patient, FaceMarkingSession, FaceMarkingPoint } from '../types';
-import { Plus, X, Trash2, Calendar } from 'lucide-react';
+import { Patient, FaceMarkingSession, FaceMarkingPoint, InventoryItem } from '../types';
+import { User } from 'firebase/auth';
+import { Plus, X, Trash2, Calendar, Package } from 'lucide-react';
 import GenericFaceDiagram from './GenericFaceDiagram';
+import { showToast } from '../lib/toast';
 
 const MARK_COLORS = [
   { color: '#5B8DEF', label: 'Toxina' },
@@ -12,12 +14,21 @@ const MARK_COLORS = [
   { color: '#D4A24C', label: 'Outro' },
 ];
 
-export default function FaceMarkingTab({ patient }: { patient: Patient }) {
+export default function FaceMarkingTab({ patient, user }: { patient: Patient; user: User }) {
   const [editing, setEditing] = useState(false);
   const [viewingSession, setViewingSession] = useState<FaceMarkingSession | null>(null);
   const [points, setPoints] = useState<FaceMarkingPoint[]>([]);
   const [activeColor, setActiveColor] = useState(MARK_COLORS[0].color);
   const [selectedPointIdx, setSelectedPointIdx] = useState<number | null>(null);
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+
+  useEffect(() => {
+    const unsub = onSnapshot(
+      query(collection(db, 'inventory'), where('userId', '==', user.uid)),
+      snap => setInventoryItems(snap.docs.map(d => ({ id: d.id, ...d.data() } as InventoryItem)))
+    );
+    return unsub;
+  }, [user.uid]);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -52,6 +63,15 @@ export default function FaceMarkingTab({ patient }: { patient: Patient }) {
     setPoints(prev => prev.map((p, i) => (i === idx ? { ...p, label } : p)));
   };
 
+  const updatePointInventory = (idx: number, itemId: string | undefined, itemName: string | undefined, quantity: number) => {
+    setPoints(prev => prev.map((p, i) => (i === idx ? {
+      ...p,
+      inventoryItemId: itemId || undefined,
+      inventoryItemName: itemId ? itemName : undefined,
+      inventoryQuantity: itemId ? quantity : undefined,
+    } : p)));
+  };
+
   const removePoint = (idx: number) => {
     setPoints(prev => prev.filter((_, i) => i !== idx));
     setSelectedPointIdx(null);
@@ -70,6 +90,26 @@ export default function FaceMarkingTab({ patient }: { patient: Patient }) {
       };
       const next = [...(patient.faceMarkings || []), session];
       await updateDoc(doc(db, 'patients', patient.id!), { faceMarkings: next });
+
+      // Baixa automática no estoque — só pros pontos que foram vinculados a um item
+      const linkedPoints = points.filter(p => p.inventoryItemId && p.inventoryQuantity);
+      for (const p of linkedPoints) {
+        await updateDoc(doc(db, 'inventory', p.inventoryItemId!), {
+          quantity: increment(-p.inventoryQuantity!),
+        }).catch(() => {});
+        await addDoc(collection(db, 'inventory_movements'), {
+          userId: user.uid,
+          itemId: p.inventoryItemId,
+          itemName: p.inventoryItemName || '',
+          quantity: p.inventoryQuantity,
+          type: 'consumption',
+          date: session.date,
+        }).catch(() => {});
+      }
+      if (linkedPoints.length > 0) {
+        showToast(`Estoque atualizado (${linkedPoints.length} item(ns) baixado(s))`);
+      }
+
       setEditing(false);
     } catch (err) {
       console.error(err);
@@ -191,22 +231,52 @@ export default function FaceMarkingTab({ patient }: { patient: Patient }) {
                 {points.map((p, i) => (
                   <div
                     key={i}
-                    className={`flex items-center gap-2 p-2.5 rounded-xl border ${
+                    className={`p-2.5 rounded-xl border space-y-2 ${
                       selectedPointIdx === i ? 'border-[#EADFD4] bg-[#FDFBF9]' : 'border-[#F5F2F0]'
                     }`}
                   >
-                    <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0" style={{ backgroundColor: p.color }}>
-                      {i + 1}
-                    </span>
-                    <input
-                      value={p.label}
-                      onChange={e => updatePointLabel(i, e.target.value)}
-                      placeholder="Ex: 4U, região frontal"
-                      className="flex-1 text-xs bg-transparent outline-none text-[#5C544E]"
-                    />
-                    <button onClick={() => removePoint(i)} className="text-[#9CA3AF] hover:text-red-400 shrink-0">
-                      <Trash2 size={14} />
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0" style={{ backgroundColor: p.color }}>
+                        {i + 1}
+                      </span>
+                      <input
+                        value={p.label}
+                        onChange={e => updatePointLabel(i, e.target.value)}
+                        placeholder="Ex: 4U, região frontal"
+                        className="flex-1 text-xs bg-transparent outline-none text-[#5C544E]"
+                      />
+                      <button onClick={() => removePoint(i)} className="text-[#9CA3AF] hover:text-red-400 shrink-0">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                    {inventoryItems.length > 0 && (
+                      <div className="flex items-center gap-1.5 pl-8">
+                        <Package size={12} className="text-[#9CA3AF] shrink-0" />
+                        <select
+                          value={p.inventoryItemId || ''}
+                          onChange={e => {
+                            const item = inventoryItems.find(it => it.id === e.target.value);
+                            updatePointInventory(i, item?.id, item?.name, p.inventoryQuantity || 1);
+                          }}
+                          className="flex-1 text-[10px] bg-white border border-[#F5F2F0] rounded-lg px-2 py-1 outline-none text-[#5C544E]"
+                        >
+                          <option value="">Sem baixa de estoque</option>
+                          {inventoryItems.map(item => (
+                            <option key={item.id} value={item.id}>{item.name} ({item.quantity} {item.unit})</option>
+                          ))}
+                        </select>
+                        {p.inventoryItemId && (
+                          <input
+                            type="number"
+                            min={0}
+                            step="0.1"
+                            value={p.inventoryQuantity ?? 1}
+                            onChange={e => updatePointInventory(i, p.inventoryItemId, p.inventoryItemName, parseFloat(e.target.value) || 0)}
+                            className="w-14 text-[10px] bg-white border border-[#F5F2F0] rounded-lg px-2 py-1 outline-none text-[#5C544E]"
+                          />
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -268,7 +338,14 @@ export default function FaceMarkingTab({ patient }: { patient: Patient }) {
                   <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0" style={{ backgroundColor: p.color }}>
                     {i + 1}
                   </span>
-                  <span className="text-xs text-[#5C544E]">{p.label || '(sem descrição)'}</span>
+                  <div className="flex-1">
+                    <span className="text-xs text-[#5C544E] block">{p.label || '(sem descrição)'}</span>
+                    {p.inventoryItemName && (
+                      <span className="text-[10px] text-[#9CA3AF] flex items-center gap-1 mt-0.5">
+                        <Package size={10} /> {p.inventoryQuantity} {p.inventoryItemName} baixado(s) do estoque
+                      </span>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
