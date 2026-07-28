@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, onSnapshot, addDoc, deleteDoc, doc, where, orderBy, Timestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { Transaction } from '../types';
+import { Transaction, Appointment } from '../types';
 import { User } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -15,7 +15,9 @@ import {
   TrendingUp,
   CreditCard,
   DollarSign,
-  CheckCircle2
+  CheckCircle2,
+  Award,
+  Repeat
 } from 'lucide-react';
 import { showToast } from '../lib/toast';
 import { 
@@ -31,9 +33,22 @@ import {
 
 export default function Finance({ user }: { user: User }) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [filter, setFilter] = useState<'all' | 'income' | 'expense'>('all');
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const q = query(
+      collection(db, 'appointments'),
+      where('userId', '==', user.uid),
+      where('status', '==', 'completed')
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setAppointments(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Appointment)));
+    });
+    return unsubscribe;
+  }, [user.uid]);
 
   useEffect(() => {
     const q = query(
@@ -115,6 +130,32 @@ export default function Finance({ user }: { user: User }) {
   }, [transactions]);
 
   const balance = totalIncome - totalExpense;
+
+  const { topProcedures, returnRate, totalUniquePatients, returningPatients } = useMemo(() => {
+    // Procedimento mais frequente — conta pelo texto em "notes" dos agendamentos concluídos
+    const procMap = new Map<string, number>();
+    appointments.forEach(a => {
+      const proc = (a.notes || '').trim();
+      if (!proc) return;
+      procMap.set(proc, (procMap.get(proc) || 0) + 1);
+    });
+    const topProcedures = Array.from(procMap.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    // Taxa de retorno — % de pacientes (identificados por patientId) com mais de 1 atendimento concluído
+    const patientCounts = new Map<string, number>();
+    appointments.forEach(a => {
+      if (!a.patientId) return;
+      patientCounts.set(a.patientId, (patientCounts.get(a.patientId) || 0) + 1);
+    });
+    const totalUniquePatients = patientCounts.size;
+    const returningPatients = Array.from(patientCounts.values()).filter(c => c > 1).length;
+    const returnRate = totalUniquePatients > 0 ? Math.round((returningPatients / totalUniquePatients) * 100) : 0;
+
+    return { topProcedures, returnRate, totalUniquePatients, returningPatients };
+  }, [appointments]);
 
   const handleDelete = async (id: string) => {
     if (!window.confirm('Excluir esta transação?')) return;
@@ -268,6 +309,66 @@ export default function Finance({ user }: { user: User }) {
             })}
           </div>
         </motion.div>
+      )}
+
+      {/* Procedimentos mais frequentes + Taxa de retorno */}
+      {(topProcedures.length > 0 || totalUniquePatients > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {topProcedures.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white rounded-[48px] border border-[#F5F2F0] p-10 shadow-sm"
+            >
+              <div className="flex items-center gap-3 mb-8">
+                <div className="w-12 h-12 bg-[#FDFBF9] rounded-2xl flex items-center justify-center text-[#EADFD4]">
+                  <Award size={20} />
+                </div>
+                <div>
+                  <h3 className="serif text-xl text-[#5C544E]">Procedimentos Mais Realizados</h3>
+                  <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest mt-0.5">Por número de atendimentos concluídos</p>
+                </div>
+              </div>
+              <div className="space-y-3">
+                {topProcedures.map((p, i) => {
+                  const maxCount = topProcedures[0].count || 1;
+                  return (
+                    <div key={p.name} className="flex items-center gap-4">
+                      <span className="w-5 text-xs font-bold text-[#9CA3AF] shrink-0">{i + 1}º</span>
+                      <span className="w-36 shrink-0 text-xs font-semibold text-[#5C544E] truncate">{p.name}</span>
+                      <div className="flex-1 h-3 bg-[#FDFBF9] rounded-full overflow-hidden">
+                        <div className="h-full bg-[#EADFD4]" style={{ width: `${(p.count / maxCount) * 100}%` }} />
+                      </div>
+                      <span className="w-8 shrink-0 text-right text-xs font-bold text-[#9CA3AF]">{p.count}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          )}
+
+          {totalUniquePatients > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white rounded-[48px] border border-[#F5F2F0] p-10 shadow-sm flex flex-col justify-center"
+            >
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 bg-[#FDFBF9] rounded-2xl flex items-center justify-center text-[#EADFD4]">
+                  <Repeat size={20} />
+                </div>
+                <div>
+                  <h3 className="serif text-xl text-[#5C544E]">Taxa de Retorno</h3>
+                  <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest mt-0.5">Pacientes que voltaram mais de uma vez</p>
+                </div>
+              </div>
+              <p className="serif text-6xl text-[#5C544E] mb-2">{returnRate}%</p>
+              <p className="text-xs text-[#9CA3AF] font-light">
+                {returningPatients} de {totalUniquePatients} pacientes com atendimento concluído voltaram pra pelo menos uma consulta a mais
+              </p>
+            </motion.div>
+          )}
+        </div>
       )}
       {/* Toolbar */}
       <div className="flex flex-col md:flex-row items-center justify-between gap-4">

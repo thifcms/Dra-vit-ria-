@@ -32,6 +32,7 @@ import SignaturePad from 'react-signature-canvas';
 import { showToast } from '../lib/toast';
 const AnatomyViewer = lazy(() => import('./AnatomyViewer'));
 import FaceMarkingTab from './FaceMarkingTab';
+import BudgetGenerator from './BudgetGenerator';
 import { 
   LineChart, 
   Line, 
@@ -480,7 +481,7 @@ function AddPatientModal({ user, onClose }: { user: User, onClose: () => void })
 }
 
 function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient, onBack: () => void }) {
-  const [activeTab, setActiveTab] = useState<'anamnesis' | 'evolution' | 'photos' | 'files' | 'consent' | 'prescriptions' | 'facemap'>('anamnesis');
+  const [activeTab, setActiveTab] = useState<'anamnesis' | 'evolution' | 'photos' | 'files' | 'consent' | 'prescriptions' | 'facemap' | 'budget'>('anamnesis');
   const [phoneDraft, setPhoneDraft] = useState(patient.phone || '');
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deletingPatient, setDeletingPatient] = useState(false);
@@ -733,6 +734,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
           <nav className="space-y-2">
             <TabButton active={activeTab === 'anamnesis'} onClick={() => setActiveTab('anamnesis')} icon={<FileText size={20} />} label="Anamnese" />
             <TabButton active={activeTab === 'facemap'} onClick={() => setActiveTab('facemap')} icon={<MapPin size={20} />} label="Mapa de Aplicação" />
+            <TabButton active={activeTab === 'budget'} onClick={() => setActiveTab('budget')} icon={<FileDown size={20} />} label="Orçamento" />
             <TabButton active={activeTab === 'evolution'} onClick={() => setActiveTab('evolution')} icon={<History size={20} />} label="Evolução Clínica" />
             <TabButton active={activeTab === 'prescriptions'} onClick={() => setActiveTab('prescriptions')} icon={<Pill size={20} />} label="Receituários" />
             <TabButton active={activeTab === 'consent'} onClick={() => setActiveTab('consent')} icon={<CheckCircle2 size={20} />} label="Termos & Assinaturas" />
@@ -809,6 +811,11 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
             {activeTab === 'facemap' && (
               <motion.div key="facemap" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                 <FaceMarkingTab patient={patient} user={user} />
+              </motion.div>
+            )}
+            {activeTab === 'budget' && (
+              <motion.div key="budget" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <BudgetGenerator patient={patient} user={user} />
               </motion.div>
             )}
             {activeTab === 'anamnesis' && (
