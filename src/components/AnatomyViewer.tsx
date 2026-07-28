@@ -114,7 +114,7 @@ export default function AnatomyViewer({ onClose }: { onClose: () => void }) {
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
     controls.minDistance = 0.15;
-    controls.maxDistance = 3.5;
+    controls.maxDistance = 4.5;
     controlsRef.current = controls;
 
     const loader = new GLTFLoader();
@@ -129,15 +129,15 @@ export default function AnatomyViewer({ onClose }: { onClose: () => void }) {
         const size = box.getSize(new THREE.Vector3());
         model.position.sub(center);
 
-        const maxDim = Math.max(size.x, size.y, size.z);
-        // Distância calculada a partir do campo de visão (FOV) e da proporção real da tela —
-        // sem isso, no celular (onde a área do visualizador é mais larga que alta) o modelo
-        // aparecia grande demais logo de início, e o gesto de pinça pra afastar não corrigia
-        // isso sozinho.
-        const fovRad = (camera.fov * Math.PI) / 180;
-        let distance = (maxDim / 2) / Math.tan(fovRad / 2);
-        if (camera.aspect < 1) distance /= camera.aspect; // tela mais estreita que alta precisa de mais distância
-        distance *= 2.25; // margem confortável ao redor do modelo (aumentada ~1/3 a pedido)
+        // Distância calculada considerando altura E largura da tela (não só uma
+        // aproximação por diagonal) — pega a maior distância necessária entre as duas
+        // direções, garantindo que o modelo caiba sem cortar em qualquer proporção de tela.
+        const fovVertical = (camera.fov * Math.PI) / 180;
+        const fovHorizontal = 2 * Math.atan(Math.tan(fovVertical / 2) * camera.aspect);
+        const distanceForHeight = (size.y / 2) / Math.tan(fovVertical / 2);
+        const distanceForWidth = (size.x / 2) / Math.tan(fovHorizontal / 2);
+        let distance = Math.max(distanceForHeight, distanceForWidth);
+        distance *= 2.1; // margem ao redor do modelo (reduzido ~30% a pedido, em cima do ajuste anterior)
         const camPos = new THREE.Vector3(0, 0.02, distance);
         camera.position.copy(camPos);
         controls.target.set(0, 0, 0);
@@ -157,10 +157,12 @@ export default function AnatomyViewer({ onClose }: { onClose: () => void }) {
               const mat = m as THREE.MeshStandardMaterial;
               if (!mat) return;
               if (isEye) {
-                // Olho menos "vítreo"/brilhante — o excesso de reflexo é o que dava aquele
-                // efeito de olhar fixo e assustador
-                mat.roughness = 0.65;
+                // Olho bem mais suave — o brilho vítreo e o branco muito puro da esclera
+                // eram o que dava aquele efeito de olhar fixo e assustador
+                mat.roughness = 0.85;
                 mat.metalness = 0;
+                mat.envMapIntensity = 0.3;
+                mat.color = mat.color.multiplyScalar(0.88); // esclera menos "branco puro"
               } else {
                 mat.roughness = obj.name === 'head_skin_full' ? 0.55 : 0.5;
                 mat.metalness = 0.02;
@@ -194,15 +196,25 @@ export default function AnatomyViewer({ onClose }: { onClose: () => void }) {
 
     const handleResize = () => {
       if (!containerRef.current) return;
-      camera.aspect = containerRef.current.clientWidth / containerRef.current.clientHeight;
+      const w = containerRef.current.clientWidth;
+      const h = containerRef.current.clientHeight;
+      if (w === 0 || h === 0) return;
+      camera.aspect = w / h;
       camera.updateProjectionMatrix();
-      renderer.setSize(containerRef.current.clientWidth, containerRef.current.clientHeight);
+      renderer.setSize(w, h);
     };
+    // ResizeObserver detecta qualquer mudança de tamanho do próprio container (inclusive
+    // as causadas por layout/flexbox, não só quando a janela do navegador muda) — sem
+    // isso, no celular a área 3D podia ficar com o tamanho errado, "vazando" por cima dos
+    // botões de camada abaixo dela.
+    const resizeObserver = new ResizeObserver(handleResize);
+    resizeObserver.observe(container);
     window.addEventListener('resize', handleResize);
 
     return () => {
       cancelAnimationFrame(frameId);
       window.removeEventListener('resize', handleResize);
+      resizeObserver.disconnect();
       renderer.dispose();
       controls.dispose();
       if (container.contains(renderer.domElement)) {
@@ -250,7 +262,7 @@ export default function AnatomyViewer({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 bg-[#FDFBF9] flex flex-col md:flex-row">
       {/* Área 3D */}
-      <div className="relative flex-1 min-h-[45vh] md:min-h-0 bg-[#F5F2F0]">
+      <div className="relative h-[42vh] md:h-auto md:flex-1 bg-[#F5F2F0] shrink-0 overflow-hidden">
         <div ref={containerRef} className="absolute inset-0 touch-none" />
 
         {loading && (
@@ -291,7 +303,7 @@ export default function AnatomyViewer({ onClose }: { onClose: () => void }) {
       </div>
 
       {/* Painel de camadas */}
-      <div className="w-full md:w-[300px] bg-white border-t md:border-t-0 md:border-l border-[#F5F2F0] flex flex-col max-h-[55vh] md:max-h-none">
+      <div className="w-full md:w-[300px] bg-white border-t md:border-t-0 md:border-l border-[#F5F2F0] flex flex-col flex-1 min-h-0 md:flex-none">
         <div className="p-5 border-b border-[#F5F2F0]">
           <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-[0.2em] mb-3">Atalhos</p>
           <div className="grid grid-cols-2 gap-2">
