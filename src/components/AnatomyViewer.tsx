@@ -99,22 +99,22 @@ export default function AnatomyViewer({ onClose }: { onClose: () => void }) {
     renderer.outputEncoding = THREE.sRGBEncoding;
     container.appendChild(renderer.domElement);
 
-    const keyLight = new THREE.DirectionalLight(0xfff4e8, 2.4);
+    const keyLight = new THREE.DirectionalLight(0xfff4e8, 2.0);
     keyLight.position.set(1, 1.2, 1);
     scene.add(keyLight);
-    const fillLight = new THREE.DirectionalLight(0xcfe0ff, 0.9);
+    const fillLight = new THREE.DirectionalLight(0xf5ece0, 0.7); // tom quente neutro, em vez de azulado — harmoniza melhor com pele/músculo/osso
     fillLight.position.set(-1, 0.3, -0.5);
     scene.add(fillLight);
-    const rim = new THREE.DirectionalLight(0xEADFD4, 1.0);
+    const rim = new THREE.DirectionalLight(0xEADFD4, 0.8);
     rim.position.set(0, 1, -1.2);
     scene.add(rim);
-    scene.add(new THREE.AmbientLight(0x404040, 0.8));
+    scene.add(new THREE.AmbientLight(0x504840, 1.0)); // luz ambiente mais forte e quente, suaviza sombras muito duras
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
     controls.minDistance = 0.15;
-    controls.maxDistance = 2.5;
+    controls.maxDistance = 3.5;
     controlsRef.current = controls;
 
     const loader = new GLTFLoader();
@@ -137,7 +137,7 @@ export default function AnatomyViewer({ onClose }: { onClose: () => void }) {
         const fovRad = (camera.fov * Math.PI) / 180;
         let distance = (maxDim / 2) / Math.tan(fovRad / 2);
         if (camera.aspect < 1) distance /= camera.aspect; // tela mais estreita que alta precisa de mais distância
-        distance *= 1.5; // margem confortável ao redor do modelo
+        distance *= 2.25; // margem confortável ao redor do modelo (aumentada ~1/3 a pedido)
         const camPos = new THREE.Vector3(0, 0.02, distance);
         camera.position.copy(camPos);
         controls.target.set(0, 0, 0);
@@ -151,11 +151,21 @@ export default function AnatomyViewer({ onClose }: { onClose: () => void }) {
             objs[obj.name] = obj;
             vis[obj.name] = true;
             const mesh = obj as THREE.Mesh;
-            const mat = mesh.material as THREE.MeshStandardMaterial;
-            if (mat) {
-              mat.roughness = obj.name === 'head_skin_full' ? 0.55 : 0.5;
-              mat.metalness = 0.02;
-            }
+            const isEye = obj.name.startsWith('eye.');
+            const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+            materials.forEach((m) => {
+              const mat = m as THREE.MeshStandardMaterial;
+              if (!mat) return;
+              if (isEye) {
+                // Olho menos "vítreo"/brilhante — o excesso de reflexo é o que dava aquele
+                // efeito de olhar fixo e assustador
+                mat.roughness = 0.65;
+                mat.metalness = 0;
+              } else {
+                mat.roughness = obj.name === 'head_skin_full' ? 0.55 : 0.5;
+                mat.metalness = 0.02;
+              }
+            });
           }
         });
         layerObjectsRef.current = objs;
@@ -213,9 +223,11 @@ export default function AnatomyViewer({ onClose }: { onClose: () => void }) {
     setActivePreset(preset);
     Object.keys(layerObjectsRef.current).forEach((key) => {
       let visible = true;
+      // Os olhos só ficam visíveis junto com a pele — sem a pele/pálpebra ao redor, o globo
+      // ocular sozinho (só músculo/osso) fica com aparência de "filme de terror"
       if (preset === 'skin') visible = key === 'head_skin_full' || key.startsWith('eye.');
-      else if (preset === 'fat') visible = key.startsWith('FAT_') || key.startsWith('eye.');
-      else if (preset === 'muscle') visible = key.startsWith('muscle_') || key.startsWith('eye.');
+      else if (preset === 'fat') visible = key.startsWith('FAT_');
+      else if (preset === 'muscle') visible = key.startsWith('muscle_');
       else if (preset === 'bone') visible = key.startsWith('bone_') || key.startsWith('CARTILAGE_');
       toggleLayer(key, visible);
     });
