@@ -114,7 +114,7 @@ export default function AnatomyViewer({ onClose }: { onClose: () => void }) {
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
     controls.minDistance = 0.15;
-    controls.maxDistance = 1.5;
+    controls.maxDistance = 2.5;
     controlsRef.current = controls;
 
     const loader = new GLTFLoader();
@@ -130,7 +130,15 @@ export default function AnatomyViewer({ onClose }: { onClose: () => void }) {
         model.position.sub(center);
 
         const maxDim = Math.max(size.x, size.y, size.z);
-        const camPos = new THREE.Vector3(0, 0.02, maxDim * 1.7);
+        // Distância calculada a partir do campo de visão (FOV) e da proporção real da tela —
+        // sem isso, no celular (onde a área do visualizador é mais larga que alta) o modelo
+        // aparecia grande demais logo de início, e o gesto de pinça pra afastar não corrigia
+        // isso sozinho.
+        const fovRad = (camera.fov * Math.PI) / 180;
+        let distance = (maxDim / 2) / Math.tan(fovRad / 2);
+        if (camera.aspect < 1) distance /= camera.aspect; // tela mais estreita que alta precisa de mais distância
+        distance *= 1.5; // margem confortável ao redor do modelo
+        const camPos = new THREE.Vector3(0, 0.02, distance);
         camera.position.copy(camPos);
         controls.target.set(0, 0, 0);
         controls.update();
@@ -231,7 +239,7 @@ export default function AnatomyViewer({ onClose }: { onClose: () => void }) {
     <div className="fixed inset-0 z-50 bg-[#FDFBF9] flex flex-col md:flex-row">
       {/* Área 3D */}
       <div className="relative flex-1 min-h-[45vh] md:min-h-0 bg-[#F5F2F0]">
-        <div ref={containerRef} className="absolute inset-0" />
+        <div ref={containerRef} className="absolute inset-0 touch-none" />
 
         {loading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-[#9CA3AF]">
