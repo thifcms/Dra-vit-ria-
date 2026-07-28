@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
-import { collection, query, onSnapshot, addDoc, updateDoc, setDoc, deleteDoc, getDoc, doc, where, orderBy } from 'firebase/firestore';
+import { collection, query, onSnapshot, addDoc, updateDoc, setDoc, deleteDoc, deleteField, getDoc, doc, where, orderBy } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, storage } from '../lib/firebase';
 import { Patient, ClinicSettings } from '../types';
@@ -332,6 +332,7 @@ function AddPatientModal({ user, onClose }: { user: User, onClose: () => void })
   const [cpf, setCpf] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [sex, setSex] = useState<'F' | 'M' | ''>('');
   const [saving, setSaving] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -345,6 +346,7 @@ function AddPatientModal({ user, onClose }: { user: User, onClose: () => void })
         cpf,
         email,
         phone,
+        sex: sex || undefined,
         updatedAt: new Date().toISOString(),
         anamnesis: {
           mainComplaint: '',
@@ -438,6 +440,25 @@ function AddPatientModal({ user, onClose }: { user: User, onClose: () => void })
               onChange={e => setPhone(e.target.value)}
               placeholder="(11) 99999-9999"
             />
+          </div>
+          <div>
+            <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Sexo (opcional)</label>
+            <div className="grid grid-cols-2 gap-3">
+              {(['F', 'M'] as const).map(opt => (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => setSex(sex === opt ? '' : opt)}
+                  className={`py-4 rounded-2xl border text-sm font-medium transition-all ${
+                    sex === opt
+                      ? 'bg-[#EADFD4] text-white border-[#EADFD4]'
+                      : 'bg-[#FDFBF9] text-[#9CA3AF] border-[#F5F2F0] hover:border-[#EADFD4]/40'
+                  }`}
+                >
+                  {opt === 'F' ? 'Feminino' : 'Masculino'}
+                </button>
+              ))}
+            </div>
           </div>
           
           <div className="flex gap-4 pt-4">
@@ -687,6 +708,24 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
               placeholder="Adicionar telefone"
               className="mt-2 text-center text-xs text-[#5C544E] bg-transparent border-b border-transparent hover:border-[#F5F2F0] focus:border-[#EADFD4] outline-none transition-all px-2 py-1 w-full"
             />
+            <div className="flex justify-center gap-2 mt-3">
+              {(['F', 'M'] as const).map(opt => (
+                <button
+                  key={opt}
+                  onClick={async () => {
+                    const next = patient.sex === opt ? undefined : opt;
+                    await updateDoc(doc(db, 'patients', patient.id!), { sex: next ?? deleteField() }).catch(() => {});
+                  }}
+                  className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all ${
+                    patient.sex === opt
+                      ? 'bg-[#EADFD4] text-white'
+                      : 'bg-white text-[#9CA3AF] border border-[#F5F2F0] hover:border-[#EADFD4]/40'
+                  }`}
+                >
+                  {opt === 'F' ? 'Feminino' : 'Masculino'}
+                </button>
+              ))}
+            </div>
           </div>
 
           <nav className="space-y-2">

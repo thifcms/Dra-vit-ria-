@@ -7,6 +7,7 @@ export interface Patient {
   birthDate?: string;
   address?: string;
   cpf?: string;
+  sex?: 'F' | 'M'; // usado pra mostrar o diagrama/rosto genérico correto na Anamnese
   privacyConsentAt?: string; // data/hora em que o paciente aceitou a Política de Privacidade — comprovação exigida pela LGPD
   anamnesis?: {
     // Dados Pessoais & Queixas
