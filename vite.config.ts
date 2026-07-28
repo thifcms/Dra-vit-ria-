@@ -12,6 +12,7 @@ export default defineConfig(() => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate', // atualiza o app sozinho a cada novo deploy, sem cache velho travando
+        injectRegister: false, // registro manual em main.tsx, pra poder mostrar aviso de nova versão
         // Ícones/logo saíram daqui de propósito — ver o runtimeCaching de imagens abaixo.
         // O precache "empacotado" (includeAssets) tem um bug conhecido no Safari/iOS com
         // arquivos de imagem maiores (o Safari faz pedidos parciais/"Range" que esse tipo de
@@ -41,6 +42,7 @@ export default defineConfig(() => {
           // preso numa versão antiga em cache até fechar e abrir de novo várias vezes.
           skipWaiting: true,
           clientsClaim: true,
+          cleanupOutdatedCaches: true, // apaga sozinho o cache de versões antigas do app
           navigateFallbackDenylist: [/^\/#agendar/, /^\/#checkin/],
           runtimeCaching: [
             {
