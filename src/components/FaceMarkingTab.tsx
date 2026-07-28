@@ -107,7 +107,7 @@ export default function FaceMarkingTab({ patient }: { patient: Patient }) {
               onClick={() => setViewingSession(session)}
               className="bg-white border border-[#F5F2F0] rounded-[28px] p-4 hover:border-[#EADFD4]/50 transition-all text-left shadow-sm"
             >
-              <div className="aspect-[3/4] bg-[#FDFBF9] rounded-2xl mb-3 relative overflow-hidden">
+              <div className="bg-[#FDFBF9] rounded-2xl mb-3 relative overflow-hidden" style={{ aspectRatio: session.sex === 'F' ? '538/490' : '524/490' }}>
                 <GenericFaceDiagram sex={session.sex} />
                 {session.points.map((p, i) => (
                   <div
@@ -132,7 +132,7 @@ export default function FaceMarkingTab({ patient }: { patient: Patient }) {
         <div className="fixed inset-0 bg-[#5C544E]/20 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-4xl max-h-[92vh] rounded-[40px] shadow-2xl flex flex-col md:flex-row overflow-hidden">
             <div className="flex-1 bg-[#FDFBF9] p-8 flex items-center justify-center relative min-h-[400px]">
-              <div className="relative w-full max-w-[320px] mx-auto">
+              <div className="relative w-full max-w-[320px] mx-auto" style={{ aspectRatio: patient.sex === 'F' ? '538/490' : '524/490' }}>
                 <GenericFaceDiagram sex={patient.sex} />
                 <svg
                   viewBox="0 0 300 380"
@@ -249,7 +249,7 @@ export default function FaceMarkingTab({ patient }: { patient: Patient }) {
               </button>
             </div>
 
-            <div className="relative w-full max-w-[280px] mx-auto mb-6">
+            <div className="relative w-full max-w-[280px] mx-auto mb-6" style={{ aspectRatio: viewingSession.sex === 'F' ? '538/490' : '524/490' }}>
               <GenericFaceDiagram sex={viewingSession.sex} />
               {viewingSession.points.map((p, i) => (
                 <div
