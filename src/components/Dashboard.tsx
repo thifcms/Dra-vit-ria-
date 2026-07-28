@@ -316,17 +316,17 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
 
         <motion.div 
           whileHover={{ scale: 1.01 }}
-          className="md:col-span-1 bg-[#5C544E] rounded-[40px] p-10 flex flex-col justify-between group cursor-pointer text-white"
+          className="md:col-span-1 bg-[#EADFD4] rounded-[40px] p-10 flex flex-col justify-between group cursor-pointer text-[#5C544E]"
           onClick={() => onNavigate('settings')}
         >
           <div>
-            <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center text-[#EADFD4] shadow-sm mb-6 group-hover:bg-white group-hover:text-[#5C544E] transition-all">
+            <div className="w-14 h-14 bg-white/50 rounded-2xl flex items-center justify-center text-[#5C544E] shadow-sm mb-6 group-hover:bg-white transition-all">
               <SettingsIcon size={24} />
             </div>
             <h3 className="serif text-2xl mb-2">Configurações</h3>
-            <p className="text-xs text-white/50 font-light leading-relaxed">Personalize os termos de consentimento e dados da clínica.</p>
+            <p className="text-xs text-[#5C544E]/60 font-light leading-relaxed">Personalize os termos de consentimento e dados da clínica.</p>
           </div>
-          <ArrowRight className="mt-8 text-white/20 group-hover:text-[#EADFD4] group-hover:translate-x-2 transition-all" />
+          <ArrowRight className="mt-8 text-[#5C544E]/30 group-hover:text-[#5C544E] group-hover:translate-x-2 transition-all" />
         </motion.div>
       </div>
 
