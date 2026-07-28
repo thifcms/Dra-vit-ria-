@@ -8,6 +8,8 @@ export interface Patient {
   address?: string;
   cpf?: string;
   sex?: 'F' | 'M'; // usado pra mostrar o diagrama/rosto genérico correto na Anamnese
+  faceMarkings?: FaceMarkingSession[]; // histórico de mapas de pontos de aplicação
+
   privacyConsentAt?: string; // data/hora em que o paciente aceitou a Política de Privacidade — comprovação exigida pela LGPD
   anamnesis?: {
     // Dados Pessoais & Queixas
@@ -196,3 +198,23 @@ export interface BusySlot {
   date: string;
   time: string;
 }
+
+// Um ponto marcado no diagrama de rosto — x/y em porcentagem (0-100), não em pixel, pra
+// funcionar em qualquer tamanho de tela sem perder a posição relativa.
+export interface FaceMarkingPoint {
+  x: number;
+  y: number;
+  label: string;
+  color: string;
+}
+
+// Uma "sessão" de marcação salva no histórico do paciente — guarda o sexo usado no
+// diagrama daquela vez (não muda retroativamente se o cadastro do paciente for editado depois)
+export interface FaceMarkingSession {
+  id: string;
+  date: string;
+  sex: 'F' | 'M';
+  notes?: string;
+  points: FaceMarkingPoint[];
+}
+

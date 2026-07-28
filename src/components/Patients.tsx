@@ -20,6 +20,7 @@ import {
   Trash2,
   Paperclip,
   Bone,
+  MapPin,
   CheckCircle2,
   X,
   FileDown,
@@ -30,6 +31,7 @@ import {
 import SignaturePad from 'react-signature-canvas';
 import { showToast } from '../lib/toast';
 const AnatomyViewer = lazy(() => import('./AnatomyViewer'));
+import FaceMarkingTab from './FaceMarkingTab';
 import { 
   LineChart, 
   Line, 
@@ -478,7 +480,7 @@ function AddPatientModal({ user, onClose }: { user: User, onClose: () => void })
 }
 
 function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient, onBack: () => void }) {
-  const [activeTab, setActiveTab] = useState<'anamnesis' | 'evolution' | 'photos' | 'files' | 'consent' | 'prescriptions'>('anamnesis');
+  const [activeTab, setActiveTab] = useState<'anamnesis' | 'evolution' | 'photos' | 'files' | 'consent' | 'prescriptions' | 'facemap'>('anamnesis');
   const [phoneDraft, setPhoneDraft] = useState(patient.phone || '');
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deletingPatient, setDeletingPatient] = useState(false);
@@ -730,6 +732,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
 
           <nav className="space-y-2">
             <TabButton active={activeTab === 'anamnesis'} onClick={() => setActiveTab('anamnesis')} icon={<FileText size={20} />} label="Anamnese" />
+            <TabButton active={activeTab === 'facemap'} onClick={() => setActiveTab('facemap')} icon={<MapPin size={20} />} label="Mapa de Aplicação" />
             <TabButton active={activeTab === 'evolution'} onClick={() => setActiveTab('evolution')} icon={<History size={20} />} label="Evolução Clínica" />
             <TabButton active={activeTab === 'prescriptions'} onClick={() => setActiveTab('prescriptions')} icon={<Pill size={20} />} label="Receituários" />
             <TabButton active={activeTab === 'consent'} onClick={() => setActiveTab('consent')} icon={<CheckCircle2 size={20} />} label="Termos & Assinaturas" />
@@ -803,6 +806,11 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
         {/* Content Area */}
         <div className="flex-1 p-10 bg-white overflow-y-auto">
           <AnimatePresence mode="wait">
+            {activeTab === 'facemap' && (
+              <motion.div key="facemap" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <FaceMarkingTab patient={patient} />
+              </motion.div>
+            )}
             {activeTab === 'anamnesis' && (
               <motion.div key="anamnesis" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-10">
                 <div className="flex items-center justify-between pb-6 border-b border-[#F5F2F0]">

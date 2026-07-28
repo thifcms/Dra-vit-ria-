@@ -39,6 +39,7 @@ service cloud.firestore {
         && (!('address' in data) || data.address is string)
         && (!('cpf' in data) || data.cpf is string)
         && (!('sex' in data) || (data.sex is string && (data.sex == 'F' || data.sex == 'M')))
+        && (!('faceMarkings' in data) || data.faceMarkings is list)
         && (!('photoHistory' in data) || data.photoHistory is list)
         && (!('files' in data) || data.files is list)
         && (!('evolution' in data) || data.evolution is list)
