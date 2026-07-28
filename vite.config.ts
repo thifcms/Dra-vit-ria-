@@ -53,16 +53,38 @@ export default defineConfig(() => {
               handler: 'NetworkOnly',
             },
             {
-              // Estratégia própria pra imagens (logo, ícones, favicon): busca da rede
-              // normalmente e guarda em cache à parte do "app shell" — evita o bug do
-              // Safari com precache de imagens grandes, e ainda funciona offline depois
+              // Estratégia própria pra imagens (logo, ícones, favicon, diagramas): busca
+              // da rede normalmente e guarda em cache à parte do "app shell" — evita o bug
+              // do Safari com precache de imagens grandes, e ainda funciona offline depois
               // do primeiro carregamento.
+              // StaleWhileRevalidate (não CacheFirst): mostra a versão em cache na hora,
+              // mas checa a rede em segundo plano e atualiza o cache pra próxima vez — sem
+              // isso, um arquivo com o mesmo nome que eu atualizasse (ex: o modelo 3D)
+              // nunca era rebaixado de novo, ficando preso na primeira versão baixada.
               urlPattern: ({request}) => request.destination === 'image',
-              handler: 'CacheFirst',
+              handler: 'StaleWhileRevalidate',
               options: {
                 cacheName: 'images-cache',
                 expiration: {
                   maxEntries: 40,
+                  maxAgeSeconds: 30 * 24 * 60 * 60,
+                },
+                cacheableResponse: {
+                  statuses: [0, 200],
+                },
+              },
+            },
+            {
+              // Modelos 3D (.glb) — mesma lógica acima, mas cobrindo explicitamente esse
+              // tipo de arquivo (o carregador do Three.js não marca esse pedido como
+              // "imagem", então precisa de uma regra própria pra não escapar do controle
+              // do service worker)
+              urlPattern: ({url}) => url.pathname.endsWith('.glb'),
+              handler: 'StaleWhileRevalidate',
+              options: {
+                cacheName: 'models-cache',
+                expiration: {
+                  maxEntries: 10,
                   maxAgeSeconds: 30 * 24 * 60 * 60,
                 },
                 cacheableResponse: {
