@@ -11,6 +11,15 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Lista de e-mails autorizados a usar o sistema, guardada em system/authorized_admins.
+    // Isso é o que impede qualquer pessoa com conta Google de conseguir criar uma conta
+    // nova dentro do app — só quem está nessa lista consegue criar/editar dados.
+    function isAuthorizedEmail() {
+      return isSignedIn()
+        && request.auth.token.email in
+           get(/databases/$(database)/documents/system/authorized_admins).data.emails;
+    }
+
     function isValidId(id) {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
@@ -20,11 +29,11 @@ service cloud.firestore {
     }
 
     function isOwner() {
-      return isSignedIn() && incoming().userId == request.auth.uid;
+      return isSignedIn() && isAuthorizedEmail() && incoming().userId == request.auth.uid;
     }
 
     function ownsExisting() {
-      return isSignedIn() && resource.data.userId == request.auth.uid;
+      return isSignedIn() && isAuthorizedEmail() && resource.data.userId == request.auth.uid;
     }
 
     // Patient Validation — só o formato dos dados, independente de quem está criando
@@ -59,7 +68,7 @@ service cloud.firestore {
 
     // Criação normal, pelo dono autenticado (uso interno do app)
     function isOwnedAppointmentCreate(data) {
-      return isSignedIn() && data.userId == request.auth.uid;
+      return isSignedIn() && isAuthorizedEmail() && data.userId == request.auth.uid;
     }
 
     // Criação pública, pelo próprio paciente na página de agendamento (#agendar), sem login.
@@ -185,7 +194,7 @@ service cloud.firestore {
     // Rules for Inventory Movements
     match /inventory_movements/{movementId} {
       allow read: if ownsExisting();
-      allow create: if isValidInventoryMovement(incoming()) && isValidId(movementId);
+      allow create: if isAuthorizedEmail() && isValidInventoryMovement(incoming()) && isValidId(movementId);
       allow update: if ownsExisting() && isValidInventoryMovement(incoming()) && incoming().userId == resource.data.userId;
       allow delete: if ownsExisting();
     }
@@ -193,7 +202,7 @@ service cloud.firestore {
     // Rules for Transactions
     match /transactions/{transactionId} {
       allow read: if ownsExisting();
-      allow create: if isValidTransaction(incoming()) && isValidId(transactionId);
+      allow create: if isAuthorizedEmail() && isValidTransaction(incoming()) && isValidId(transactionId);
       allow update: if ownsExisting() && isValidTransaction(incoming()) && incoming().userId == resource.data.userId;
       allow delete: if ownsExisting();
     }
@@ -248,7 +257,22 @@ service cloud.firestore {
 
     // Rules for Settings — um documento por usuário (settings/{uid})
     match /settings/{uid} {
-      allow read, write: if isSignedIn() && uid == request.auth.uid;
+      allow read, write: if isSignedIn() && isAuthorizedEmail() && uid == request.auth.uid;
+    }
+
+    // Lista de e-mails autorizados a usar o sistema. Leitura liberada pra qualquer pessoa
+    // logada (é o que permite o app checar "posso entrar?" logo após o login do Google,
+    // antes de saber se a pessoa está autorizada) — mas só quem já está na lista pode
+    // alterar essa lista.
+    match /system/authorized_admins {
+      allow read: if isSignedIn();
+      allow write: if isAuthorizedEmail();
+    }
+
+    // Senha do painel de administração — uma por administrador (guardada por UID), pra
+    // cada um poder ter a própria senha em vez de uma só compartilhada.
+    match /admin_security/{uid} {
+      allow read, write: if isSignedIn() && isAuthorizedEmail() && uid == request.auth.uid;
     }
   }
 }

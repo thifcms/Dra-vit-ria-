@@ -112,7 +112,30 @@ function AuthenticatedApp() {
   }, [sidebarSearch, patients]);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
+    const unsubscribe = onAuthStateChanged(auth, async (u) => {
+      if (u) {
+        // Confirma que o e-mail está na lista de administradores autorizados antes de
+        // deixar entrar — sem isso, qualquer conta Google conseguiria "se cadastrar"
+        // sozinha no sistema.
+        try {
+          const authDoc = await getDoc(doc(db, 'system', 'authorized_admins'));
+          const allowedEmails: string[] = authDoc.exists() ? (authDoc.data().emails || []) : [];
+          if (!u.email || !allowedEmails.includes(u.email)) {
+            await signOut(auth);
+            showToast('Este e-mail não tem autorização para acessar o sistema.', 'error');
+            setUser(null);
+            setAuthChecked(true);
+            return;
+          }
+        } catch {
+          // Se a checagem falhar por qualquer motivo (ex: lista ainda não existe), nega
+          // por segurança em vez de deixar passar
+          await signOut(auth);
+          setUser(null);
+          setAuthChecked(true);
+          return;
+        }
+      }
       setUser(u);
       setAuthChecked(true);
     });

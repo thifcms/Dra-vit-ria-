@@ -221,3 +221,9 @@ export interface FaceMarkingSession {
   points: FaceMarkingPoint[];
 }
 
+// Senha do painel de administração — uma por administrador (documento admin_security/{uid})
+export interface AdminSecurity {
+  passwordHash?: string;
+  webauthnCredentialId?: string;
+}
+

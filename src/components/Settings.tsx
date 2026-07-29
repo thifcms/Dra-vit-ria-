@@ -27,6 +27,7 @@ import {
 import { showToast } from '../lib/toast';
 import { hashPin, isValidPinFormat } from '../lib/pin';
 import { isPlatformAuthenticatorAvailable, registerBiometric } from '../lib/webauthn';
+import AdminPanel from './AdminPanel';
 
 export default function Settings({ user }: { user: User }) {
   const [settings, setSettings] = useState<ClinicSettings>({
@@ -598,6 +599,10 @@ export default function Settings({ user }: { user: User }) {
             <span>{clearingSlots ? 'Verificando...' : 'Destravar Horários da Agenda'}</span>
           </button>
         </div>
+      </div>
+
+      <div className="mt-8">
+        <AdminPanel user={user} />
       </div>
 
       <AnimatePresence>
