@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
 import { collection, query, onSnapshot, addDoc, updateDoc, setDoc, deleteDoc, deleteField, getDoc, getDocs, doc, where, orderBy, limit } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, deleteObject, listAll } from 'firebase/storage';
 import { compressImage } from '../lib/imageCompress';
 import { db, storage } from '../lib/firebase';
 import { Patient, ClinicSettings } from '../types';
-import { phoneIndexKey, getClinicOwnerId, todayLocalStr } from '../lib/slots';
+import { phoneIndexKey, cpfIndexKey, getClinicOwnerId, todayLocalStr } from '../lib/slots';
 import { User } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -69,81 +69,6 @@ const conditionFilterOptions: { key: string, label: string }[] = [
   { key: 'isotretinoin', label: 'Roacutan' },
   { key: 'contraceptive', label: 'Anticoncepcional' },
 ];
-
-function exportPatientRecord(patient: Patient) {
-  const a = patient.anamnesis;
-  
-  const habitsList = [
-    a?.habits?.smoking ? 'Fumante' : '',
-    a?.habits?.alcohol ? 'Álcool' : '',
-    a?.habits?.exercise ? 'Exercícios' : '',
-    a?.habits?.sunExposure ? 'Exposição Solar Frequente' : '',
-    a?.habits?.sunscreen ? 'Uso Diário de Protetor' : ''
-  ].filter(Boolean).join(', ') || 'Nenhum';
-
-  const conditionsList = a?.conditions ? Object.entries(a.conditions)
-    .filter(([_, v]) => v)
-    .map(([k, _]) => {
-      const labels: any = {
-        diabetes: 'Diabetes', hypertension: 'Hipertensão', heartProblems: 'Problemas Cardíacos',
-        autoimmune: 'Doença Autoimune', cancerHistory: 'Histórico de Câncer', keloid: 'Queloide/Cicatrização Anormal',
-        herpes: 'Herpes Recorrente', epilepsy: 'Epilepsia', hivHepatitis: 'HIV/Hepatite',
-        pacemaker: 'Marca-passo', pregnant: 'Gestante', breastfeeding: 'Amamentando',
-        anticoagulant: 'Anticoagulante', isotretinoin: 'Isotretinoína (Roacutan)', contraceptive: 'Anticoncepcional'
-      };
-      return labels[k] || k;
-    }).join(', ') : '-';
-
-  const lines = [
-    `PRONTUÁRIO CLÍNICO — ${patient.name}`,
-    `CPF: ${patient.cpf || '-'}`,
-    `E-mail: ${patient.email || '-'}`,
-    `Última Atualização: ${patient.updatedAt ? new Date(patient.updatedAt).toLocaleString('pt-BR') : '-'}`,
-    '',
-    '--------------------------------------------------',
-    'ANAMNESE',
-    '--------------------------------------------------',
-    `Queixa principal: ${a?.mainComplaint || '-'}`,
-    `Expectativas: ${a?.expectations || '-'}`,
-    '',
-    `Condições Médicas: ${conditionsList}`,
-    `Outras condições: ${a?.otherConditions || '-'}`,
-    `Alergias: ${a?.hasAllergies ? `Sim (${a.allergiesDetails})` : 'Não'}`,
-    `Medicações Contínuas: ${a?.hasContinuousMedication ? `Sim (${a.medicationsDetails})` : 'Não'}`,
-    `Histórico familiar: ${a?.familyHistory || '-'}`,
-    '',
-    `Hábitos: ${habitsList}`,
-    `Dieta: ${a?.habits?.diet || '-'}`,
-    '',
-    `Avaliação da pele: ${a?.skinEvaluation || '-'}`,
-    `Avaliação facial: ${a?.faceEvaluation || '-'}`,
-    '',
-    '--------------------------------------------------',
-    'EVOLUÇÃO CLÍNICA',
-    '--------------------------------------------------',
-    ...(patient.evolution && patient.evolution.length
-      ? patient.evolution.map(e => `[${new Date(e.date).toLocaleDateString('pt-BR')}] ${e.procedure}: ${e.notes}${e.bucoMaxiloNotes ? ' (Buco-Maxilo: ' + e.bucoMaxiloNotes + ')' : ''}`)
-      : ['Nenhum registro de evolução encontrado.']),
-    '',
-    '--------------------------------------------------',
-    'TERMOS DE CONSENTIMENTO ASSINADOS',
-    '--------------------------------------------------',
-    ...(patient.consentTerms && patient.consentTerms.length
-      ? patient.consentTerms.map(t => `[${new Date(t.signedAt).toLocaleDateString('pt-BR')}] ${t.templateTitle}`)
-      : ['Nenhum termo assinado.']),
-  ];
-
-  const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `prontuario-${patient.name.replace(/\s+/g, '-').toLowerCase()}.txt`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-  showToast('Prontuário exportado com sucesso');
-}
 
 export default function Patients({ user, initialPatientId }: { user: User, initialPatientId?: string | null }) {
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -490,6 +415,9 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
   const [phoneDraft, setPhoneDraft] = useState(patient.phone || '');
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deletingPatient, setDeletingPatient] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isAdminUser, setIsAdminUser] = useState<boolean | null>(null);
+  const [viewingData, setViewingData] = useState(false);
   const [showAnatomyModal, setShowAnatomyModal] = useState(false);
   const [showAnamnesisHistory, setShowAnamnesisHistory] = useState(false);
 
@@ -502,6 +430,15 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
     ? [...allEvolutionEntries].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]
     : null;
   const [showLastVisitModal, setShowLastVisitModal] = useState(!!lastEvolution);
+
+  // Confere se quem está vendo é administrador — os botões de LGPD (ver todos os dados /
+  // excluir todos os dados) só aparecem pra administrador.
+  useEffect(() => {
+    getDoc(doc(db, 'system', 'authorized_admins')).then(snap => {
+      const emails: string[] = snap.exists() ? (snap.data().emails || []) : [];
+      setIsAdminUser(!!user.email && emails.includes(user.email));
+    }).catch(() => setIsAdminUser(false));
+  }, [user.email]);
   
   // Normalização para garantir que dados legados não quebrem a interface nova de checkboxes
   const normalizeAnamnesis = (a: any) => {
@@ -728,22 +665,70 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
     }
   };
 
+  // Exclusão completa (direito de eliminação da LGPD) — apaga o prontuário e TUDO que
+  // referencia esse paciente: fotos, exames, anexos, backups automáticos na nuvem, e os
+  // índices de busca (CPF e telefone). Só administrador consegue fazer isso, e só depois
+  // de digitar o nome do paciente pra confirmar — não tem como desfazer.
   const handleDeletePatient = async () => {
     if (deletingPatient) return;
+    if (deleteConfirmText.trim().toLowerCase() !== patient.name.trim().toLowerCase()) {
+      showToast('O nome digitado não confere', 'error');
+      return;
+    }
     setDeletingPatient(true);
     try {
-      await deleteDoc(doc(db, 'patients', patient.id!));
-      // Melhor esforço: libera o índice de telefone também, se existir
+      const ownerId = await getClinicOwnerId(db).catch(() => user.uid);
+
+      // Arquivos no Storage: fotos, exames e anexos (pasta inteira do paciente)
+      try {
+        const folderRef = ref(storage, `patients/${ownerId}/${patient.id}`);
+        const listing = await listAll(folderRef);
+        const deleteRecursive = async (r: typeof folderRef) => {
+          const l = await listAll(r);
+          await Promise.all(l.items.map(item => deleteObject(item).catch(() => {})));
+          await Promise.all(l.prefixes.map(p => deleteRecursive(p)));
+        };
+        await deleteRecursive(folderRef);
+      } catch { /* melhor esforço */ }
+
+      // Backups automáticos desse paciente na nuvem
+      try {
+        const backupFolderRef = ref(storage, `backups/${patient.id}`);
+        const backupList = await listAll(backupFolderRef);
+        await Promise.all(backupList.items.map(item => deleteObject(item).catch(() => {})));
+      } catch { /* melhor esforço */ }
+
+      // Índices de busca (telefone e CPF)
       if (patient.phone) {
-        const ownerId = await getClinicOwnerId(db).catch(() => user.uid);
         await deleteDoc(doc(db, 'patientPhoneIndex', phoneIndexKey(ownerId, patient.phone))).catch(() => {});
       }
-      showToast('Paciente excluído');
+      if (patient.cpf) {
+        await deleteDoc(doc(db, 'patientCpfIndex', cpfIndexKey(ownerId, patient.cpf))).catch(() => {});
+      }
+
+      // O prontuário em si, por último
+      await deleteDoc(doc(db, 'patients', patient.id!));
+
+      showToast('Todos os dados do paciente foram excluídos');
       onBack();
     } catch (err) {
-      showToast('Erro ao excluir paciente', 'error');
+      showToast('Erro ao excluir dados', 'error');
       setDeletingPatient(false);
     }
+  };
+
+  // Direito de acesso da LGPD — gera e abre um PDF com absolutamente tudo que o sistema
+  // guarda desse paciente, pra mostrar ou entregar caso ele peça.
+  const handleViewAllData = async () => {
+    setViewingData(true);
+    try {
+      const blob = await generatePatientPdf(patient, null);
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+    } catch {
+      showToast('Erro ao gerar os dados', 'error');
+    }
+    setViewingData(false);
   };
 
   const handleDeletePhoto = async (index: number) => {
@@ -934,20 +919,26 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
           </button>
 
           <div className="mt-auto pt-10 border-t border-[#F5F2F0] space-y-3">
-            <button
-              onClick={() => exportPatientRecord(patient)}
-              className="w-full py-4 px-6 bg-white text-[#9CA3AF] border border-[#F5F2F0] rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-[#FDFBF9] hover:text-[#4A433D] transition-all shadow-sm"
-            >
-              <Download size={18} />
-              Exportar Prontuário
-            </button>
-            <button
-              onClick={() => setConfirmingDelete(true)}
-              className="w-full py-4 px-6 bg-white text-red-300 border border-red-100 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-red-50 hover:text-red-500 transition-all shadow-sm"
-            >
-              <Trash2 size={18} />
-              Excluir Paciente
-            </button>
+            {isAdminUser && (
+              <>
+                <p className="text-[9px] font-bold text-[#9CA3AF] uppercase tracking-widest px-2">LGPD — Direitos do Paciente</p>
+                <button
+                  onClick={handleViewAllData}
+                  disabled={viewingData}
+                  className="w-full py-4 px-6 bg-white text-[#9CA3AF] border border-[#F5F2F0] rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-[#FDFBF9] hover:text-[#4A433D] transition-all shadow-sm disabled:opacity-50"
+                >
+                  <Download size={18} />
+                  {viewingData ? 'Gerando...' : 'Ver Todos os Dados'}
+                </button>
+                <button
+                  onClick={() => setConfirmingDelete(true)}
+                  className="w-full py-4 px-6 bg-white text-red-300 border border-red-100 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-red-50 hover:text-red-500 transition-all shadow-sm"
+                >
+                  <Trash2 size={18} />
+                  Excluir Todos os Dados
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -960,28 +951,37 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
               className="bg-white w-full max-w-md rounded-[40px] p-10 shadow-2xl"
             >
-              <h2 className="serif text-2xl text-[#4A433D] mb-2">Excluir paciente?</h2>
+              <h2 className="serif text-2xl text-[#4A433D] mb-2">Excluir todos os dados?</h2>
               <p className="text-sm text-[#9CA3AF] font-light mb-2">
-                Isso apaga permanentemente o prontuário de <strong className="text-[#4A433D]">{patient.name}</strong> —
-                anamnese, evolução, receituários, termos e fotos. Não pode ser desfeito.
+                Isso apaga permanentemente TUDO relacionado a <strong className="text-[#4A433D]">{patient.name}</strong> —
+                prontuário, anamnese, evolução, exames, fotos, anexos, e também os backups automáticos guardados na nuvem. Não pode ser desfeito.
               </p>
-              <p className="text-xs text-[#9CA3AF] font-light mb-8 italic">
+              <p className="text-xs text-[#9CA3AF] font-light mb-6 italic">
                 Agendamentos e lançamentos financeiros já existentes não são apagados, só deixam de estar
                 vinculados a um cadastro de paciente.
               </p>
+              <p className="text-xs font-semibold text-[#4A433D] mb-3">
+                Pra confirmar, digite o nome completo do paciente: <span className="italic">{patient.name}</span>
+              </p>
+              <input
+                value={deleteConfirmText}
+                onChange={e => setDeleteConfirmText(e.target.value)}
+                placeholder="Digite o nome aqui"
+                className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-red-200 transition-all text-sm mb-6"
+              />
               <div className="flex gap-4">
                 <button
-                  onClick={() => setConfirmingDelete(false)}
+                  onClick={() => { setConfirmingDelete(false); setDeleteConfirmText(''); }}
                   className="flex-1 py-4 text-[#9CA3AF] font-bold text-[10px] uppercase"
                 >
                   Não, cancelar
                 </button>
                 <button
-                  disabled={deletingPatient}
+                  disabled={deletingPatient || deleteConfirmText.trim().toLowerCase() !== patient.name.trim().toLowerCase()}
                   onClick={handleDeletePatient}
                   className="flex-1 py-4 bg-red-400 text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-red-500 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  {deletingPatient ? 'Excluindo...' : 'Sim, excluir'}
+                  {deletingPatient ? 'Excluindo...' : 'Sim, excluir tudo'}
                 </button>
               </div>
             </motion.div>
