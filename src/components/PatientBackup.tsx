@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, storage } from '../lib/firebase';
+import { ref, listAll, getDownloadURL, getMetadata } from 'firebase/storage';
 import { Patient, ClinicSettings } from '../types';
 import { User } from 'firebase/auth';
 import { generatePatientPdf, patientPdfFileName } from '../lib/patientPdf';
-import { FileDown, Search, Download, Loader2 } from 'lucide-react';
+import { FileDown, Search, Download, Loader2, Cloud } from 'lucide-react';
 import { showToast } from '../lib/toast';
 
 // Só aparece pra administrador — mesma checagem usada no AdminPanel. Deixa baixar o
@@ -18,6 +19,38 @@ export default function PatientBackup({ user }: { user: User }) {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [downloadingAll, setDownloadingAll] = useState(false);
   const [allProgress, setAllProgress] = useState(0);
+
+  const [cloudBackups, setCloudBackups] = useState<{ path: string; name: string; patientId: string; created: string; url: string }[] | null>(null);
+  const [loadingCloud, setLoadingCloud] = useState(false);
+
+  const loadCloudBackups = async () => {
+    setLoadingCloud(true);
+    try {
+      const rootRef = ref(storage, 'backups');
+      const rootList = await listAll(rootRef);
+      const files: { path: string; name: string; patientId: string; created: string; url: string }[] = [];
+      // Cada subpasta é um patientId — lista os arquivos dentro de cada uma
+      for (const patientFolder of rootList.prefixes) {
+        const folderList = await listAll(patientFolder);
+        for (const item of folderList.items) {
+          const [meta, url] = await Promise.all([getMetadata(item), getDownloadURL(item)]);
+          files.push({
+            path: item.fullPath,
+            name: item.name,
+            patientId: patientFolder.name,
+            created: meta.timeCreated,
+            url,
+          });
+        }
+      }
+      files.sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime());
+      setCloudBackups(files);
+    } catch {
+      showToast('Erro ao listar backups na nuvem', 'error');
+      setCloudBackups([]);
+    }
+    setLoadingCloud(false);
+  };
 
   useEffect(() => {
     getDoc(doc(db, 'system', 'authorized_admins')).then(snap => {
@@ -151,6 +184,46 @@ export default function PatientBackup({ user }: { user: User }) {
             <p className="text-xs text-[#9CA3AF] italic text-center py-4">Nenhum paciente encontrado.</p>
           )}
         </div>
+      </div>
+
+      <div className="pt-6 mt-6 border-t border-[#F5F2F0]">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Cloud size={16} className="text-[#9CA3AF]" />
+            <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest">Backups automáticos na nuvem</p>
+          </div>
+          {cloudBackups === null && (
+            <button
+              onClick={loadCloudBackups}
+              disabled={loadingCloud}
+              className="text-[10px] font-bold text-[#B8846E] uppercase tracking-widest hover:text-[#A6735E] transition-all disabled:opacity-50"
+            >
+              {loadingCloud ? 'Carregando...' : 'Ver lista'}
+            </button>
+          )}
+        </div>
+        {cloudBackups !== null && (
+          <div className="space-y-2 max-h-80 overflow-y-auto">
+            {cloudBackups.length === 0 && (
+              <p className="text-xs text-[#9CA3AF] italic text-center py-4">Nenhum backup automático ainda — aparece aqui assim que alguma anamnese/evolução for liberada.</p>
+            )}
+            {cloudBackups.map(b => (
+              <a
+                key={b.path}
+                href={b.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between p-3 bg-[#FDFBF9] rounded-xl hover:bg-[#F5F2F0] transition-all"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm text-[#4A433D] truncate">{b.name}</p>
+                  <p className="text-[10px] text-[#9CA3AF]">{new Date(b.created).toLocaleString('pt-BR')}</p>
+                </div>
+                <Download size={16} className="text-[#9CA3AF] shrink-0 ml-3" />
+              </a>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

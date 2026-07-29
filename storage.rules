@@ -1,10 +1,27 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
+    // Confere a mesma lista de administradores usada no Firestore — assim, qualquer
+    // administrador autorizado acessa os arquivos de qualquer paciente, não só os que ele
+    // mesmo enviou (mesmo princípio de "acesso compartilhado" já usado no banco de dados).
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email in
+           firestore.get(/databases/(default)/documents/system/authorized_admins).data.emails;
+    }
+
     // Fotos e arquivos de pacientes ficam em: patients/{uid}/{patientId}/...
-    // Só o dono (uid == usuário logado) pode ler ou escrever sua própria pasta.
+    // {uid} aqui é só quem originalmente enviou o arquivo (histórico), não quem pode
+    // acessar — isso quem decide é isAdmin() abaixo.
     match /patients/{uid}/{allPaths=**} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read, write: if isAdmin() || (request.auth != null && request.auth.uid == uid);
+    }
+
+    // Backups automáticos em PDF (gerados sozinhos quando uma anamnese/evolução é
+    // liberada) — só administrador acessa, mesmo que qualquer usuário autorizado possa
+    // ter sido quem gerou o arquivo.
+    match /backups/{allPaths=**} {
+      allow read, write: if isAdmin();
     }
 
     // Qualquer outro caminho: negado por padrão.

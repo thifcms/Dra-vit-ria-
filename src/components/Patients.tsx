@@ -565,17 +565,27 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
 
   const [releasingAnamnesis, setReleasingAnamnesis] = useState(false);
   // Backup automático: sempre que algo é liberado (trava definitiva, o momento que
-  // importa legalmente), baixa sozinho um PDF atualizado do prontuário — sem depender de
-  // ninguém lembrar de ir em Configurações fazer isso manualmente depois.
+  // importa legalmente), gera um PDF atualizado do prontuário — baixa localmente E sobe
+  // pro Firebase Storage (cópia centralizada, acessível de qualquer aparelho, só por
+  // administrador), sem depender de ninguém lembrar de fazer isso manualmente depois.
   const triggerAutoBackup = async (updatedPatientData: Patient) => {
     try {
       const blob = await generatePatientPdf(updatedPatientData, null);
+      const fileName = patientPdfFileName(updatedPatientData);
+
+      // Cópia local (no aparelho de quem liberou)
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = patientPdfFileName(updatedPatientData);
+      link.download = fileName;
       link.click();
       URL.revokeObjectURL(url);
+
+      // Cópia central no Storage — histórico completo, nunca sobrescreve (nome inclui
+      // data/hora), acessível só por administrador de qualquer aparelho
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const storagePath = `backups/${updatedPatientData.id}/${timestamp}-${fileName}`;
+      await uploadBytes(ref(storage, storagePath), blob).catch(() => {});
     } catch {
       // Melhor esforço — não trava a liberação em si se o backup falhar por algum motivo
     }
