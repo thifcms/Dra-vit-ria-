@@ -20,6 +20,7 @@ import {
   Save,
   Trash2,
   Paperclip,
+  Microscope,
   Bone,
   MapPin,
   Lock,
@@ -485,7 +486,7 @@ function AddPatientModal({ user, onClose }: { user: User, onClose: () => void })
 }
 
 function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient, onBack: () => void }) {
-  const [activeTab, setActiveTab] = useState<'anamnesis' | 'evolution' | 'photos' | 'files' | 'consent' | 'prescriptions' | 'facemap' | 'budget'>('anamnesis');
+  const [activeTab, setActiveTab] = useState<'anamnesis' | 'evolution' | 'photos' | 'files' | 'exams' | 'consent' | 'prescriptions' | 'facemap' | 'budget'>('anamnesis');
   const [phoneDraft, setPhoneDraft] = useState(patient.phone || '');
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deletingPatient, setDeletingPatient] = useState(false);
@@ -547,6 +548,10 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
   }, [patient.id]); // Apenas quando trocar o ID para não resetar enquanto digita
 
   const [isAddingEvolution, setIsAddingEvolution] = useState(false);
+  const [isAddingExam, setIsAddingExam] = useState(false);
+  const [newExam, setNewExam] = useState({ examType: '', examDate: '', notes: '' });
+  const [examFile, setExamFile] = useState<File | null>(null);
+  const [savingExam, setSavingExam] = useState(false);
   const [newEvolution, setNewEvolution] = useState({ procedure: '', notes: '', bucoMaxiloNotes: '', numericValue: '' });
 
   const handleSaveAnamnesis = async () => {
@@ -791,6 +796,51 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
     }
   };
 
+  const handleSaveExam = async () => {
+    if (!newExam.examType || !newExam.examDate) {
+      showToast('Preencha ao menos o tipo e a data do exame', 'error');
+      return;
+    }
+    setSavingExam(true);
+    try {
+      let fileUrl: string | undefined;
+      let fileName: string | undefined;
+      if (examFile) {
+        const toUpload = await compressImage(examFile);
+        const path = `patients/${user.uid}/${patient.id}/exams/${Date.now()}_${toUpload.name}`;
+        const sRef = ref(storage, path);
+        await uploadBytes(sRef, toUpload);
+        fileUrl = await getDownloadURL(sRef);
+        fileName = toUpload.name;
+      }
+      const entry = { ...newExam, fileUrl, fileName };
+      const updated = [entry, ...(patient.exams || [])];
+      await updateDoc(doc(db, 'patients', patient.id!), { exams: updated });
+      showToast('Exame registrado');
+      setIsAddingExam(false);
+      setNewExam({ examType: '', examDate: '', notes: '' });
+      setExamFile(null);
+    } catch (err) {
+      showToast('Erro ao salvar exame', 'error');
+    }
+    setSavingExam(false);
+  };
+
+  const handleDeleteExam = async (index: number) => {
+    if (!window.confirm('Excluir este exame?')) return;
+    const exam = patient.exams![index];
+    try {
+      if (exam.fileUrl?.includes('firebasestorage')) {
+        await deleteObject(ref(storage, exam.fileUrl)).catch(() => {});
+      }
+      const updated = patient.exams!.filter((_, i) => i !== index);
+      await updateDoc(doc(db, 'patients', patient.id!), { exams: updated });
+      showToast('Exame removido');
+    } catch (err) {
+      showToast('Erro ao remover exame', 'error');
+    }
+  };
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <button onClick={onBack} className="flex items-center gap-2 text-[#9CA3AF] hover:text-[#4A433D] transition-all group font-medium">
@@ -845,10 +895,11 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
             <TabButton active={activeTab === 'facemap'} onClick={() => setActiveTab('facemap')} icon={<MapPin size={20} />} label="Mapa de Aplicação" />
             <TabButton active={activeTab === 'budget'} onClick={() => setActiveTab('budget')} icon={<FileDown size={20} />} label="Orçamento" />
             <TabButton active={activeTab === 'evolution'} onClick={() => setActiveTab('evolution')} icon={<History size={20} />} label="Evolução Clínica" />
+            <TabButton active={activeTab === 'exams'} onClick={() => setActiveTab('exams')} icon={<Microscope size={20} />} label="Exames" />
             <TabButton active={activeTab === 'prescriptions'} onClick={() => setActiveTab('prescriptions')} icon={<Pill size={20} />} label="Receituários" />
             <TabButton active={activeTab === 'consent'} onClick={() => setActiveTab('consent')} icon={<CheckCircle2 size={20} />} label="Termos & Assinaturas" />
             <TabButton active={activeTab === 'photos'} onClick={() => setActiveTab('photos')} icon={<Camera size={20} />} label="Galeria de Fotos" />
-            <TabButton active={activeTab === 'files'} onClick={() => setActiveTab('files')} icon={<Paperclip size={20} />} label="Exames e Anexos" />
+            <TabButton active={activeTab === 'files'} onClick={() => setActiveTab('files')} icon={<Paperclip size={20} />} label="Anexos" />
           </nav>
 
           <button
@@ -1317,10 +1368,103 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
               </motion.div>
             )}
 
+            {activeTab === 'exams' && (
+              <motion.div key="exams" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
+                <div className="flex items-center justify-between pb-6 border-b border-[#F5F2F0]">
+                  <h3 className="serif text-2xl text-[#4A433D]">Exames</h3>
+                  {!isAddingExam && (
+                    <button
+                      onClick={() => setIsAddingExam(true)}
+                      className="bg-[#F0F7F0] text-[#8BA888] px-8 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 shadow-sm hover:bg-[#E5EFE5] transition-all"
+                    >
+                      <Microscope size={18} /> Novo Exame
+                    </button>
+                  )}
+                </div>
+
+                {isAddingExam && (
+                  <div className="p-8 bg-[#FDFBF9] border border-[#F5F2F0] rounded-[32px] space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <FormField label="Tipo de Exame" value={newExam.examType} onChange={v => setNewExam({ ...newExam, examType: v })} />
+                      <div>
+                        <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Data do Exame</label>
+                        <input
+                          type="date"
+                          value={newExam.examDate}
+                          onChange={e => setNewExam({ ...newExam, examDate: e.target.value })}
+                          className="w-full bg-white border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
+                        />
+                      </div>
+                    </div>
+                    <FormField label="Observações / Resultado" value={newExam.notes} onChange={v => setNewExam({ ...newExam, notes: v })} textarea />
+                    <div>
+                      <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Arquivo do Exame (opcional)</label>
+                      <input
+                        type="file"
+                        accept="image/*,application/pdf"
+                        onChange={e => setExamFile(e.target.files?.[0] || null)}
+                        className="text-sm"
+                      />
+                    </div>
+                    <div className="flex gap-4 pt-2">
+                      <button
+                        onClick={() => { setIsAddingExam(false); setNewExam({ examType: '', examDate: '', notes: '' }); setExamFile(null); }}
+                        className="flex-1 py-4 text-[#9CA3AF] font-bold text-[10px] uppercase"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={handleSaveExam}
+                        disabled={savingExam}
+                        className="flex-1 py-4 bg-[#EADFD4] text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-[#DFCFBF] transition-all disabled:opacity-50"
+                      >
+                        {savingExam ? 'Salvando...' : 'Salvar Exame'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {patient.exams?.map((exam, i) => (
+                    <div key={i} className="p-8 bg-white border border-[#F5F2F0] rounded-[32px] hover:border-[#EADFD4]/30 hover:shadow-lg transition-all group">
+                      <div className="flex items-start justify-between mb-4">
+                        <div>
+                          <p className="text-sm font-semibold text-[#4A433D]">{exam.examType}</p>
+                          <p className="text-[10px] text-[#9CA3AF] uppercase font-bold tracking-widest mt-1">
+                            {new Date(exam.examDate + 'T00:00:00').toLocaleDateString('pt-BR')}
+                          </p>
+                        </div>
+                        <button onClick={() => handleDeleteExam(i)} className="p-2 text-[#9CA3AF] hover:text-red-400 transition-all">
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                      {exam.notes && <p className="text-xs text-[#4A433D]/70 font-light leading-relaxed mb-4">{exam.notes}</p>}
+                      {exam.fileUrl && (
+                        <a
+                          href={exam.fileUrl}
+                          download={exam.fileName}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-2 text-[10px] font-bold text-[#B8846E] uppercase tracking-widest hover:text-[#A6735E] transition-all"
+                        >
+                          <Download size={14} /> {exam.fileName}
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                  {(!patient.exams || patient.exams.length === 0) && !isAddingExam && (
+                    <div className="col-span-full p-20 text-center text-[#9CA3AF] font-light italic border-2 border-dashed border-[#F5F2F0] rounded-[40px] bg-[#FDFBF9]/30">
+                      Nenhum exame registrado ainda.
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+
             {activeTab === 'files' && (
               <motion.div key="files" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
                 <div className="flex items-center justify-between pb-6 border-b border-[#F5F2F0]">
-                  <h3 className="serif text-2xl text-[#4A433D]">Exames e Laudos</h3>
+                  <h3 className="serif text-2xl text-[#4A433D]">Anexos</h3>
                   <label className="bg-[#F0F7F0] text-[#8BA888] px-8 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 shadow-sm cursor-pointer hover:bg-[#E5EFE5] transition-all">
                     <Paperclip size={18} /> Anexar Arquivo
                     <input type="file" className="hidden" multiple onChange={handleFileUpload} />

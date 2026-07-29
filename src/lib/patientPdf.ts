@@ -142,6 +142,23 @@ export async function generatePatientPdf(patient: Patient, clinicSettings: Clini
     });
   }
 
+  // Exames
+  if (patient.exams && patient.exams.length > 0) {
+    addDivider();
+    addSectionTitle(`EXAMES (${patient.exams.length})`);
+    patient.exams.forEach(exam => {
+      checkPageBreak(12);
+      doc.setFontSize(9.5);
+      doc.setTextColor(74, 67, 61);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${new Date(exam.examDate + 'T00:00:00').toLocaleDateString('pt-BR')} — ${exam.examType}`, margin, y);
+      doc.setFont('helvetica', 'normal');
+      y += 5;
+      addField('Observações/Resultado', exam.notes);
+      if (exam.fileName) addField('Arquivo anexado', exam.fileName);
+    });
+  }
+
   // Evolução — rascunhos
   if (patient.evolution && patient.evolution.length > 0) {
     addDivider();

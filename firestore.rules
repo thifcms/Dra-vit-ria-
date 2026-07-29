@@ -79,6 +79,7 @@ service cloud.firestore {
         && (!('photoHistory' in data) || data.photoHistory is list)
         && (!('files' in data) || data.files is list)
         && (!('evolution' in data) || data.evolution is list)
+        && (!('exams' in data) || data.exams is list)
         && (!('anamnesis' in data) || data.anamnesis is map);
     }
 
@@ -235,6 +236,7 @@ service cloud.firestore {
         && data.get('evolutionHistory', null) == resource.data.get('evolutionHistory', null)
         && data.get('faceMarkings', null) == resource.data.get('faceMarkings', null)
         && data.get('files', null) == resource.data.get('files', null)
+        && data.get('exams', null) == resource.data.get('exams', null)
         && data.get('photoHistory', null) == resource.data.get('photoHistory', null)
         && data.get('consentTerms', null) == resource.data.get('consentTerms', null)
         && data.get('prescriptions', null) == resource.data.get('prescriptions', null);

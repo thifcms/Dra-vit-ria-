@@ -78,6 +78,16 @@ export interface Patient {
     type: string;
     date: string;
   }[];
+  // Aba dedicada de Exames — mais estruturada que o anexo genérico acima: guarda o tipo
+  // do exame e a data em que foi REALIZADO (não a data de upload), além de observações
+  // sobre o resultado.
+  exams?: {
+    examType: string;
+    examDate: string;
+    notes?: string;
+    fileUrl?: string;
+    fileName?: string;
+  }[];
   evolution?: {
     date: string;
     procedure: string;
