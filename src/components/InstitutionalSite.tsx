@@ -129,17 +129,17 @@ export default function InstitutionalSite() {
       </header>
 
       {/* ===== HERO ===== */}
-      <section className="relative min-h-[92vh] flex items-center overflow-hidden pt-20">
-        <div className="max-w-6xl mx-auto px-6 md:px-10 relative z-10 w-full">
-          <img src="/logo/logo-full-v2.png" alt="Dra. Vitória Oliveira" className="h-16 md:h-20 w-auto object-contain mb-10" />
+      <section className="relative md:min-h-[85vh] flex items-center overflow-hidden pt-28 pb-16 md:pb-0">
+        <div className="max-w-6xl mx-auto px-6 md:px-10 relative z-10 w-full text-center md:text-left">
+          <img src="/logo/logo-full-v2.png" alt="Dra. Vitória Oliveira" className="h-28 md:h-40 w-auto object-contain mb-10 md:mb-14 mx-auto md:mx-0" />
           <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-[#B8846E] mb-6">
             Cirurgia Buco-Maxilo-Facial &amp; Estética
           </p>
-          <h1 className="serif text-[13vw] md:text-[5.2vw] leading-[1.02] font-normal max-w-4xl">
+          <h1 className="serif text-[13vw] md:text-[5.2vw] leading-[1.02] font-normal max-w-4xl mx-auto md:mx-0">
             Precisão cirúrgica.<br />
             <span className="italic">Delicadeza estética.</span>
           </h1>
-          <p className="mt-8 max-w-md text-[#4A433D]/70 font-light leading-relaxed">
+          <p className="mt-8 max-w-md mx-auto md:mx-0 text-[#4A433D]/70 font-light leading-relaxed">
             Uma abordagem que une formação cirúrgica sólida à sensibilidade estética —
             cada procedimento pensado pra realçar, nunca transformar quem você é.
           </p>
