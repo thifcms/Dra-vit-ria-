@@ -12,6 +12,7 @@ import { showToast } from '../lib/toast';
 const SESSION_KEY = 'adminPanelUnlocked';
 
 export default function AdminPanel({ user }: { user: User }) {
+  const [isAdminUser, setIsAdminUser] = useState<boolean | null>(null); // null = ainda checando
   const [security, setSecurity] = useState<AdminSecurity | null>(null);
   const [loading, setLoading] = useState(true);
   const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem(SESSION_KEY) === 'true');
@@ -26,13 +27,23 @@ export default function AdminPanel({ user }: { user: User }) {
   const [newEmail, setNewEmail] = useState('');
   const [newEmailRole, setNewEmailRole] = useState<'admin' | 'staff'>('staff');
 
+  // Esse painel (e o campo de senha de administrador) só aparece pra quem realmente está
+  // na lista de administradores — usuário comum nem vê que isso existe.
   useEffect(() => {
+    getDoc(doc(db, 'system', 'authorized_admins')).then(snap => {
+      const emails: string[] = snap.exists() ? (snap.data().emails || []) : [];
+      setIsAdminUser(!!user.email && emails.includes(user.email));
+    }).catch(() => setIsAdminUser(false));
+  }, [user.email]);
+
+  useEffect(() => {
+    if (!isAdminUser) return;
     getDoc(doc(db, 'admin_security', user.uid)).then(snap => {
       setSecurity(snap.exists() ? (snap.data() as AdminSecurity) : {});
       setLoading(false);
     });
     isPlatformAuthenticatorAvailable().then(setBiometricAvailable);
-  }, [user.uid]);
+  }, [user.uid, isAdminUser]);
 
   useEffect(() => {
     if (!unlocked) return;
@@ -171,6 +182,8 @@ export default function AdminPanel({ user }: { user: User }) {
     showToast('Acesso removido');
   };
 
+  if (isAdminUser === null) return null; // ainda checando
+  if (isAdminUser === false) return null; // não é administrador — não mostra nada, nem o título da seção
   if (loading) return null;
 
   // Primeiro acesso — ainda não tem senha definida

@@ -200,6 +200,20 @@ function AuthenticatedApp() {
   const [biometricFailed, setBiometricFailed] = useState(false);
   const needsPinCheck = !!((clinicSettings?.biometricEnabled && clinicSettings?.pinHash) || clinicSettings?.webauthnCredentialId) && !pinUnlocked;
 
+  // Re-trava automaticamente sempre que a pessoa sai da tela do app (troca de aba, minimiza,
+  // bloqueia o celular) — ao voltar, pede PIN/biometria de novo, em vez de continuar
+  // desbloqueado só porque ainda é "a mesma sessão" do navegador.
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        sessionStorage.removeItem('pinUnlocked');
+        setPinUnlocked(false);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
   const handleCheckPin = async () => {
     if (!isValidPinFormat(pinEntry) || !clinicSettings?.pinHash || checkingPin) return;
     setCheckingPin(true);
