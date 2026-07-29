@@ -506,7 +506,7 @@ function AuthenticatedApp() {
                  activeView === 'finance' ? 'Financeiro' : 'Configurações'}
               </h1>
               {activeView === 'dashboard' && (
-                <span className="serif text-xl md:text-2xl text-[#EADFD4] leading-none">Dra. {professionalName}</span>
+                <span className="serif text-xl md:text-2xl text-[#EADFD4] leading-none">{/^dra\.?\s/i.test(professionalName || '') ? professionalName : `Dra. ${professionalName}`}</span>
               )}
             </div>
             <p className="text-[10px] md:text-xs text-[#9CA3AF] font-semibold uppercase tracking-[0.2em] mt-2">

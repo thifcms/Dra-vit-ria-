@@ -199,7 +199,7 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
         >
           <div className="relative z-10">
             <h2 className="text-4xl font-light mb-4 serif">
-              Olá, <span className="italic">Dra. {professionalName}</span>
+              Olá, <span className="italic">{/^dra\.?\s/i.test(professionalName || '') ? professionalName : `Dra. ${professionalName}`}</span>
             </h2>
             <p className="text-[#4A433D]/70 font-light max-w-sm leading-relaxed text-lg">
               Sua clínica está operando com <span className="text-[#4A433D] font-medium">excelência</span> hoje. Confira os destaques do seu consultório.
