@@ -1616,6 +1616,7 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
   const [isSigning, setIsSigning] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
   const [templates, setTemplates] = useState<{ id: string, title: string, content: string }[]>([]);
+  const [clinicSettings, setClinicSettings] = useState<ClinicSettings | null>(null);
   const sigPad = useRef<any>(null);
 
   useEffect(() => {
@@ -1624,13 +1625,27 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
         const ownerId = await getClinicOwnerId(db).catch(() => user.uid);
         const snap = await getDoc(doc(db, 'settings', ownerId));
         if (snap.exists()) {
-          setTemplates((snap.data().consentTemplates || []) as any);
+          const data = snap.data() as ClinicSettings;
+          setTemplates((data.consentTemplates || []) as any);
+          setClinicSettings(data);
         }
       } catch (err) {
         console.error(err);
       }
     })();
   }, [user.uid]);
+
+  // Preenche automaticamente os campos que já temos, pra não entregar ao paciente um
+  // texto cheio de linhas em branco pra ler. Cobre os placeholders usados nos modelos
+  // padrão (Configurações → "Adicionar Modelos Padrão").
+  const fillTemplate = (content: string) => {
+    return content
+      .replace(/\[NOME DO PACIENTE\]/g, patient.name || '_______________________')
+      .replace(/\[CPF DO PACIENTE\]/g, patient.cpf || '_______________________')
+      .replace(/\[DATA DE HOJE\]/g, new Date().toLocaleDateString('pt-BR'))
+      .replace(/\[NOME DA CLINICA\]/g, clinicSettings?.clinicName || clinicSettings?.professionalName || '_______________________')
+      .replace(/\[NOME DO PROFISSIONAL\]/g, clinicSettings?.professionalName || '_______________________');
+  };
 
   const handleSign = async () => {
     if (sigPad.current && !sigPad.current.isEmpty()) {
@@ -1751,7 +1766,7 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
                       <h2 className="serif text-3xl text-[#4A433D]">{selectedTemplate.title}</h2>
                     </div>
                     <div className="p-8 bg-[#FDFBF9] rounded-[32px] border border-[#F5F2F0] text-sm text-[#4A433D] leading-relaxed max-h-64 overflow-y-auto shadow-sm italic">
-                      {selectedTemplate.content.replace('[NOME DO PACIENTE]', patient.name)}
+                      {fillTemplate(selectedTemplate.content)}
                     </div>
                   </div>
                   

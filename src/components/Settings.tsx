@@ -28,6 +28,7 @@ import { showToast } from '../lib/toast';
 import { hashPin, isValidPinFormat } from '../lib/pin';
 import { getClinicOwnerId } from '../lib/slots';
 import { isPlatformAuthenticatorAvailable, registerBiometric } from '../lib/webauthn';
+import { DEFAULT_CONSENT_TEMPLATES } from '../lib/defaultConsentTemplates';
 import AdminPanel from './AdminPanel';
 import PatientBackup from './PatientBackup';
 
@@ -121,6 +122,19 @@ export default function Settings({ user }: { user: User }) {
     if (!window.confirm('Excluir este modelo de termo?')) return;
     persist({ ...settings, consentTemplates: (settings.consentTemplates || []).filter(t => t.id !== id) });
     showToast('Modelo removido');
+  };
+
+  const handleAddDefaultTemplates = () => {
+    const existing = settings.consentTemplates || [];
+    const existingTitles = new Set(existing.map(t => t.title));
+    const toAdd = DEFAULT_CONSENT_TEMPLATES.filter(t => !existingTitles.has(t.title));
+    if (toAdd.length === 0) {
+      showToast('Esses modelos já foram adicionados antes', 'info');
+      return;
+    }
+    const next = [...existing, ...toAdd.map(t => ({ ...t, id: crypto.randomUUID() }))];
+    persist({ ...settings, consentTemplates: next });
+    showToast(`${toAdd.length} modelo(s) padrão adicionado(s)`);
   };
 
   const handleToggleSecurityPin = () => {
@@ -511,12 +525,20 @@ export default function Settings({ user }: { user: User }) {
                 </div>
                 <h3 className="text-xl font-light text-[#4A433D] serif">Modelos de Consentimento</h3>
               </div>
-              <button 
-                onClick={() => setIsAddingTemplate(true)}
-                className="text-[#EADFD4] text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 hover:text-[#9CA3AF] transition-colors"
-              >
-                <Plus size={16} /> Adicionar Modelo
-              </button>
+              <div className="flex items-center gap-5">
+                <button
+                  onClick={handleAddDefaultTemplates}
+                  className="text-[#9CA3AF] text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 hover:text-[#4A433D] transition-colors"
+                >
+                  <FileDown size={16} /> Modelos Padrão
+                </button>
+                <button 
+                  onClick={() => setIsAddingTemplate(true)}
+                  className="text-[#EADFD4] text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 hover:text-[#9CA3AF] transition-colors"
+                >
+                  <Plus size={16} /> Adicionar Modelo
+                </button>
+              </div>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -771,4 +793,4 @@ function SettingField({ label, value, onChange, icon }: any) {
   );
 }
 
-import { Settings as SettingsIcon, Phone } from 'lucide-react';
+import { Settings as SettingsIcon, Phone, FileDown } from 'lucide-react';
