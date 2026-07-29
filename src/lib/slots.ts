@@ -76,6 +76,22 @@ export function phoneIndexKey(clinicId: string, phone: string): string {
   return `${clinicId}_${normalizePhone(phone)}`;
 }
 
+// Normaliza CPF (só dígitos, sem pontos/traço) — usado como base do ID determinístico
+// no índice CPF → paciente (patientCpfIndex). CPF é o identificador principal do
+// paciente agora (não o telefone), justamente porque não muda quando a pessoa troca de
+// número ou de e-mail — evita abrir um segundo prontuário pra quem já é paciente.
+export function normalizeCpf(cpf: string): string {
+  return cpf.replace(/\D/g, '');
+}
+
+export function isValidCpfFormat(cpf: string): boolean {
+  return normalizeCpf(cpf).length === 11;
+}
+
+export function cpfIndexKey(clinicId: string, cpf: string): string {
+  return `${clinicId}_${normalizeCpf(cpf)}`;
+}
+
 // UID canônico "dono" da clínica — usado como identificador fixo em tudo que precisa
 // ser compartilhado entre os administradores (configurações, horários bloqueados,
 // índices de busca), em vez do UID de quem está logado no momento. Sem isso, o segundo

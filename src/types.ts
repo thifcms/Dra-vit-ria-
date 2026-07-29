@@ -59,6 +59,18 @@ export interface Patient {
     skinEvaluation: string;
     faceEvaluation: string;
   };
+  // Uma anamnese "liberada" trava pra sempre — nem administrador consegue mais editar
+  // depois disso. Enquanto não for liberada, é só um rascunho, editável à vontade.
+  anamnesisReleased?: boolean;
+  anamnesisReleasedAt?: string;
+  anamnesisReleasedBy?: string; // e-mail de quem liberou
+  // Cada anamnese liberada vira uma entrada permanente aqui — histórico completo,
+  // nunca apagado nem editado depois de gravado.
+  anamnesisHistory?: {
+    snapshot: Patient['anamnesis'];
+    releasedAt: string;
+    releasedBy: string;
+  }[];
   photoHistory?: string[];
   files?: {
     name: string;
@@ -73,6 +85,18 @@ export interface Patient {
     bucoMaxiloNotes?: string;
     numericValue?: number;
     professionalId?: string;
+  }[]; // só rascunhos — editáveis à vontade, ainda não liberados
+  // Registros de evolução liberados — travados pra sempre, nunca editados/removidos
+  // depois de gravados aqui (nem por administrador)
+  evolutionHistory?: {
+    date: string;
+    procedure: string;
+    notes: string;
+    bucoMaxiloNotes?: string;
+    numericValue?: number;
+    professionalId?: string;
+    releasedAt: string;
+    releasedBy: string;
   }[];
   consentTerms?: {
     templateId: string;

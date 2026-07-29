@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { slotId, checkinLink, cancelLink, generateTimeSlots, phoneIndexKey, EMAIL_SERVICE_URL, localDateStr, todayLocalStr } from '../lib/slots';
+import { slotId, checkinLink, cancelLink, generateTimeSlots, phoneIndexKey, cpfIndexKey, normalizeCpf, isValidCpfFormat, EMAIL_SERVICE_URL, localDateStr, todayLocalStr } from '../lib/slots';
 import { buildReminderMessage, whatsappLink } from '../lib/reminders';
 import { PRIVACY_POLICY_TEXT } from '../lib/privacyPolicy';
 import { motion, AnimatePresence } from 'motion/react';
@@ -102,7 +102,7 @@ function ProcedurePicker({
   );
 }
 
-type Step = 'calendar' | 'phone' | 'register' | 'confirm';
+type Step = 'calendar' | 'cpf' | 'register' | 'confirm';
 
 // Checkbox de consentimento com a Política de Privacidade, com botão "Leia mais" que
 // abre o texto completo. Sem marcar, o agendamento não pode ser confirmado.
@@ -240,29 +240,48 @@ export default function PublicBooking() {
 
   const handleSelectTime = (time: string) => {
     setSelectedTime(time);
-    setStep('phone');
+    setStep('cpf');
   };
 
-  // Verifica se esse telefone já pertence a um paciente cadastrado desta clínica.
-  // Se sim, pula direto pra confirmação (sem pedir os dados de novo). Se não, pede cadastro completo.
-  const handleCheckPhone = async (e: React.FormEvent) => {
+  // CPF é o identificador principal do paciente agora (não telefone) — assim, se a pessoa
+  // trocar de número ou e-mail, continuamos reconhecendo o mesmo prontuário, em vez de
+  // abrir um segundo. Verifica se esse CPF já pertence a um paciente cadastrado desta
+  // clínica; se sim, busca TODOS os dados dele (não só o nome) pra mostrar na tela de
+  // confirmação. Se não, pede cadastro completo.
+  const handleCheckCpf = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!config || checkingPhone) return;
+    if (!isValidCpfFormat(cpf)) {
+      showError('CPF inválido — digite os 11 números.');
+      return;
+    }
     setCheckingPhone(true);
     try {
-      const key = phoneIndexKey(config.ownerId, phone);
-      const snap = await getDoc(doc(db, 'patientPhoneIndex', key));
+      const key = cpfIndexKey(config.ownerId, cpf);
+      const snap = await getDoc(doc(db, 'patientCpfIndex', key));
       if (snap.exists()) {
-        const data = snap.data();
-        setExistingPatientId(data.patientId);
-        setName(data.name);
-        setStep('confirm');
+        const patientId = snap.data().patientId;
+        const patientSnap = await getDoc(doc(db, 'patients', patientId));
+        if (patientSnap.exists()) {
+          const data = patientSnap.data();
+          setExistingPatientId(patientId);
+          setName(data.name || '');
+          setPhone(data.phone || '');
+          setEmail(data.email || '');
+          setBirthDate(data.birthDate || '');
+          setSex(data.sex || '');
+          setStep('confirm');
+        } else {
+          // Índice existe mas o prontuário foi apagado — trata como paciente novo
+          setExistingPatientId(null);
+          setStep('register');
+        }
       } else {
         setExistingPatientId(null);
         setStep('register');
       }
     } catch (err) {
-      showError('Não foi possível verificar o telefone agora. Tente novamente.');
+      showError('Não foi possível verificar o CPF agora. Tente novamente.');
     }
     setCheckingPhone(false);
   };
@@ -318,10 +337,31 @@ export default function PublicBooking() {
           patientId,
           name,
         }).catch(() => {});
+        await setDoc(doc(db, 'patientCpfIndex', cpfIndexKey(config.ownerId, cpf)), {
+          clinicId: config.ownerId,
+          patientId,
+        }).catch(() => {});
       } else {
-        // Paciente que já existe: registra o novo aceite também (renova a comprovação a
-        // cada agendamento, em vez de confiar só no consentimento da primeira vez)
-        await updateDoc(doc(db, 'patients', patientId), { privacyConsentAt: consentTimestamp }).catch(() => {});
+        // Paciente que já existe: atualiza os dados (telefone/e-mail podem ter mudado
+        // desde o último agendamento) — mesmo prontuário, nunca cria um segundo, já que
+        // quem identifica o paciente é o CPF, que não muda. Também renova o aceite da
+        // política de privacidade a cada agendamento.
+        await updateDoc(doc(db, 'patients', patientId), {
+          name,
+          phone,
+          email: email || undefined,
+          birthDate: birthDate || undefined,
+          sex: sex || undefined,
+          privacyConsentAt: consentTimestamp,
+          updatedAt: new Date().toISOString(),
+        }).catch(() => {});
+        // Se o telefone mudou, atualiza o índice de telefone também (pra continuar
+        // funcionando como atalho, mesmo não sendo mais o identificador principal)
+        await setDoc(doc(db, 'patientPhoneIndex', phoneIndexKey(config.ownerId, phone)), {
+          clinicId: config.ownerId,
+          patientId,
+          name,
+        }).catch(() => {});
       }
 
       const token = crypto.randomUUID();
@@ -535,8 +575,8 @@ export default function PublicBooking() {
             </motion.div>
           )}
 
-          {step === 'phone' && (
-            <motion.div key="phone" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+          {step === 'cpf' && (
+            <motion.div key="cpf" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <button
                 type="button"
                 onClick={() => { setStep('calendar'); setSelectedTime(null); }}
@@ -552,23 +592,23 @@ export default function PublicBooking() {
                 <p className="text-2xl font-light text-[#EADFD4] serif mt-1">{selectedTime}</p>
               </div>
 
-              <form onSubmit={handleCheckPhone} className="space-y-5">
+              <form onSubmit={handleCheckCpf} className="space-y-5">
                 <div>
-                  <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Seu WhatsApp / Telefone</label>
+                  <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Seu CPF</label>
                   <div className="relative">
-                    <Phone size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
+                    <IdCard size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
                     <input
                       required
-                      type="tel"
                       autoFocus
+                      inputMode="numeric"
                       className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 pl-12 outline-none focus:border-[#EADFD4]/30 transition-all font-light text-sm"
-                      value={phone}
-                      onChange={e => setPhone(e.target.value)}
-                      placeholder="(11) 99999-9999"
+                      value={cpf}
+                      onChange={e => setCpf(e.target.value)}
+                      placeholder="000.000.000-00"
                     />
                   </div>
                   <p className="text-[10px] text-[#9CA3AF] font-light mt-2 ml-1">
-                    Se você já é paciente, isso evita ter que preencher seus dados de novo.
+                    Usamos o CPF pra reconhecer seu cadastro — assim, mesmo se você trocar de telefone ou e-mail, seu histórico continua o mesmo.
                   </p>
                 </div>
                 <button
@@ -586,10 +626,10 @@ export default function PublicBooking() {
             <motion.div key="confirm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <button
                 type="button"
-                onClick={() => { setStep('phone'); setExistingPatientId(null); setName(''); }}
+                onClick={() => { setStep('cpf'); setExistingPatientId(null); setName(''); }}
                 className="flex items-center gap-2 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-6 hover:text-[#4A433D] transition-all"
               >
-                <ChevronLeft size={14} /> Não sou eu / trocar telefone
+                <ChevronLeft size={14} /> Não sou eu / trocar CPF
               </button>
 
               <div className="mb-6 text-center">
@@ -597,7 +637,7 @@ export default function PublicBooking() {
                   <CheckCircle2 className="text-[#8BA888] w-8 h-8" />
                 </div>
                 <p className="text-lg font-medium text-[#4A433D]">Bem-vindo(a) de volta, {name.split(' ')[0]}!</p>
-                <p className="text-xs text-[#9CA3AF] font-light mt-1">Já reconhecemos seu cadastro — não precisa preencher tudo de novo.</p>
+                <p className="text-xs text-[#9CA3AF] font-light mt-1">Confirma se seus dados abaixo continuam corretos antes de agendar.</p>
               </div>
 
               <div className="mb-6 p-4 bg-[#FDFBF9] rounded-2xl border border-[#F5F2F0] text-center">
@@ -608,6 +648,55 @@ export default function PublicBooking() {
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-5">
+                <div>
+                  <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Nome completo</label>
+                  <div className="relative">
+                    <UserIcon size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
+                    <input
+                      required
+                      className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 pl-12 outline-none focus:border-[#EADFD4]/30 transition-all font-light text-sm"
+                      value={name}
+                      onChange={e => setName(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">WhatsApp / Telefone</label>
+                    <div className="relative">
+                      <Phone size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
+                      <input
+                        required
+                        type="tel"
+                        className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 pl-12 outline-none focus:border-[#EADFD4]/30 transition-all font-light text-sm"
+                        value={phone}
+                        onChange={e => setPhone(e.target.value)}
+                        placeholder="(11) 99999-9999"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Nascimento</label>
+                    <input
+                      type="date"
+                      className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all font-light text-sm"
+                      value={birthDate}
+                      onChange={e => setBirthDate(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">E-mail</label>
+                  <div className="relative">
+                    <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
+                    <input
+                      type="email"
+                      className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 pl-12 outline-none focus:border-[#EADFD4]/30 transition-all font-light text-sm"
+                      value={email}
+                      onChange={e => setEmail(e.target.value)}
+                    />
+                  </div>
+                </div>
                 <ProcedurePicker
                   value={procedureInterest}
                   onChange={setProcedureInterest}
@@ -626,7 +715,7 @@ export default function PublicBooking() {
                   type="submit"
                   className="w-full py-4 bg-[#EADFD4] text-white rounded-2xl font-medium hover:bg-[#DFCFBF] transition-all shadow-sm active:scale-[0.98] disabled:opacity-50"
                 >
-                  {submitting ? 'Confirmando...' : 'Confirmar Agendamento'}
+                  {submitting ? 'Confirmando...' : 'Confirmar Dados e Agendamento'}
                 </button>
               </form>
             </motion.div>
@@ -636,7 +725,7 @@ export default function PublicBooking() {
             <motion.div key="register" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <button
                 type="button"
-                onClick={() => setStep('phone')}
+                onClick={() => setStep('cpf')}
                 className="flex items-center gap-2 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-6 hover:text-[#4A433D] transition-all"
               >
                 <ChevronLeft size={14} /> Voltar
@@ -668,11 +757,9 @@ export default function PublicBooking() {
                     <div className="relative">
                       <IdCard size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
                       <input
-                        required
-                        className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 pl-12 outline-none focus:border-[#EADFD4]/30 transition-all font-light text-sm"
+                        disabled
+                        className="w-full bg-[#F5F2F0] border border-[#F5F2F0] rounded-2xl p-4 pl-12 outline-none font-light text-sm text-[#9CA3AF]"
                         value={cpf}
-                        onChange={e => setCpf(e.target.value)}
-                        placeholder="000.000.000-00"
                       />
                     </div>
                   </div>

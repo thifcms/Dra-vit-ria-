@@ -21,6 +21,8 @@ import {
   Paperclip,
   Bone,
   MapPin,
+  Lock,
+  Edit2,
   CheckCircle2,
   X,
   FileDown,
@@ -486,6 +488,17 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deletingPatient, setDeletingPatient] = useState(false);
   const [showAnatomyModal, setShowAnatomyModal] = useState(false);
+  const [showAnamnesisHistory, setShowAnamnesisHistory] = useState(false);
+
+  // Modal obrigatório com o resumo da última consulta, mostrado sempre que o prontuário é
+  // aberto (se houver pelo menos um registro de evolução anterior, rascunho ou liberado) —
+  // só fecha quando a pessoa confirma que leu, não dá pra clicar fora nem apertar Esc pra
+  // sair sem ver.
+  const allEvolutionEntries = [...(patient.evolution || []), ...(patient.evolutionHistory || [])];
+  const lastEvolution = allEvolutionEntries.length > 0
+    ? [...allEvolutionEntries].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]
+    : null;
+  const [showLastVisitModal, setShowLastVisitModal] = useState(!!lastEvolution);
   
   // Normalização para garantir que dados legados não quebrem a interface nova de checkboxes
   const normalizeAnamnesis = (a: any) => {
@@ -535,36 +548,97 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
   const [newEvolution, setNewEvolution] = useState({ procedure: '', notes: '', bucoMaxiloNotes: '', numericValue: '' });
 
   const handleSaveAnamnesis = async () => {
+    if (patient.anamnesisReleased) return; // trava — não deveria nem chegar aqui, mas por segurança
     setSavingAnamnesis(true);
     try {
       await updateDoc(doc(db, 'patients', patient.id!), { 
         anamnesis,
         updatedAt: new Date().toISOString()
       });
-      showToast('Anamnese salva');
+      showToast('Anamnese salva (ainda editável)');
     } catch (err) {
       showToast('Erro ao salvar', 'error');
     }
     setSavingAnamnesis(false);
   };
 
+  const [releasingAnamnesis, setReleasingAnamnesis] = useState(false);
+  const handleReleaseAnamnesis = async () => {
+    if (patient.anamnesisReleased) return;
+    if (!confirm('Depois de liberada, essa anamnese não poderá mais ser editada por ninguém — nem por administrador. Confirma?')) return;
+    setReleasingAnamnesis(true);
+    try {
+      const releasedAt = new Date().toISOString();
+      const historyEntry = { snapshot: anamnesis, releasedAt, releasedBy: user.email || user.uid };
+      await updateDoc(doc(db, 'patients', patient.id!), {
+        anamnesis,
+        anamnesisReleased: true,
+        anamnesisReleasedAt: releasedAt,
+        anamnesisReleasedBy: user.email || user.uid,
+        anamnesisHistory: [...(patient.anamnesisHistory || []), historyEntry],
+        updatedAt: releasedAt,
+      });
+      showToast('Anamnese liberada — trancada no histórico do paciente');
+    } catch (err) {
+      showToast('Erro ao liberar', 'error');
+    }
+    setReleasingAnamnesis(false);
+  };
+
+  const [editingEvolutionIndex, setEditingEvolutionIndex] = useState<number | null>(null);
+
   const handleAddEvolution = async () => {
     try {
-      const entry = { 
-        ...newEvolution, 
-        numericValue: newEvolution.numericValue ? parseFloat(newEvolution.numericValue) : undefined,
-        date: new Date().toISOString() 
-      };
-      const updated = [entry, ...(patient.evolution || [])];
-      await updateDoc(doc(db, 'patients', patient.id!), { 
-        evolution: updated,
-        updatedAt: new Date().toISOString()
-      });
+      if (editingEvolutionIndex !== null) {
+        // Editando um rascunho existente (só é possível se ainda não foi liberado)
+        const updated = [...(patient.evolution || [])];
+        updated[editingEvolutionIndex] = {
+          ...updated[editingEvolutionIndex],
+          ...newEvolution,
+          numericValue: newEvolution.numericValue ? parseFloat(newEvolution.numericValue) : undefined,
+        };
+        await updateDoc(doc(db, 'patients', patient.id!), {
+          evolution: updated,
+          updatedAt: new Date().toISOString()
+        });
+        showToast('Registro atualizado (ainda editável)');
+      } else {
+        const entry = { 
+          ...newEvolution, 
+          numericValue: newEvolution.numericValue ? parseFloat(newEvolution.numericValue) : undefined,
+          date: new Date().toISOString(),
+          released: false,
+        };
+        const updated = [entry, ...(patient.evolution || [])];
+        await updateDoc(doc(db, 'patients', patient.id!), { 
+          evolution: updated,
+          updatedAt: new Date().toISOString()
+        });
+        showToast('Registro salvo (ainda editável)');
+      }
       setIsAddingEvolution(false);
+      setEditingEvolutionIndex(null);
       setNewEvolution({ procedure: '', notes: '', bucoMaxiloNotes: '', numericValue: '' });
-      showToast('Evolução registrada');
     } catch (err) {
       showToast('Erro ao salvar evolução', 'error');
+    }
+  };
+
+  const handleReleaseEvolution = async (index: number) => {
+    if (!confirm('Depois de liberado, esse registro não poderá mais ser editado por ninguém — nem por administrador. Confirma?')) return;
+    try {
+      const draft = (patient.evolution || [])[index];
+      const releasedAt = new Date().toISOString();
+      const historyEntry = { ...draft, releasedAt, releasedBy: user.email || user.uid };
+      const remainingDrafts = (patient.evolution || []).filter((_, i) => i !== index);
+      await updateDoc(doc(db, 'patients', patient.id!), {
+        evolution: remainingDrafts,
+        evolutionHistory: [...(patient.evolutionHistory || []), historyEntry],
+        updatedAt: releasedAt,
+      });
+      showToast('Registro liberado — travado no histórico do paciente');
+    } catch (err) {
+      showToast('Erro ao liberar', 'error');
     }
   };
 
@@ -822,18 +896,47 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
             {activeTab === 'anamnesis' && (
               <motion.div key="anamnesis" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-10">
                 <div className="flex items-center justify-between pb-6 border-b border-[#F5F2F0]">
-                  <h3 className="serif text-2xl text-[#4A433D]">Ficha de Anamnese</h3>
-                  <button 
-                    onClick={handleSaveAnamnesis} 
-                    disabled={savingAnamnesis}
-                    className="bg-[#F0F7F0] text-[#8BA888] flex items-center gap-2 hover:bg-[#E5EFE5] px-8 py-3 rounded-2xl transition-all font-bold text-[10px] uppercase tracking-widest shadow-sm disabled:opacity-50"
-                  >
-                    <Save size={18} />
-                    {savingAnamnesis ? 'Salvando...' : 'Salvar Alterações'}
-                  </button>
+                  <div>
+                    <h3 className="serif text-2xl text-[#4A433D]">Ficha de Anamnese</h3>
+                    {patient.anamnesisReleased && (
+                      <p className="text-[10px] text-[#B8846E] font-bold uppercase tracking-widest mt-1 flex items-center gap-1.5">
+                        <Lock size={11} /> Liberada em {new Date(patient.anamnesisReleasedAt!).toLocaleDateString('pt-BR')} — travada
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex gap-3">
+                    {(patient.anamnesisHistory?.length || 0) > 0 && (
+                      <button
+                        onClick={() => setShowAnamnesisHistory(true)}
+                        className="text-[#9CA3AF] hover:text-[#4A433D] flex items-center gap-2 px-6 py-3 rounded-2xl transition-all font-bold text-[10px] uppercase tracking-widest border border-[#F5F2F0]"
+                      >
+                        <History size={16} /> Histórico ({patient.anamnesisHistory!.length})
+                      </button>
+                    )}
+                    {!patient.anamnesisReleased && (
+                    <>
+                      <button 
+                        onClick={handleSaveAnamnesis} 
+                        disabled={savingAnamnesis || releasingAnamnesis}
+                        className="bg-[#F0F7F0] text-[#8BA888] flex items-center gap-2 hover:bg-[#E5EFE5] px-6 py-3 rounded-2xl transition-all font-bold text-[10px] uppercase tracking-widest shadow-sm disabled:opacity-50"
+                      >
+                        <Save size={16} />
+                        {savingAnamnesis ? 'Salvando...' : 'Salvar'}
+                      </button>
+                      <button 
+                        onClick={handleReleaseAnamnesis} 
+                        disabled={savingAnamnesis || releasingAnamnesis}
+                        className="bg-[#B8846E] text-white flex items-center gap-2 hover:bg-[#A6735E] px-6 py-3 rounded-2xl transition-all font-bold text-[10px] uppercase tracking-widest shadow-sm disabled:opacity-50"
+                      >
+                        <Lock size={16} />
+                        {releasingAnamnesis ? 'Liberando...' : 'Liberar'}
+                      </button>
+                    </>
+                    )}
+                  </div>
                 </div>
                 
-                <div className="space-y-12">
+                <div className={`space-y-12 ${patient.anamnesisReleased ? 'pointer-events-none opacity-60' : ''}`}>
                   <section>
                     <h4 className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-[#EADFD4]" /> Queixas e Expectativas
@@ -985,7 +1088,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
 
                 {isAddingEvolution && (
                   <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} className="p-8 bg-[#FDFBF9] rounded-[32px] border border-[#F5F2F0] space-y-6 shadow-sm">
-                    <h4 className="serif text-xl text-[#4A433D]">Novo Acompanhamento</h4>
+                    <h4 className="serif text-xl text-[#4A433D]">{editingEvolutionIndex !== null ? 'Editar Registro' : 'Novo Acompanhamento'}</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       <FormField label="Procedimento / Técnica" value={newEvolution.procedure} onChange={v => setNewEvolution({...newEvolution, procedure: v})} />
                       <FormField label="Medida / Valor (Opcional)" value={newEvolution.numericValue} onChange={v => setNewEvolution({...newEvolution, numericValue: v})} />
@@ -995,16 +1098,21 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
                       <FormField label="Foco Clínico Específico" value={newEvolution.bucoMaxiloNotes} onChange={v => setNewEvolution({...newEvolution, bucoMaxiloNotes: v})} textarea />
                     </div>
                     <div className="flex gap-4 pt-4">
-                      <button onClick={() => setIsAddingEvolution(false)} className="flex-1 py-4 text-[#9CA3AF] font-bold text-[10px] uppercase">Cancelar</button>
-                      <button onClick={handleAddEvolution} className="flex-1 py-4 bg-[#EADFD4] text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-[#DFCFBF] transition-all">Salvar Registro</button>
+                      <button onClick={() => { setIsAddingEvolution(false); setEditingEvolutionIndex(null); setNewEvolution({ procedure: '', notes: '', bucoMaxiloNotes: '', numericValue: '' }); }} className="flex-1 py-4 text-[#9CA3AF] font-bold text-[10px] uppercase">Cancelar</button>
+                      <button onClick={handleAddEvolution} className="flex-1 py-4 bg-[#EADFD4] text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-[#DFCFBF] transition-all">Salvar Rascunho</button>
                     </div>
                   </motion.div>
                 )}
 
                 <div className="space-y-6">
-                  {patient.evolution?.map((entry, i) => (
+                  {[
+                    ...(patient.evolution || []).map((e, idx) => ({ ...e, _released: false as const, _draftIndex: idx })),
+                    ...(patient.evolutionHistory || []).map(e => ({ ...e, _released: true as const, _draftIndex: -1 })),
+                  ]
+                    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                    .map((entry, i) => (
                     <motion.div 
-                      key={i}
+                      key={`${entry._released ? 'h' : 'd'}-${i}`}
                       initial={{ y: 20, opacity: 0 }}
                       animate={{ y: 0, opacity: 1 }}
                       transition={{ delay: i * 0.05 }}
@@ -1019,6 +1127,15 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
                           {entry.numericValue !== undefined && (
                             <span className="bg-[#EADFD4] text-white px-3 py-1.5 rounded-xl text-[10px] font-bold shadow-sm">
                               {entry.numericValue}
+                            </span>
+                          )}
+                          {entry._released ? (
+                            <span className="flex items-center gap-1 bg-[#FDFBF9] px-3 py-1.5 rounded-xl text-[10px] font-bold text-[#B8846E] uppercase tracking-widest border border-[#F5F2F0]">
+                              <Lock size={10} /> Liberado
+                            </span>
+                          ) : (
+                            <span className="bg-[#F0F7F0] px-3 py-1.5 rounded-xl text-[10px] font-bold text-[#8BA888] uppercase tracking-widest">
+                              Rascunho
                             </span>
                           )}
                         </div>
@@ -1036,9 +1153,34 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
                           </div>
                         )}
                       </div>
+                      {!entry._released && entry._draftIndex !== -1 && (
+                        <div className="flex gap-3 mt-6 pt-6 border-t border-[#F5F2F0]">
+                          <button
+                            onClick={() => {
+                              setEditingEvolutionIndex(entry._draftIndex);
+                              setNewEvolution({
+                                procedure: entry.procedure,
+                                notes: entry.notes,
+                                bucoMaxiloNotes: entry.bucoMaxiloNotes || '',
+                                numericValue: entry.numericValue !== undefined ? String(entry.numericValue) : '',
+                              });
+                              setIsAddingEvolution(true);
+                            }}
+                            className="flex items-center gap-2 text-[#9CA3AF] hover:text-[#4A433D] text-[10px] font-bold uppercase tracking-widest transition-all"
+                          >
+                            <Edit2 size={13} /> Editar
+                          </button>
+                          <button
+                            onClick={() => handleReleaseEvolution(entry._draftIndex)}
+                            className="flex items-center gap-2 text-[#B8846E] hover:text-[#A6735E] text-[10px] font-bold uppercase tracking-widest transition-all"
+                          >
+                            <Lock size={13} /> Liberar
+                          </button>
+                        </div>
+                      )}
                     </motion.div>
                   ))}
-                  {(!patient.evolution || patient.evolution.length === 0) && (
+                  {(!patient.evolution || patient.evolution.length === 0) && (!patient.evolutionHistory || patient.evolutionHistory.length === 0) && (
                     <div className="p-20 text-center text-[#9CA3AF] font-light italic border-2 border-dashed border-[#F5F2F0] rounded-3xl bg-[#FDFBF9]/30">
                       Nenhum registro de evolução encontrado para este paciente.
                     </div>
@@ -1190,6 +1332,80 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
         }>
           <AnatomyViewer onClose={() => setShowAnatomyModal(false)} />
         </Suspense>
+      )}
+
+      {showAnamnesisHistory && (
+        <div className="fixed inset-0 bg-[#4A433D]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+          <motion.div
+            initial={{ y: 30, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            className="bg-white w-full max-w-2xl max-h-[85vh] rounded-[40px] p-10 shadow-2xl overflow-y-auto"
+          >
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="serif text-2xl text-[#4A433D]">Histórico de Anamneses Liberadas</h3>
+              <button onClick={() => setShowAnamnesisHistory(false)} className="text-[#9CA3AF] hover:text-[#4A433D]"><X size={24} /></button>
+            </div>
+            <div className="space-y-4">
+              {[...(patient.anamnesisHistory || [])].reverse().map((entry, i) => (
+                <details key={i} className="bg-[#FDFBF9] rounded-3xl border border-[#F5F2F0] overflow-hidden">
+                  <summary className="p-6 cursor-pointer flex items-center justify-between text-sm font-semibold text-[#4A433D]">
+                    <span className="flex items-center gap-2">
+                      <Lock size={13} className="text-[#B8846E]" />
+                      {new Date(entry.releasedAt).toLocaleString('pt-BR')}
+                    </span>
+                    <span className="text-[10px] text-[#9CA3AF] font-normal uppercase tracking-widest">{entry.releasedBy}</span>
+                  </summary>
+                  <div className="p-6 pt-0 space-y-3 text-xs text-[#4A433D] font-light">
+                    <p><strong>Queixa Principal:</strong> {entry.snapshot?.mainComplaint || '—'}</p>
+                    <p><strong>Expectativas:</strong> {entry.snapshot?.expectations || '—'}</p>
+                    <p><strong>Avaliação da Pele:</strong> {entry.snapshot?.skinEvaluation || '—'}</p>
+                    <p><strong>Avaliação Facial:</strong> {entry.snapshot?.faceEvaluation || '—'}</p>
+                  </div>
+                </details>
+              ))}
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {showLastVisitModal && lastEvolution && (
+        <div className="fixed inset-0 bg-[#4A433D]/40 backdrop-blur-md z-[100] flex items-center justify-center p-6">
+          <motion.div
+            initial={{ y: 30, opacity: 0, scale: 0.96 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            className="bg-white w-full max-w-lg rounded-[40px] p-10 shadow-2xl"
+          >
+            <div className="w-14 h-14 bg-[#FDFBF9] rounded-2xl flex items-center justify-center text-[#EADFD4] mb-6">
+              <History size={24} />
+            </div>
+            <h3 className="serif text-2xl text-[#4A433D] mb-1">Resumo da Última Consulta</h3>
+            <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest mb-8">
+              {patient.name} — {new Date(lastEvolution.date).toLocaleDateString('pt-BR')}
+            </p>
+            <div className="space-y-5 mb-8">
+              <div>
+                <p className="text-[9px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2">Procedimento</p>
+                <p className="text-sm text-[#4A433D]">{lastEvolution.procedure || '—'}</p>
+              </div>
+              <div>
+                <p className="text-[9px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2">Observações</p>
+                <p className="text-sm text-[#4A433D] font-light italic leading-relaxed">"{lastEvolution.notes || '—'}"</p>
+              </div>
+              {lastEvolution.bucoMaxiloNotes && (
+                <div className="bg-[#FDFBF9] p-5 rounded-2xl border border-[#F5F2F0]">
+                  <p className="text-[9px] font-bold text-[#EADFD4] uppercase tracking-widest mb-2">Detalhes Técnicos</p>
+                  <p className="text-sm text-[#4A433D] font-light">{lastEvolution.bucoMaxiloNotes}</p>
+                </div>
+              )}
+            </div>
+            <button
+              onClick={() => setShowLastVisitModal(false)}
+              className="w-full py-4 bg-[#EADFD4] text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest shadow-md hover:bg-[#DFCFBF] transition-all"
+            >
+              Entendi, continuar
+            </button>
+          </motion.div>
+        </div>
       )}
     </div>
   );

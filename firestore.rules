@@ -82,6 +82,33 @@ service cloud.firestore {
         && (!('anamnesis' in data) || data.anamnesis is map);
     }
 
+    // Uma lista "anexo apenas" — o novo valor precisa conter TODOS os itens antigos,
+    // exatamente como estavam, na mesma ordem, só permitindo adicionar itens novos no
+    // final. Usado pra travar de vez o histórico de anamnese/evolução liberados: mesmo
+    // um administrador não consegue mais editar ou apagar o que já foi liberado.
+    function isAppendOnly(existingList, incomingList) {
+      return incomingList.size() >= existingList.size()
+        && (existingList.size() == 0 || incomingList[0:existingList.size()] == existingList);
+    }
+
+    // Garante que nenhuma anamnese/evolução liberada seja alterada — nem por
+    // administrador. Aplica-se em toda atualização de paciente.
+    function respectsClinicalLocks() {
+      let existingAnamnesisHistory = ('anamnesisHistory' in resource.data) ? resource.data.anamnesisHistory : [];
+      let incomingAnamnesisHistory = ('anamnesisHistory' in incoming()) ? incoming().anamnesisHistory : [];
+      let existingEvolutionHistory = ('evolutionHistory' in resource.data) ? resource.data.evolutionHistory : [];
+      let incomingEvolutionHistory = ('evolutionHistory' in incoming()) ? incoming().evolutionHistory : [];
+      let anamnesisWasReleased = ('anamnesisReleased' in resource.data) && resource.data.anamnesisReleased == true;
+      return isAppendOnly(existingAnamnesisHistory, incomingAnamnesisHistory)
+        && isAppendOnly(existingEvolutionHistory, incomingEvolutionHistory)
+        // Depois de liberada, o conteúdo da anamnese atual não pode mais mudar, e não dá
+        // pra "desliberar" (voltar anamnesisReleased pra false)
+        && (!anamnesisWasReleased || (
+          incoming().anamnesis == resource.data.anamnesis
+          && incoming().anamnesisReleased == true
+        ));
+    }
+
     // Appointment Validation — formato do documento, independente de quem está criando
     function isValidAppointmentShape(data) {
       return data.userId is string
@@ -189,13 +216,36 @@ service cloud.firestore {
         && data.userId == get(/databases/$(database)/documents/publicConfig/booking).data.ownerId;
     }
 
+    // Atualização pública de paciente já existente, direto no agendamento (#agendar), sem
+    // login — usada quando a pessoa confirma/corrige telefone, e-mail etc. na tela de
+    // "bem-vindo de volta". Só mexe nos dados cadastrais básicos — tudo que é clínico
+    // (anamnese, evolução, financeiro, arquivos) precisa continuar EXATAMENTE igual,
+    // senão a atualização é negada.
+    function isPublicPatientUpdate(data) {
+      return !isSignedIn()
+        && data.userId == resource.data.userId
+        && data.userId == get(/databases/$(database)/documents/publicConfig/booking).data.ownerId
+        && data.cpf == resource.data.cpf
+        && (!('anamnesis' in resource.data) || data.anamnesis == resource.data.anamnesis)
+        && (!('anamnesisReleased' in resource.data) || data.anamnesisReleased == resource.data.anamnesisReleased)
+        && (!('anamnesisHistory' in resource.data) || data.anamnesisHistory == resource.data.anamnesisHistory)
+        && (!('evolution' in resource.data) || data.evolution == resource.data.evolution)
+        && (!('evolutionHistory' in resource.data) || data.evolutionHistory == resource.data.evolutionHistory)
+        && (!('faceMarkings' in resource.data) || data.faceMarkings == resource.data.faceMarkings)
+        && (!('files' in resource.data) || data.files == resource.data.files)
+        && (!('photoHistory' in resource.data) || data.photoHistory == resource.data.photoHistory)
+        && (!('consentTerms' in resource.data) || data.consentTerms == resource.data.consentTerms)
+        && (!('prescriptions' in resource.data) || data.prescriptions == resource.data.prescriptions);
+    }
+
     // Rules for Patients — só o dono do dado (userId) pode ler; criar é permitido também
     // pela página pública de agendamento (ver isPublicPatientCreate)
     match /patients/{patientId} {
       allow read: if isSharedAccess() || isOwnDataAccess();
       allow create: if isValidPatient(incoming()) && isValidId(patientId)
         && (isSharedAccess() || isOwnDataCreate() || isPublicPatientCreate(incoming()));
-      allow update: if (isSharedAccess() || isOwnDataAccess()) && isValidPatient(incoming());
+      allow update: if isValidPatient(incoming()) && respectsClinicalLocks()
+        && ((isSharedAccess() || isOwnDataAccess()) || isPublicPatientUpdate(incoming()));
       allow delete: if isSharedAccess() || isOwnDataAccess();
     }
 
