@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
 import { collection, query, onSnapshot, addDoc, updateDoc, setDoc, deleteDoc, deleteField, getDoc, doc, where, orderBy } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { compressImage } from '../lib/imageCompress';
 import { db, storage } from '../lib/firebase';
 import { Patient, ClinicSettings } from '../types';
 import { phoneIndexKey, getClinicOwnerId } from '../lib/slots';
@@ -682,9 +683,10 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
     showToast('Iniciando upload...', 'info');
     try {
       const urls = await Promise.all(Array.from(files).map(async (file: File) => {
-        const path = `patients/${user.uid}/${patient.id}/photos/${Date.now()}_${file.name}`;
+        const compressed = await compressImage(file);
+        const path = `patients/${user.uid}/${patient.id}/photos/${Date.now()}_${compressed.name}`;
         const sRef = ref(storage, path);
-        await uploadBytes(sRef, file);
+        await uploadBytes(sRef, compressed);
         return await getDownloadURL(sRef);
       }));
       
