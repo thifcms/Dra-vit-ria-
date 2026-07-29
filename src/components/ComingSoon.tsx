@@ -13,13 +13,13 @@ export default function ComingSoon() {
         className="h-28 w-auto object-contain mb-10"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 1.6, ease: 'easeOut' }}
+        transition={{ duration: 5, ease: 'easeOut' }}
       />
       <motion.p
         className="text-[#9CA3AF] font-light text-sm uppercase tracking-[0.3em]"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 0.8, delay: 1.6 }}
+        transition={{ duration: 0.8, delay: 5 }}
       >
         Site em construção
       </motion.p>
