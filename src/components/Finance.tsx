@@ -41,7 +41,6 @@ export default function Finance({ user }: { user: User }) {
   useEffect(() => {
     const q = query(
       collection(db, 'appointments'),
-      where('userId', '==', user.uid),
       where('status', '==', 'completed')
     );
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -53,7 +52,6 @@ export default function Finance({ user }: { user: User }) {
   useEffect(() => {
     const q = query(
       collection(db, 'transactions'),
-      where('userId', '==', user.uid),
       orderBy('date', 'desc')
     );
     const unsubscribe = onSnapshot(q, (snapshot) => {

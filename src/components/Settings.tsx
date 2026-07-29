@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { showToast } from '../lib/toast';
 import { hashPin, isValidPinFormat } from '../lib/pin';
+import { getClinicOwnerId } from '../lib/slots';
 import { isPlatformAuthenticatorAvailable, registerBiometric } from '../lib/webauthn';
 import AdminPanel from './AdminPanel';
 
@@ -55,7 +56,13 @@ export default function Settings({ user }: { user: User }) {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const docRef = doc(db, 'settings', user.uid);
+        // Só usa o próprio UID como "dono" se ainda não existir nenhum — depois da
+        // primeira vez, o dono fica fixo pra sempre, não importa quem loga depois
+        const bookingSnap = await getDoc(doc(db, 'publicConfig', 'booking'));
+        const existingOwnerId = bookingSnap.exists() ? bookingSnap.data().ownerId : null;
+        const ownerId = existingOwnerId || user.uid;
+
+        const docRef = doc(db, 'settings', ownerId);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           const data = docSnap.data() as ClinicSettings;
@@ -63,9 +70,10 @@ export default function Settings({ user }: { user: User }) {
           // os campos novos (horário de atendimento, etc.) ficaria com eles undefined.
           setSettings(prev => ({ ...prev, ...data }));
           // Garante que a página pública de agendamento sempre tenha o nome atualizado,
-          // mesmo que o usuário nunca clique em "Salvar" depois desta atualização.
+          // mesmo que o usuário nunca clique em "Salvar" depois desta atualização —
+          // preserva o ownerId já existente, nunca troca pra quem está logado agora.
           await setDoc(doc(db, 'publicConfig', 'booking'), {
-            ownerId: user.uid,
+            ownerId,
             clinicName: data.clinicName || data.professionalName || 'Clínica',
             professionalName: data.professionalName || '',
             whatsappNumber: data.whatsappNumber || '',
@@ -89,7 +97,8 @@ export default function Settings({ user }: { user: User }) {
   const persist = async (next: ClinicSettings) => {
     setSettings(next);
     try {
-      await setDoc(doc(db, 'settings', user.uid), next);
+      const ownerId = await getClinicOwnerId(db).catch(() => user.uid);
+      await setDoc(doc(db, 'settings', ownerId), next);
     } catch (err) {
       showToast('Erro ao salvar no banco', 'error');
     }
@@ -179,10 +188,11 @@ export default function Settings({ user }: { user: User }) {
   const handleSaveAll = async () => {
     setSaving(true);
     try {
-      await setDoc(doc(db, 'settings', user.uid), settings);
+      const ownerId = await getClinicOwnerId(db).catch(() => user.uid);
+      await setDoc(doc(db, 'settings', ownerId), settings);
       // Mantém o config público (usado pela página de agendamento sem login) sincronizado
       await setDoc(doc(db, 'publicConfig', 'booking'), {
-        ownerId: user.uid,
+        ownerId,
         clinicName: settings.clinicName || settings.professionalName || 'Clínica',
         professionalName: settings.professionalName || '',
         whatsappNumber: settings.whatsappNumber || '',
@@ -204,7 +214,7 @@ export default function Settings({ user }: { user: User }) {
   const handleFullBackup = async () => {
     setBackingUp(true);
     try {
-      const collections = ['patients', 'appointments', 'transactions', 'inventory', 'inventoryMovements'];
+      const collections = ['patients', 'appointments', 'transactions', 'inventory', 'inventory_movements'];
       const backup: Record<string, any> = {};
       
       const sanitize = (val: any): any => {
@@ -238,8 +248,7 @@ export default function Settings({ user }: { user: User }) {
       };
 
       for (const col of collections) {
-        const q = query(collection(db, col), where('userId', '==', user.uid));
-        const snap = await getDocs(q);
+        const snap = await getDocs(collection(db, col));
         backup[col] = snap.docs.map(d => sanitize({ id: d.id, ...d.data() }));
       }
       backup.settings = sanitize(settings);

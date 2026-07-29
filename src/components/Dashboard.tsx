@@ -21,7 +21,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { doc, getDoc } from 'firebase/firestore';
 import { buildReminderMessage, whatsappLink } from '../lib/reminders';
-import { checkinLink, cancelLink, todayLocalStr } from '../lib/slots';
+import { checkinLink, cancelLink, todayLocalStr, getClinicOwnerId } from '../lib/slots';
 import { ClinicSettings } from '../types';
 import { 
   AreaChart, 
@@ -48,16 +48,15 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getDoc(doc(db, 'settings', user.uid)).then(snap => {
+    getClinicOwnerId(db).then(ownerId => getDoc(doc(db, 'settings', ownerId))).then(snap => {
       if (snap.exists()) setClinicSettings(snap.data() as ClinicSettings);
-    });
+    }).catch(() => {});
   }, [user.uid]);
 
   useEffect(() => {
     // Patients count & Recents
     const qPatients = query(
       collection(db, 'patients'), 
-      where('userId', '==', user.uid),
       orderBy('updatedAt', 'desc'),
       limit(4)
     );
@@ -70,7 +69,6 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
     const today = todayLocalStr();
     const qSchedule = query(
       collection(db, 'appointments'),
-      where('userId', '==', user.uid),
       where('date', '==', today),
       orderBy('time', 'asc')
     );
@@ -82,7 +80,6 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
     // Pending online bookings (not necessarily today)
     const qPending = query(
       collection(db, 'appointments'),
-      where('userId', '==', user.uid),
       where('bookedOnline', '==', true),
       where('status', '==', 'scheduled'),
       orderBy('createdAt', 'desc'),
@@ -100,7 +97,6 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
 
     const qFinance = query(
       collection(db, 'transactions'),
-      where('userId', '==', user.uid),
       where('date', '>=', sixMonthsAgo)
     );
 
@@ -147,7 +143,7 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
     });
 
     // Inventory low stock
-    const qInventory = query(collection(db, 'inventory'), where('userId', '==', user.uid));
+    const qInventory = query(collection(db, 'inventory'));
     const unsubInventory = onSnapshot(qInventory, (snap) => {
       const low = snap.docs.filter(doc => doc.data().quantity <= doc.data().minThreshold).length;
       setStats(prev => ({ ...prev, lowStock: low }));

@@ -24,7 +24,7 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
 
   useEffect(() => {
     const unsub = onSnapshot(
-      query(collection(db, 'inventory'), where('userId', '==', user.uid)),
+      collection(db, 'inventory'),
       snap => setInventoryItems(snap.docs.map(d => ({ id: d.id, ...d.data() } as InventoryItem)))
     );
     return unsub;

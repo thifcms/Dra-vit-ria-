@@ -3,7 +3,7 @@ import { collection, query, onSnapshot, addDoc, updateDoc, setDoc, deleteDoc, de
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, storage } from '../lib/firebase';
 import { Patient, ClinicSettings } from '../types';
-import { phoneIndexKey } from '../lib/slots';
+import { phoneIndexKey, getClinicOwnerId } from '../lib/slots';
 import { User } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -151,7 +151,6 @@ export default function Patients({ user, initialPatientId }: { user: User, initi
   useEffect(() => {
     const q = query(
       collection(db, 'patients'),
-      where('userId', '==', user.uid),
       orderBy('updatedAt', 'desc')
     );
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -377,8 +376,9 @@ function AddPatientModal({ user, onClose }: { user: User, onClose: () => void })
         consentTerms: []
       });
       if (phone) {
-        await setDoc(doc(db, 'patientPhoneIndex', phoneIndexKey(user.uid, phone)), {
-          clinicId: user.uid,
+        const ownerId = await getClinicOwnerId(db).catch(() => user.uid);
+        await setDoc(doc(db, 'patientPhoneIndex', phoneIndexKey(ownerId, phone)), {
+          clinicId: ownerId,
           patientId: ref.id,
           name,
         }).catch(() => {});
@@ -599,7 +599,8 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
       await deleteDoc(doc(db, 'patients', patient.id!));
       // Melhor esforço: libera o índice de telefone também, se existir
       if (patient.phone) {
-        await deleteDoc(doc(db, 'patientPhoneIndex', phoneIndexKey(user.uid, patient.phone))).catch(() => {});
+        const ownerId = await getClinicOwnerId(db).catch(() => user.uid);
+        await deleteDoc(doc(db, 'patientPhoneIndex', phoneIndexKey(ownerId, patient.phone))).catch(() => {});
       }
       showToast('Paciente excluído');
       onBack();
@@ -1203,7 +1204,8 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
   useEffect(() => {
     (async () => {
       try {
-        const snap = await getDoc(doc(db, 'settings', user.uid));
+        const ownerId = await getClinicOwnerId(db).catch(() => user.uid);
+        const snap = await getDoc(doc(db, 'settings', ownerId));
         if (snap.exists()) {
           setTemplates((snap.data().consentTemplates || []) as any);
         }

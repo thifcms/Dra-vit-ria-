@@ -28,7 +28,7 @@ export default function Inventory({ user }: { user: User }) {
 
   useEffect(() => {
     // Sincronizar itens de estoque em tempo real
-    const q = query(collection(db, 'inventory'), where('userId', '==', user.uid));
+    const q = query(collection(db, 'inventory'));
     const unsubscribeItems = onSnapshot(q, (snapshot) => {
       setItems(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as InventoryItem)));
       setLoading(false);
@@ -36,8 +36,7 @@ export default function Inventory({ user }: { user: User }) {
 
     // Sincronizar últimos 100 movimentos
     const mQ = query(
-      collection(db, 'inventoryMovements'), 
-      where('userId', '==', user.uid),
+      collection(db, 'inventory_movements'), 
       orderBy('date', 'desc'),
       limit(100)
     );
@@ -102,7 +101,7 @@ export default function Inventory({ user }: { user: User }) {
         ...(type === 'restock' ? { lastRestockDate: new Date().toISOString() } : {})
       });
 
-      await addDoc(collection(db, 'inventoryMovements'), {
+      await addDoc(collection(db, 'inventory_movements'), {
         userId: user.uid,
         itemId: item.id,
         itemName: item.name,

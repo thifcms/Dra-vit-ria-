@@ -1,3 +1,5 @@
+import { getDoc, doc, Firestore } from 'firebase/firestore';
+
 // Horário de atendimento padrão (usado só se a clínica ainda não configurou nada em
 // Configurações → Horário de Atendimento)
 export const CLINIC_HOURS = Array.from({ length: 14 }, (_, i) => {
@@ -72,6 +74,18 @@ export function todayLocalStr(): string {
 
 export function phoneIndexKey(clinicId: string, phone: string): string {
   return `${clinicId}_${normalizePhone(phone)}`;
+}
+
+// UID canônico "dono" da clínica — usado como identificador fixo em tudo que precisa
+// ser compartilhado entre os administradores (configurações, horários bloqueados,
+// índices de busca), em vez do UID de quem está logado no momento. Sem isso, o segundo
+// administrador (com um UID diferente do primeiro) veria configurações vazias e poderia
+// até criar horários "bloqueados" duplicados que não colidem com os do primeiro.
+export async function getClinicOwnerId(db: Firestore): Promise<string> {
+  const snap = await getDoc(doc(db, 'publicConfig', 'booking'));
+  const ownerId = snap.exists() ? snap.data().ownerId : null;
+  if (!ownerId) throw new Error('Não foi possível determinar o dono da clínica (publicConfig/booking sem ownerId)');
+  return ownerId;
 }
 
 // URL do serviço independente de e-mail de confirmação (clinica-email-service).

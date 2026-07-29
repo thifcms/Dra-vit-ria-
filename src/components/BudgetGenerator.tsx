@@ -5,6 +5,7 @@ import { Patient, ClinicSettings } from '../types';
 import { User } from 'firebase/auth';
 import { Plus, Trash2, FileDown } from 'lucide-react';
 import { showToast } from '../lib/toast';
+import { getClinicOwnerId } from '../lib/slots';
 
 interface BudgetItem {
   description: string;
@@ -19,9 +20,9 @@ export default function BudgetGenerator({ patient, user }: { patient: Patient; u
   const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
-    getDoc(doc(db, 'settings', user.uid)).then(snap => {
+    getClinicOwnerId(db).then(ownerId => getDoc(doc(db, 'settings', ownerId))).then(snap => {
       if (snap.exists()) setSettings(snap.data() as ClinicSettings);
-    });
+    }).catch(() => {});
   }, [user.uid]);
 
   const addItem = () => setItems(prev => [...prev, { description: '', value: '' }]);

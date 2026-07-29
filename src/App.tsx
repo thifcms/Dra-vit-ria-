@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ToastHost, showToast } from './lib/toast';
 import { hashPin, isValidPinFormat } from './lib/pin';
 import { verifyBiometric } from './lib/webauthn';
+import { getClinicOwnerId } from './lib/slots';
 import type { ClinicSettings, Patient } from './types';
 import { 
   Users, 
@@ -165,12 +166,17 @@ function AuthenticatedApp() {
 
   useEffect(() => {
     if (!user) { setClinicSettings(null); setPatients([]); return; }
-    const unsubSettings = onSnapshot(doc(db, 'settings', user.uid), (snap) => {
-      if (snap.exists()) setClinicSettings(snap.data() as ClinicSettings);
-    });
+    let unsubSettings = () => {};
+    getClinicOwnerId(db).then(ownerId => {
+      unsubSettings = onSnapshot(doc(db, 'settings', ownerId), (snap) => {
+        if (snap.exists()) setClinicSettings(snap.data() as ClinicSettings);
+      });
+    }).catch(() => {});
 
+    // Sem filtro por userId — com acesso compartilhado, qualquer administrador autorizado
+    // precisa ver todos os pacientes, não só os que ele mesmo cadastrou
     const unsubPatients = onSnapshot(
-      query(collection(db, 'patients'), where('userId', '==', user.uid)),
+      collection(db, 'patients'),
       snap => setPatients(snap.docs.map(d => ({ id: d.id, ...d.data() } as Patient)))
     );
     return () => {
@@ -232,7 +238,8 @@ function AuthenticatedApp() {
     // Saída de emergência: desativa a exigência de PIN/biometria direto (sem precisar
     // entrar em Configurações, já que é justamente isso que ficaria trancado). Pra usar
     // de novo nesse celular, é só reativar em Configurações → Segurança.
-    await updateDoc(doc(db, 'settings', user.uid), { biometricEnabled: false, webauthnCredentialId: undefined }).catch(() => {});
+    const ownerId = await getClinicOwnerId(db).catch(() => user.uid);
+    await updateDoc(doc(db, 'settings', ownerId), { biometricEnabled: false, webauthnCredentialId: undefined }).catch(() => {});
     sessionStorage.setItem('pinUnlocked', 'true');
     setPinUnlocked(true);
   };

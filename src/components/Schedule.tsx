@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, setDoc, doc, getDoc, where, orderBy } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Appointment, Patient, ClinicSettings } from '../types';
-import { slotId, checkinLink, cancelLink, CLINIC_HOURS, EMAIL_SERVICE_URL, localDateStr, todayLocalStr } from '../lib/slots';
+import { slotId, checkinLink, cancelLink, CLINIC_HOURS, EMAIL_SERVICE_URL, localDateStr, todayLocalStr, getClinicOwnerId } from '../lib/slots';
 import { buildReminderMessage, whatsappLink, emailLink } from '../lib/reminders';
 import { User as FirebaseUser } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
@@ -31,11 +31,17 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
   const [isAdding, setIsAdding] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [loading, setLoading] = useState(true);
+  const [ownerId, setOwnerId] = useState<string | null>(null);
 
   useEffect(() => {
-    // Nome/endereço da clínica, usados na mensagem de lembrete
-    getDoc(doc(db, 'settings', user.uid)).then(snap => {
-      if (snap.exists()) setClinicSettings(snap.data() as ClinicSettings);
+    // Nome/endereço da clínica, usados na mensagem de lembrete — sempre lidos do UID fixo
+    // "dono" da clínica, não de quem está logado (o mesmo documento vale pra qualquer
+    // administrador que acessar)
+    getClinicOwnerId(db).then(id => {
+      setOwnerId(id);
+      return getDoc(doc(db, 'settings', id));
+    }).then(snap => {
+      if (snap && snap.exists()) setClinicSettings(snap.data() as ClinicSettings);
     }).catch(() => {});
   }, [user.uid]);
 
@@ -43,7 +49,6 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
     // Sincronizar agendamentos
     const q = query(
       collection(db, 'appointments'), 
-      where('userId', '==', user.uid),
       orderBy('time', 'asc')
     );
     const unsubscribeAppts = onSnapshot(q, (snapshot) => {
@@ -57,8 +62,7 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
 
     // Sincronizar pacientes para o modal
     const pQ = query(
-      collection(db, 'patients'),
-      where('userId', '==', user.uid)
+      collection(db, 'patients')
     );
     const unsubscribePatients = onSnapshot(pQ, (snapshot) => {
       const pList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Patient));
@@ -127,7 +131,7 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
 
       // Cancelar libera o horário na fila pública de disponibilidade
       if (status === 'cancelled' && appt) {
-        await deleteDoc(doc(db, 'busySlots', slotId(user.uid, appt.date, appt.time))).catch(() => {});
+        await deleteDoc(doc(db, 'busySlots', slotId(ownerId || user.uid, appt.date, appt.time))).catch(() => {});
       }
 
       // Ao concluir uma consulta com valor definido, gera o lançamento financeiro automaticamente
@@ -242,7 +246,7 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
       await deleteDoc(doc(db, 'appointments', id));
       // Libera o horário correspondente na fila pública de disponibilidade
       if (appt) {
-        await deleteDoc(doc(db, 'busySlots', slotId(user.uid, appt.date, appt.time))).catch(() => {});
+        await deleteDoc(doc(db, 'busySlots', slotId(ownerId || user.uid, appt.date, appt.time))).catch(() => {});
       }
       showToast('Agendamento excluído');
     } catch (err) {
@@ -511,6 +515,7 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
         {isAdding && (
           <AddAppointmentModal 
             user={user}
+            ownerId={ownerId}
             onClose={() => { setIsAdding(false); setPrefillTime(null); }} 
             patients={patients}
             appointments={appointments}
@@ -521,6 +526,7 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
         {editingAppointment && (
           <AddAppointmentModal 
             user={user}
+            ownerId={ownerId}
             onClose={() => setEditingAppointment(null)} 
             patients={patients}
             appointments={appointments}
@@ -583,7 +589,7 @@ function MenuOption({ onClick, label, color }: any) {
   );
 }
 
-function AddAppointmentModal({ user, onClose, patients, appointments, initialDate, initialTime, appointment }: any) {
+function AddAppointmentModal({ user, ownerId, onClose, patients, appointments, initialDate, initialTime, appointment }: any) {
   const [patientId, setPatientId] = useState(appointment?.patientId || '');
   const [date, setDate] = useState(appointment?.date || initialDate);
   const [time, setTime] = useState(appointment?.time || initialTime || '08:00');
@@ -629,8 +635,8 @@ function AddAppointmentModal({ user, onClose, patients, appointments, initialDat
         });
         // Se a data/hora mudou, libera o horário antigo e ocupa o novo na fila pública
         if (appointment.date !== date || appointment.time !== time) {
-          await deleteDoc(doc(db, 'busySlots', slotId(user.uid, appointment.date, appointment.time))).catch(() => {});
-          await setDoc(doc(db, 'busySlots', slotId(user.uid, date, time)), { clinicId: user.uid, date, time, apt: appointment.id }).catch(() => {});
+          await deleteDoc(doc(db, 'busySlots', slotId(ownerId || user.uid, appointment.date, appointment.time))).catch(() => {});
+          await setDoc(doc(db, 'busySlots', slotId(ownerId || user.uid, date, time)), { clinicId: ownerId || user.uid, date, time, apt: appointment.id }).catch(() => {});
         }
         showToast('Agendamento atualizado');
       } else if (recurrence === 'none') {
@@ -646,7 +652,7 @@ function AddAppointmentModal({ user, onClose, patients, appointments, initialDat
           checkinToken: crypto.randomUUID(),
           createdAt: new Date().toISOString()
         });
-        await setDoc(doc(db, 'busySlots', slotId(user.uid, date, time)), { clinicId: user.uid, date, time, apt: ref.id }).catch(() => {});
+        await setDoc(doc(db, 'busySlots', slotId(ownerId || user.uid, date, time)), { clinicId: ownerId || user.uid, date, time, apt: ref.id }).catch(() => {});
         if (patient?.email) {
           fetch(`${EMAIL_SERVICE_URL}/api/send-confirmation-email`, {
             method: 'POST',
@@ -682,7 +688,7 @@ function AddAppointmentModal({ user, onClose, patients, appointments, initialDat
             checkinToken: crypto.randomUUID(),
             createdAt: new Date().toISOString()
           });
-          await setDoc(doc(db, 'busySlots', slotId(user.uid, occDateStr, time)), { clinicId: user.uid, date: occDateStr, time, apt: ref.id }).catch(() => {});
+          await setDoc(doc(db, 'busySlots', slotId(ownerId || user.uid, occDateStr, time)), { clinicId: ownerId || user.uid, date: occDateStr, time, apt: ref.id }).catch(() => {});
           created++;
         }
         showToast(skipped > 0 ? `${created} agendamentos criados, ${skipped} pulados por conflito` : `${created} agendamentos criados`);
