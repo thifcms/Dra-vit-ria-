@@ -193,7 +193,7 @@ export default function Finance({ user }: { user: User }) {
           label="Saldo Disponível" 
           value={balance} 
           icon={<DollarSign size={20} />} 
-          color="text-[#5C544E]" 
+          color="text-[#4A433D]" 
           bg="bg-[#FDFBF9]"
         />
         <BalanceCard 
@@ -219,7 +219,7 @@ export default function Finance({ user }: { user: User }) {
         className="bg-white rounded-[48px] border border-[#F5F2F0] p-10 shadow-sm"
       >
         <div className="mb-10">
-          <h3 className="serif text-2xl text-[#5C544E]">Fluxo de Caixa</h3>
+          <h3 className="serif text-2xl text-[#4A433D]">Fluxo de Caixa</h3>
           <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest mt-1">Comparativo de Entradas e Saídas • Últimos 6 meses</p>
         </div>
         <div className="h-[300px] w-full">
@@ -288,7 +288,7 @@ export default function Finance({ user }: { user: User }) {
           className="bg-white rounded-[48px] border border-[#F5F2F0] p-10 shadow-sm"
         >
           <div className="mb-8">
-            <h3 className="serif text-2xl text-[#5C544E]">Resumo por Categoria</h3>
+            <h3 className="serif text-2xl text-[#4A433D]">Resumo por Categoria</h3>
             <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest mt-1">Onde entra e sai seu dinheiro</p>
           </div>
           <div className="space-y-3">
@@ -296,7 +296,7 @@ export default function Finance({ user }: { user: User }) {
               const maxTotal = categoryTotals[0].total || 1;
               return (
                 <div key={c.category} className="flex items-center gap-4">
-                  <span className="w-40 shrink-0 text-xs font-semibold text-[#5C544E] truncate">{c.category}</span>
+                  <span className="w-40 shrink-0 text-xs font-semibold text-[#4A433D] truncate">{c.category}</span>
                   <div className="flex-1 h-3 bg-[#FDFBF9] rounded-full overflow-hidden flex">
                     {c.income > 0 && <div className="h-full bg-[#8BA888]" style={{ width: `${(c.income / maxTotal) * 100}%` }} />}
                     {c.expense > 0 && <div className="h-full bg-red-400" style={{ width: `${(c.expense / maxTotal) * 100}%` }} />}
@@ -325,7 +325,7 @@ export default function Finance({ user }: { user: User }) {
                   <Award size={20} />
                 </div>
                 <div>
-                  <h3 className="serif text-xl text-[#5C544E]">Procedimentos Mais Realizados</h3>
+                  <h3 className="serif text-xl text-[#4A433D]">Procedimentos Mais Realizados</h3>
                   <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest mt-0.5">Por número de atendimentos concluídos</p>
                 </div>
               </div>
@@ -335,7 +335,7 @@ export default function Finance({ user }: { user: User }) {
                   return (
                     <div key={p.name} className="flex items-center gap-4">
                       <span className="w-5 text-xs font-bold text-[#9CA3AF] shrink-0">{i + 1}º</span>
-                      <span className="w-36 shrink-0 text-xs font-semibold text-[#5C544E] truncate">{p.name}</span>
+                      <span className="w-36 shrink-0 text-xs font-semibold text-[#4A433D] truncate">{p.name}</span>
                       <div className="flex-1 h-3 bg-[#FDFBF9] rounded-full overflow-hidden">
                         <div className="h-full bg-[#EADFD4]" style={{ width: `${(p.count / maxCount) * 100}%` }} />
                       </div>
@@ -358,11 +358,11 @@ export default function Finance({ user }: { user: User }) {
                   <Repeat size={20} />
                 </div>
                 <div>
-                  <h3 className="serif text-xl text-[#5C544E]">Taxa de Retorno</h3>
+                  <h3 className="serif text-xl text-[#4A433D]">Taxa de Retorno</h3>
                   <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest mt-0.5">Pacientes que voltaram mais de uma vez</p>
                 </div>
               </div>
-              <p className="serif text-6xl text-[#5C544E] mb-2">{returnRate}%</p>
+              <p className="serif text-6xl text-[#4A433D] mb-2">{returnRate}%</p>
               <p className="text-xs text-[#9CA3AF] font-light">
                 {returningPatients} de {totalUniquePatients} pacientes com atendimento concluído voltaram pra pelo menos uma consulta a mais
               </p>
@@ -416,7 +416,7 @@ export default function Finance({ user }: { user: User }) {
                 {filteredTransactions.map((t) => (
                   <tr key={t.id} className="hover:bg-[#FDFBF9] transition-colors group">
                     <td className="p-6 text-sm font-light text-[#9CA3AF]">{new Date(t.date).toLocaleDateString('pt-BR')}</td>
-                    <td className="p-6 font-medium text-[#5C544E]">{t.description}</td>
+                    <td className="p-6 font-medium text-[#4A433D]">{t.description}</td>
                     <td className="p-6">
                       <span className="px-3 py-1 bg-[#FDFBF9] text-[#9CA3AF] text-[10px] font-bold uppercase tracking-widest rounded-lg border border-[#F5F2F0]">
                         {t.category}
@@ -552,7 +552,7 @@ function AddTransactionModal({ user, onClose }: any) {
   };
 
   return (
-    <div className="fixed inset-0 bg-[#5C544E]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+    <div className="fixed inset-0 bg-[#4A433D]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
       <motion.div 
         initial={{ y: 30, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -560,7 +560,7 @@ function AddTransactionModal({ user, onClose }: any) {
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
         className="bg-white w-full max-w-lg rounded-[40px] p-10 shadow-2xl"
       >
-        <h2 className="serif text-2xl text-[#5C544E] mb-8">Novo Lançamento</h2>
+        <h2 className="serif text-2xl text-[#4A433D] mb-8">Novo Lançamento</h2>
         
         <div className="flex gap-4 mb-8 bg-[#FDFBF9] p-2 rounded-2xl">
           <button 

@@ -260,7 +260,7 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
             <CalendarDays size={28} />
           </div>
           <div>
-            <h1 className="text-3xl font-light text-[#5C544E] serif">Agenda Clínica</h1>
+            <h1 className="text-3xl font-light text-[#4A433D] serif">Agenda Clínica</h1>
             <p className="text-[#9CA3AF] font-light text-xs uppercase tracking-widest mt-1">Gestão de Consultas & Disponibilidade</p>
           </div>
         </div>
@@ -278,7 +278,7 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
         <div className="w-full lg:w-80 space-y-6">
           <div className="bg-white rounded-[32px] p-8 border border-[#F5F2F0] shadow-sm">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="font-semibold text-[#5C544E] serif">{selectedDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</h3>
+              <h3 className="font-semibold text-[#4A433D] serif">{selectedDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</h3>
               <div className="flex gap-1">
                 <button 
                   onClick={() => setSelectedDate(new Date())}
@@ -292,7 +292,7 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
                     d.setDate(d.getDate() - 1);
                     setSelectedDate(d);
                   }} 
-                  className="p-2 text-[#9CA3AF] hover:text-[#5C544E] hover:bg-[#FDFBF9] rounded-xl transition-all"
+                  className="p-2 text-[#9CA3AF] hover:text-[#4A433D] hover:bg-[#FDFBF9] rounded-xl transition-all"
                 >
                   <ChevronLeft size={20}/>
                 </button>
@@ -302,7 +302,7 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
                     d.setDate(d.getDate() + 1);
                     setSelectedDate(d);
                   }} 
-                  className="p-2 text-[#9CA3AF] hover:text-[#5C544E] hover:bg-[#FDFBF9] rounded-xl transition-all"
+                  className="p-2 text-[#9CA3AF] hover:text-[#4A433D] hover:bg-[#FDFBF9] rounded-xl transition-all"
                 >
                   <ChevronRight size={20}/>
                 </button>
@@ -311,7 +311,7 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
             
             <div className="text-center py-6 bg-[#FDFBF9] rounded-2xl border border-[#F5F2F0]">
               <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-[0.2em] mb-1">{selectedDate.toLocaleDateString('pt-BR', { weekday: 'long' })}</p>
-              <p className="text-4xl font-light text-[#5C544E] serif">{selectedDate.getDate()}</p>
+              <p className="text-4xl font-light text-[#4A433D] serif">{selectedDate.getDate()}</p>
             </div>
           </div>
 
@@ -330,7 +330,7 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
                       {i + 1}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-semibold text-[#5C544E] truncate">{appt.patientName}</p>
+                      <p className="text-xs font-semibold text-[#4A433D] truncate">{appt.patientName}</p>
                       <p className="text-[9px] text-[#9CA3AF] font-bold uppercase tracking-widest mt-0.5">
                         Aguardando desde {new Date(appt.checkedInAt!).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                       </p>
@@ -360,7 +360,7 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
                   {todaysReminders.map(appt => (
                     <div key={appt.id} className="flex items-center gap-3 p-4 bg-[#FDFBF9] rounded-2xl border border-[#F5F2F0]">
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs font-semibold text-[#5C544E] truncate">{appt.time} — {appt.patientName}</p>
+                        <p className="text-xs font-semibold text-[#4A433D] truncate">{appt.time} — {appt.patientName}</p>
                       </div>
                       <button
                         onClick={() => handleSendReminder(appt, 'whatsapp')}
@@ -372,7 +372,7 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
                       <button
                         onClick={() => handleSendReminder(appt, 'email')}
                         title="Lembrete por E-mail"
-                        className="p-2 bg-[#5C544E] text-white rounded-xl shrink-0 hover:opacity-90 transition-all"
+                        className="p-2 bg-[#4A433D] text-white rounded-xl shrink-0 hover:opacity-90 transition-all"
                       >
                         <Mail size={14} />
                       </button>
@@ -387,7 +387,7 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
             <h4 className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-[0.2em] mb-6">Legenda de Status</h4>
             <div className="space-y-4">
               <LegendItem color="bg-[#EADFD4]" label="Confirmado" />
-              <LegendItem color="bg-[#5C544E]" label="Agendado" />
+              <LegendItem color="bg-[#4A433D]" label="Agendado" />
               <LegendItem color="bg-red-400" label="Cancelado" />
               <LegendItem color="bg-[#F0F7F0]" label="Realizado" />
             </div>
@@ -397,7 +397,7 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
         {/* Timeline View */}
         <div className="flex-1 bg-white rounded-[40px] border border-[#F5F2F0] shadow-sm overflow-hidden min-h-[600px]">
           <div className="p-8 border-b border-[#F5F2F0] bg-white flex items-center justify-between">
-            <span className="text-sm font-semibold text-[#5C544E]">Linha do Tempo</span>
+            <span className="text-sm font-semibold text-[#4A433D]">Linha do Tempo</span>
             <span className="text-xs text-[#9CA3AF] font-bold uppercase tracking-widest">{dayAppointments.length} atendimentos hoje</span>
           </div>
           
@@ -433,7 +433,7 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
                               <User size={20} />
                             </div>
                             <div>
-                              <p className="text-sm font-semibold text-[#5C544E] flex items-center gap-2">
+                              <p className="text-sm font-semibold text-[#4A433D] flex items-center gap-2">
                                 {appt.patientName}
                                 {appt.checkedInAt && appt.status !== 'completed' && (
                                   <span className="text-[8px] bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full font-bold uppercase tracking-widest">Na fila</span>
@@ -454,7 +454,7 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
                             <StatusBadge status={appt.status} />
                             <button
                               onClick={() => setOpenMenuId(openMenuId === appt.id ? null : appt.id!)}
-                              className="p-2 text-[#9CA3AF] hover:text-[#5C544E] transition-colors"
+                              className="p-2 text-[#9CA3AF] hover:text-[#4A433D] transition-colors"
                             >
                               <MoreHorizontal size={20} />
                             </button>
@@ -468,7 +468,7 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
                                   className="absolute right-0 top-12 z-20 bg-white rounded-2xl border border-[#F5F2F0] shadow-xl py-3 w-52 overflow-hidden"
                                 >
                                   <MenuOption onClick={() => { handleOpenPatient(appt); setOpenMenuId(null); }} label="Abrir Prontuário" color="text-[#EADFD4]" />
-                                  <MenuOption onClick={() => { setEditingAppointment(appt); setOpenMenuId(null); }} label="Editar" color="text-[#5C544E]" />
+                                  <MenuOption onClick={() => { setEditingAppointment(appt); setOpenMenuId(null); }} label="Editar" color="text-[#4A433D]" />
                                   {!appt.checkedInAt && appt.status !== 'completed' && appt.status !== 'cancelled' && (
                                     <>
                                       <MenuOption onClick={() => handleCheckIn(appt.id!)} label="Fazer Check-in Manual" color="text-amber-500" />
@@ -550,7 +550,7 @@ function LegendItem({ color, label }: any) {
   return (
     <div className="flex items-center gap-3">
       <div className={`w-2.5 h-2.5 rounded-full ${color}`} />
-      <span className="text-xs font-medium text-[#5C544E]">{label}</span>
+      <span className="text-xs font-medium text-[#4A433D]">{label}</span>
     </div>
   );
 }
@@ -696,7 +696,7 @@ function AddAppointmentModal({ user, onClose, patients, appointments, initialDat
   };
 
   return (
-    <div className="fixed inset-0 bg-[#5C544E]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+    <div className="fixed inset-0 bg-[#4A433D]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
       <motion.div 
         initial={{ y: 30, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -704,7 +704,7 @@ function AddAppointmentModal({ user, onClose, patients, appointments, initialDat
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
         className="bg-white w-full max-w-lg rounded-[40px] p-10 shadow-2xl max-h-[90vh] overflow-y-auto"
       >
-        <h2 className="serif text-2xl text-[#5C544E] mb-8">{appointment ? 'Editar Agendamento' : 'Novo Agendamento'}</h2>
+        <h2 className="serif text-2xl text-[#4A433D] mb-8">{appointment ? 'Editar Agendamento' : 'Novo Agendamento'}</h2>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Paciente</label>
@@ -861,7 +861,7 @@ function LinkPatientModal({ user, appointment, patients, onClose, onLinked }: {
   };
 
   return (
-    <div className="fixed inset-0 bg-[#5C544E]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+    <div className="fixed inset-0 bg-[#4A433D]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
       <motion.div 
         initial={{ y: 30, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -869,7 +869,7 @@ function LinkPatientModal({ user, appointment, patients, onClose, onLinked }: {
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
         className="bg-white w-full max-w-md rounded-[40px] p-10 shadow-2xl"
       >
-        <h2 className="serif text-2xl text-[#5C544E] mb-2">Vincular Paciente</h2>
+        <h2 className="serif text-2xl text-[#4A433D] mb-2">Vincular Paciente</h2>
         <p className="text-xs text-[#9CA3AF] font-light mb-8">
           Este agendamento ainda não tem um prontuário — {appointment.patientName}
           {appointment.guestPhone ? ` • ${appointment.guestPhone}` : ''}

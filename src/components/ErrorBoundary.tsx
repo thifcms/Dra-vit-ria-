@@ -28,7 +28,7 @@ export default class ErrorBoundary extends React.Component<
       return (
         <div className="h-screen w-screen flex items-center justify-center bg-[#FDFBF9] p-6">
           <div className="w-full max-w-md bg-white p-10 rounded-[32px] shadow-sm border border-[#F5F2F0] text-center">
-            <h1 className="text-2xl font-light text-[#5C544E] mb-3 serif">Algo deu errado</h1>
+            <h1 className="text-2xl font-light text-[#4A433D] mb-3 serif">Algo deu errado</h1>
             <p className="text-[#9CA3AF] font-light mb-8">
               Ocorreu um erro inesperado. Seus dados estão salvos — clique abaixo pra reiniciar o app.
             </p>

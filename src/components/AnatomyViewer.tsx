@@ -366,12 +366,12 @@ export default function AnatomyViewer({ onClose }: { onClose: () => void }) {
 
         <div className="absolute top-6 left-6 right-6 flex items-start justify-between pointer-events-none">
           <div>
-            <h1 className="serif text-[#5C544E] text-xl mb-1">Anatomia Orofacial</h1>
+            <h1 className="serif text-[#4A433D] text-xl mb-1">Anatomia Orofacial</h1>
             <p className="text-[#9CA3AF] text-[11px] uppercase tracking-widest font-medium">Arraste para girar · Role para aproximar</p>
           </div>
           <button
             onClick={onClose}
-            className="pointer-events-auto w-11 h-11 rounded-full bg-white hover:bg-[#F5F2F0] shadow-sm border border-[#F5F2F0] flex items-center justify-center text-[#5C544E] transition-all"
+            className="pointer-events-auto w-11 h-11 rounded-full bg-white hover:bg-[#F5F2F0] shadow-sm border border-[#F5F2F0] flex items-center justify-center text-[#4A433D] transition-all"
           >
             <X size={20} />
           </button>
@@ -379,7 +379,7 @@ export default function AnatomyViewer({ onClose }: { onClose: () => void }) {
 
         <button
           onClick={resetCamera}
-          className="absolute bottom-6 left-6 flex items-center gap-2 px-4 py-2.5 rounded-full bg-white hover:bg-[#FDFBF9] shadow-sm border border-[#F5F2F0] text-[#5C544E] text-[11px] font-medium uppercase tracking-widest transition-all"
+          className="absolute bottom-6 left-6 flex items-center gap-2 px-4 py-2.5 rounded-full bg-white hover:bg-[#FDFBF9] shadow-sm border border-[#F5F2F0] text-[#4A433D] text-[11px] font-medium uppercase tracking-widest transition-all"
         >
           <RotateCcw size={14} /> Resetar vista
         </button>
@@ -407,7 +407,7 @@ export default function AnatomyViewer({ onClose }: { onClose: () => void }) {
                 className={`py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all ${
                   activePreset === p.key
                     ? 'bg-[#EADFD4] text-white'
-                    : 'bg-[#FDFBF9] text-[#5C544E] border border-[#F5F2F0] hover:border-[#EADFD4]/40'
+                    : 'bg-[#FDFBF9] text-[#4A433D] border border-[#F5F2F0] hover:border-[#EADFD4]/40'
                 }`}
               >
                 {p.label}
@@ -427,7 +427,7 @@ export default function AnatomyViewer({ onClose }: { onClose: () => void }) {
                     onClick={() => toggleLayer(key)}
                     className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-[#FDFBF9] transition-all text-left"
                   >
-                    <span className="text-[12px] text-[#5C544E]">{LAYER_LABELS[key] || key}</span>
+                    <span className="text-[12px] text-[#4A433D]">{LAYER_LABELS[key] || key}</span>
                     <div className={`w-8 h-[18px] rounded-full relative shrink-0 ml-3 transition-colors ${visibility[key] ? 'bg-[#EADFD4]' : 'bg-[#F1F3F5]'}`}>
                       <div className={`absolute top-[2px] w-[14px] h-[14px] rounded-full bg-white shadow-sm transition-all ${visibility[key] ? 'left-[16px]' : 'left-[2px]'}`} />
                     </div>

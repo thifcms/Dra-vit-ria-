@@ -11,15 +11,15 @@ export default function ComingSoon() {
         src="/logo/logo-full-v2.png"
         alt="Dra. Vitória Oliveira — Estética Orofacial"
         className="h-28 w-auto object-contain mb-10"
-        initial={{ opacity: 0, scale: 0.15, rotate: 300, filter: 'blur(8px)' }}
-        animate={{ opacity: 1, scale: 1, rotate: 0, filter: 'blur(0px)' }}
-        transition={{ duration: 1.4, ease: [0.16, 1, 0.3, 1] }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 1.6, ease: 'easeOut' }}
       />
       <motion.p
         className="text-[#9CA3AF] font-light text-sm uppercase tracking-[0.3em]"
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 1.15 }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.8, delay: 1.6 }}
       >
         Site em construção
       </motion.p>

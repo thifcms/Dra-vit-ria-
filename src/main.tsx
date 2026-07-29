@@ -16,7 +16,7 @@ const updateSW = registerSW({
     const container = document.createElement('div');
     container.style.cssText = `
       position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-      background: #5C544E; color: white; padding: 14px 22px; border-radius: 20px;
+      background: #4A433D; color: white; padding: 14px 22px; border-radius: 20px;
       font-family: -apple-system, sans-serif; font-size: 13px; z-index: 99999;
       display: flex; align-items: center; gap: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.25);
     `;

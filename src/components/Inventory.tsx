@@ -126,7 +126,7 @@ export default function Inventory({ user }: { user: User }) {
             <Package size={28} />
           </div>
           <div>
-            <h1 className="text-3xl font-light text-[#5C544E] serif">Estoque & Insumos</h1>
+            <h1 className="text-3xl font-light text-[#4A433D] serif">Estoque & Insumos</h1>
             <p className="text-[#9CA3AF] font-light text-xs uppercase tracking-widest mt-1">Materiais e Controle de Consumo</p>
           </div>
         </div>
@@ -185,7 +185,7 @@ export default function Inventory({ user }: { user: User }) {
             <input 
               type="text" 
               placeholder="Buscar material ou categoria..." 
-              className="flex-1 outline-none font-light text-[#5C544E] placeholder-[#9CA3AF] bg-transparent"
+              className="flex-1 outline-none font-light text-[#4A433D] placeholder-[#9CA3AF] bg-transparent"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -215,14 +215,14 @@ export default function Inventory({ user }: { user: User }) {
                           <Tag size={20} />
                         </div>
                         <div>
-                          <p className="font-semibold text-[#5C544E]">{item.name}</p>
+                          <p className="font-semibold text-[#4A433D]">{item.name}</p>
                           <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest">{item.category}</p>
                         </div>
                       </div>
                     </td>
                     <td className="p-6">
                       <div className="flex items-center gap-3">
-                        <span className="text-lg font-light serif text-[#5C544E]">{item.quantity}</span>
+                        <span className="text-lg font-light serif text-[#4A433D]">{item.quantity}</span>
                         <span className="text-[10px] text-[#9CA3AF] font-medium">{item.unit}</span>
                         {item.quantity <= item.minThreshold && (
                           <span className="px-2 py-0.5 bg-red-50 text-red-400 text-[8px] font-bold uppercase tracking-widest rounded-full">Crítico</span>
@@ -292,7 +292,7 @@ export default function Inventory({ user }: { user: User }) {
                   {m.type === 'restock' ? <ArrowUpRight size={16} /> : <ArrowDownLeft size={16} />}
                 </div>
                 <div>
-                  <p className="text-xs font-semibold text-[#5C544E]">{m.itemName}</p>
+                  <p className="text-xs font-semibold text-[#4A433D]">{m.itemName}</p>
                   <p className="text-[9px] text-[#9CA3AF] font-bold uppercase tracking-widest">
                     {m.type === 'restock' ? 'Entrada' : 'Saída'} • {new Date(m.date).toLocaleString('pt-BR')}
                   </p>
@@ -324,7 +324,7 @@ function InventoryStatCard({ icon, label, value, sub, alert }: any) {
       <div className={`w-10 h-10 rounded-2xl flex items-center justify-center mb-6 ${alert ? 'bg-red-50 text-red-400' : 'bg-[#FDFBF9] text-[#EADFD4]'}`}>
         {icon}
       </div>
-      <h3 className="serif text-3xl text-[#5C544E] leading-tight">{value}</h3>
+      <h3 className="serif text-3xl text-[#4A433D] leading-tight">{value}</h3>
       <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mt-2">{label}</p>
       <p className="text-[10px] text-[#9CA3AF] font-light mt-1">{sub}</p>
     </div>
@@ -363,7 +363,7 @@ function AddMaterialModal({ user, onClose }: any) {
   };
 
   return (
-    <div className="fixed inset-0 bg-[#5C544E]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+    <div className="fixed inset-0 bg-[#4A433D]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
       <motion.div 
         initial={{ y: 30, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -371,7 +371,7 @@ function AddMaterialModal({ user, onClose }: any) {
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
         className="bg-white w-full max-w-lg rounded-[40px] p-10 shadow-2xl"
       >
-        <h2 className="serif text-2xl text-[#5C544E] mb-8">Novo Material</h2>
+        <h2 className="serif text-2xl text-[#4A433D] mb-8">Novo Material</h2>
         <form onSubmit={handleSubmit} className="space-y-6">
           <FormField label="Nome do Material" value={name} onChange={setName} placeholder="ex: Luvas de Nitrilo, Botox 50U..." />
           <div className="grid grid-cols-2 gap-4">

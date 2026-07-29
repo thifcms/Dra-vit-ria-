@@ -199,7 +199,7 @@ export default function Patients({ user, initialPatientId }: { user: User, initi
     <div className="max-w-6xl mx-auto space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="serif text-3xl text-[#5C544E]">Base de Pacientes</h1>
+          <h1 className="serif text-3xl text-[#4A433D]">Base de Pacientes</h1>
           <p className="text-[#9CA3AF] text-xs font-semibold uppercase tracking-widest mt-1">Prontuários Digitais & Históricos</p>
         </div>
         <button 
@@ -218,13 +218,13 @@ export default function Patients({ user, initialPatientId }: { user: User, initi
             <input 
               type="text" 
               placeholder="Buscar por nome ou CPF..." 
-              className="flex-1 outline-none font-light text-[#5C544E] placeholder-[#9CA3AF] bg-transparent"
+              className="flex-1 outline-none font-light text-[#4A433D] placeholder-[#9CA3AF] bg-transparent"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
           <select
-            className="bg-white border border-[#F5F2F0] rounded-2xl px-5 py-3 shadow-sm outline-none focus:border-[#EADFD4]/30 transition-all text-xs font-semibold text-[#5C544E] appearance-none"
+            className="bg-white border border-[#F5F2F0] rounded-2xl px-5 py-3 shadow-sm outline-none focus:border-[#EADFD4]/30 transition-all text-xs font-semibold text-[#4A433D] appearance-none"
             value={conditionFilter}
             onChange={e => setConditionFilter(e.target.value)}
           >
@@ -265,13 +265,13 @@ export default function Patients({ user, initialPatientId }: { user: User, initi
                           <UserIcon size={24} />
                         </div>
                         <div>
-                          <p className="font-semibold text-[#5C544E]">{patient.name}</p>
+                          <p className="font-semibold text-[#4A433D]">{patient.name}</p>
                           <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest">Paciente</p>
                         </div>
                       </div>
                     </td>
                     <td className="p-6">
-                      <p className="text-sm text-[#5C544E] font-medium">{patient.cpf || '-'}</p>
+                      <p className="text-sm text-[#4A433D] font-medium">{patient.cpf || '-'}</p>
                       <p className="text-xs text-[#9CA3AF] font-light">{patient.email || 'Sem e-mail'}</p>
                     </td>
                     <td className="p-6 text-sm font-light text-[#9CA3AF]">
@@ -402,7 +402,7 @@ function AddPatientModal({ user, onClose }: { user: User, onClose: () => void })
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
         className="bg-white w-full max-w-lg rounded-[40px] p-10 shadow-2xl"
       >
-        <h2 className="text-2xl font-light mb-8 text-[#5C544E] serif">Novo Cadastro</h2>
+        <h2 className="text-2xl font-light mb-8 text-[#4A433D] serif">Novo Cadastro</h2>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Nome Completo</label>
@@ -684,7 +684,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      <button onClick={onBack} className="flex items-center gap-2 text-[#9CA3AF] hover:text-[#5C544E] transition-all group font-medium">
+      <button onClick={onBack} className="flex items-center gap-2 text-[#9CA3AF] hover:text-[#4A433D] transition-all group font-medium">
         <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
         <span>Voltar para lista</span>
       </button>
@@ -697,7 +697,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
               <UserIcon size={48} />
               <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
-            <h2 className="text-2xl font-light serif text-[#5C544E] leading-tight">{patient.name}</h2>
+            <h2 className="text-2xl font-light serif text-[#4A433D] leading-tight">{patient.name}</h2>
             <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-[0.2em] mt-3">{patient.cpf || 'Sem CPF'}</p>
             <input
               value={phoneDraft}
@@ -709,7 +709,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
                 }
               }}
               placeholder="Adicionar telefone"
-              className="mt-2 text-center text-xs text-[#5C544E] bg-transparent border-b border-transparent hover:border-[#F5F2F0] focus:border-[#EADFD4] outline-none transition-all px-2 py-1 w-full"
+              className="mt-2 text-center text-xs text-[#4A433D] bg-transparent border-b border-transparent hover:border-[#F5F2F0] focus:border-[#EADFD4] outline-none transition-all px-2 py-1 w-full"
             />
             <div className="flex justify-center gap-2 mt-3">
               {(['F', 'M'] as const).map(opt => (
@@ -744,7 +744,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
 
           <button
             onClick={() => setShowAnatomyModal(true)}
-            className="mt-4 w-full flex items-center gap-3 px-5 py-4 rounded-2xl bg-[#EADFD4]/15 border border-[#EADFD4]/40 text-[#5C544E] hover:bg-[#EADFD4]/25 transition-all"
+            className="mt-4 w-full flex items-center gap-3 px-5 py-4 rounded-2xl bg-[#EADFD4]/15 border border-[#EADFD4]/40 text-[#4A433D] hover:bg-[#EADFD4]/25 transition-all"
           >
             <Bone size={20} className="text-[#EADFD4]" />
             <span className="text-sm font-medium">Anatomia 3D</span>
@@ -753,7 +753,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
           <div className="mt-auto pt-10 border-t border-[#F5F2F0] space-y-3">
             <button
               onClick={() => exportPatientRecord(patient)}
-              className="w-full py-4 px-6 bg-white text-[#9CA3AF] border border-[#F5F2F0] rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-[#FDFBF9] hover:text-[#5C544E] transition-all shadow-sm"
+              className="w-full py-4 px-6 bg-white text-[#9CA3AF] border border-[#F5F2F0] rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-[#FDFBF9] hover:text-[#4A433D] transition-all shadow-sm"
             >
               <Download size={18} />
               Exportar Prontuário
@@ -769,7 +769,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
         </div>
 
         {confirmingDelete && (
-          <div className="fixed inset-0 bg-[#5C544E]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+          <div className="fixed inset-0 bg-[#4A433D]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
             <motion.div
               initial={{ y: 30, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
@@ -777,9 +777,9 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
               className="bg-white w-full max-w-md rounded-[40px] p-10 shadow-2xl"
             >
-              <h2 className="serif text-2xl text-[#5C544E] mb-2">Excluir paciente?</h2>
+              <h2 className="serif text-2xl text-[#4A433D] mb-2">Excluir paciente?</h2>
               <p className="text-sm text-[#9CA3AF] font-light mb-2">
-                Isso apaga permanentemente o prontuário de <strong className="text-[#5C544E]">{patient.name}</strong> —
+                Isso apaga permanentemente o prontuário de <strong className="text-[#4A433D]">{patient.name}</strong> —
                 anamnese, evolução, receituários, termos e fotos. Não pode ser desfeito.
               </p>
               <p className="text-xs text-[#9CA3AF] font-light mb-8 italic">
@@ -821,7 +821,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
             {activeTab === 'anamnesis' && (
               <motion.div key="anamnesis" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-10">
                 <div className="flex items-center justify-between pb-6 border-b border-[#F5F2F0]">
-                  <h3 className="serif text-2xl text-[#5C544E]">Ficha de Anamnese</h3>
+                  <h3 className="serif text-2xl text-[#4A433D]">Ficha de Anamnese</h3>
                   <button 
                     onClick={handleSaveAnamnesis} 
                     disabled={savingAnamnesis}
@@ -919,7 +919,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
             {activeTab === 'evolution' && (
               <motion.div key="evolution" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
                 <div className="flex items-center justify-between pb-6 border-b border-[#F5F2F0]">
-                  <h3 className="serif text-2xl text-[#5C544E]">Evolução de Tratamentos</h3>
+                  <h3 className="serif text-2xl text-[#4A433D]">Evolução de Tratamentos</h3>
                   <button 
                     onClick={() => setIsAddingEvolution(true)}
                     className="bg-[#EADFD4] text-white px-8 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 shadow-md hover:bg-[#DFCFBF] transition-all"
@@ -932,7 +932,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
                 {patient.evolution && patient.evolution.some(e => e.numericValue !== undefined) && (
                   <div className="bg-[#FDFBF9] p-8 rounded-[40px] border border-[#F5F2F0] shadow-sm">
                     <div className="mb-6">
-                      <h4 className="serif text-xl text-[#5C544E]">Gráfico de Evolução</h4>
+                      <h4 className="serif text-xl text-[#4A433D]">Gráfico de Evolução</h4>
                       <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest mt-1">Acompanhamento de Medidas / Peso / Progresso</p>
                     </div>
                     <div className="h-[250px] w-full">
@@ -984,7 +984,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
 
                 {isAddingEvolution && (
                   <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} className="p-8 bg-[#FDFBF9] rounded-[32px] border border-[#F5F2F0] space-y-6 shadow-sm">
-                    <h4 className="serif text-xl text-[#5C544E]">Novo Acompanhamento</h4>
+                    <h4 className="serif text-xl text-[#4A433D]">Novo Acompanhamento</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       <FormField label="Procedimento / Técnica" value={newEvolution.procedure} onChange={v => setNewEvolution({...newEvolution, procedure: v})} />
                       <FormField label="Medida / Valor (Opcional)" value={newEvolution.numericValue} onChange={v => setNewEvolution({...newEvolution, numericValue: v})} />
@@ -1021,17 +1021,17 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
                             </span>
                           )}
                         </div>
-                        <span className="text-lg font-normal text-[#5C544E] serif">{entry.procedure}</span>
+                        <span className="text-lg font-normal text-[#4A433D] serif">{entry.procedure}</span>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <div>
                           <p className="text-[9px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-3">Observações Clínicas</p>
-                          <p className="text-sm font-light text-[#5C544E] leading-relaxed italic">"{entry.notes}"</p>
+                          <p className="text-sm font-light text-[#4A433D] leading-relaxed italic">"{entry.notes}"</p>
                         </div>
                         {entry.bucoMaxiloNotes && (
                           <div className="bg-[#FDFBF9] p-6 rounded-2xl border border-[#F5F2F0] shadow-inner">
                             <p className="text-[9px] font-bold text-[#EADFD4] uppercase tracking-widest mb-3">Detalhes Técnicos</p>
-                            <p className="text-sm font-light text-[#5C544E] leading-relaxed">{entry.bucoMaxiloNotes}</p>
+                            <p className="text-sm font-light text-[#4A433D] leading-relaxed">{entry.bucoMaxiloNotes}</p>
                           </div>
                         )}
                       </div>
@@ -1061,12 +1061,12 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
             {activeTab === 'photos' && (
               <motion.div key="photos" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
                 <div className="flex items-center justify-between pb-6 border-b border-[#F5F2F0]">
-                  <h3 className="serif text-2xl text-[#5C544E]">Galeria Clínica</h3>
+                  <h3 className="serif text-2xl text-[#4A433D]">Galeria Clínica</h3>
                   <div className="flex items-center gap-3">
                     <button
                       onClick={() => { setCompareMode(!compareMode); setCompareSelection([]); }}
                       className={`px-8 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 border transition-all shadow-sm ${
-                        compareMode ? 'bg-[#5C544E] text-white border-[#5C544E]' : 'bg-white text-[#9CA3AF] border-[#F5F2F0] hover:border-[#EADFD4]'
+                        compareMode ? 'bg-[#4A433D] text-white border-[#4A433D]' : 'bg-white text-[#9CA3AF] border-[#F5F2F0] hover:border-[#EADFD4]'
                       }`}
                     >
                       {compareMode ? 'Sair da Comparação' : 'Comparar Antes/Depois'}
@@ -1121,8 +1121,8 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
                   <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-6" onClick={() => setCompareSelection([])}>
                     <div className="bg-white rounded-[32px] p-8 max-w-4xl w-full" onClick={e => e.stopPropagation()}>
                       <div className="flex items-center justify-between mb-6">
-                        <h4 className="serif text-xl text-[#5C544E]">Comparação Antes / Depois</h4>
-                        <button onClick={() => setCompareSelection([])} className="p-2 text-[#9CA3AF] hover:text-[#5C544E]">
+                        <h4 className="serif text-xl text-[#4A433D]">Comparação Antes / Depois</h4>
+                        <button onClick={() => setCompareSelection([])} className="p-2 text-[#9CA3AF] hover:text-[#4A433D]">
                           <X size={24} />
                         </button>
                       </div>
@@ -1143,7 +1143,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
             {activeTab === 'files' && (
               <motion.div key="files" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
                 <div className="flex items-center justify-between pb-6 border-b border-[#F5F2F0]">
-                  <h3 className="serif text-2xl text-[#5C544E]">Exames e Laudos</h3>
+                  <h3 className="serif text-2xl text-[#4A433D]">Exames e Laudos</h3>
                   <label className="bg-[#F0F7F0] text-[#8BA888] px-8 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 shadow-sm cursor-pointer hover:bg-[#E5EFE5] transition-all">
                     <Paperclip size={18} /> Anexar Arquivo
                     <input type="file" className="hidden" multiple onChange={handleFileUpload} />
@@ -1156,11 +1156,11 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
                         <FileDown size={28} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-[#5C544E] truncate">{file.name}</p>
+                        <p className="text-sm font-semibold text-[#4A433D] truncate">{file.name}</p>
                         <p className="text-[10px] text-[#9CA3AF] uppercase font-bold tracking-widest mt-1">{file.type} • {file.date}</p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <a href={file.url} download={file.name} target="_blank" rel="noreferrer" className="p-3 text-[#9CA3AF] hover:text-[#5C544E] hover:bg-[#FDFBF9] rounded-xl transition-all">
+                        <a href={file.url} download={file.name} target="_blank" rel="noreferrer" className="p-3 text-[#9CA3AF] hover:text-[#4A433D] hover:bg-[#FDFBF9] rounded-xl transition-all">
                           <Download size={20} />
                         </a>
                         <button onClick={() => handleDeleteFile(i)} className="p-3 text-[#9CA3AF] hover:text-red-400 hover:bg-[#FDFBF9] rounded-xl transition-all">
@@ -1249,7 +1249,7 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
   return (
     <div className="space-y-10">
       <div className="flex items-center justify-between pb-6 border-b border-[#F5F2F0]">
-        <h3 className="serif text-2xl text-[#5C544E]">Termos & Consentimentos</h3>
+        <h3 className="serif text-2xl text-[#4A433D]">Termos & Consentimentos</h3>
         <button 
           onClick={() => setIsSigning(true)}
           className="bg-[#EADFD4] text-white px-8 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest shadow-md hover:bg-[#DFCFBF] transition-all"
@@ -1263,7 +1263,7 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
           <div key={i} className="p-8 bg-white border border-[#F5F2F0] rounded-[32px] space-y-6 shadow-sm group hover:border-[#EADFD4]/30 transition-all">
             <div className="flex justify-between items-start">
               <div>
-                <h4 className="text-lg font-normal text-[#5C544E] serif leading-tight">{term.templateTitle}</h4>
+                <h4 className="text-lg font-normal text-[#4A433D] serif leading-tight">{term.templateTitle}</h4>
                 <p className="text-[9px] text-[#9CA3AF] font-bold uppercase tracking-[0.2em] mt-2">Assinado em {new Date(term.signedAt).toLocaleDateString('pt-BR')}</p>
               </div>
               <div className="p-3 bg-[#FDFBF9] rounded-xl text-[#9CA3AF] group-hover:bg-[#F0F7F0] group-hover:text-[#8BA888] transition-all">
@@ -1284,7 +1284,7 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
 
       <AnimatePresence>
         {isSigning && (
-          <div className="fixed inset-0 bg-[#5C544E]/20 backdrop-blur-md z-[60] flex items-center justify-center p-6">
+          <div className="fixed inset-0 bg-[#4A433D]/20 backdrop-blur-md z-[60] flex items-center justify-center p-6">
             <motion.div 
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -1294,8 +1294,8 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
               {!selectedTemplate ? (
                 <div className="space-y-8">
                   <div className="flex justify-between items-center">
-                    <h2 className="serif text-3xl text-[#5C544E]">Escolha o Modelo</h2>
-                    <button onClick={() => setIsSigning(false)} className="text-[#9CA3AF] hover:text-[#5C544E] transition-all"><X size={28} /></button>
+                    <h2 className="serif text-3xl text-[#4A433D]">Escolha o Modelo</h2>
+                    <button onClick={() => setIsSigning(false)} className="text-[#9CA3AF] hover:text-[#4A433D] transition-all"><X size={28} /></button>
                   </div>
                   {templates.length === 0 ? (
                     <div className="py-12 text-center space-y-4">
@@ -1313,7 +1313,7 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
                           className="w-full text-left p-8 bg-white border border-[#F5F2F0] rounded-[32px] hover:border-[#EADFD4] hover:shadow-lg transition-all flex justify-between items-center group"
                         >
                           <div>
-                            <span className="font-semibold text-[#5C544E] text-lg block">{t.title}</span>
+                            <span className="font-semibold text-[#4A433D] text-lg block">{t.title}</span>
                             <span className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest mt-1">Pronto para assinatura</span>
                           </div>
                           <div className="w-10 h-10 rounded-full border border-[#F5F2F0] flex items-center justify-center text-[#9CA3AF] group-hover:bg-[#EADFD4] group-hover:text-white transition-all">
@@ -1329,9 +1329,9 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
                   <div className="space-y-4">
                     <div className="flex items-center gap-3 text-[#EADFD4] mb-2">
                       <FileText size={24} />
-                      <h2 className="serif text-3xl text-[#5C544E]">{selectedTemplate.title}</h2>
+                      <h2 className="serif text-3xl text-[#4A433D]">{selectedTemplate.title}</h2>
                     </div>
-                    <div className="p-8 bg-[#FDFBF9] rounded-[32px] border border-[#F5F2F0] text-sm text-[#5C544E] leading-relaxed max-h-64 overflow-y-auto shadow-sm italic">
+                    <div className="p-8 bg-[#FDFBF9] rounded-[32px] border border-[#F5F2F0] text-sm text-[#4A433D] leading-relaxed max-h-64 overflow-y-auto shadow-sm italic">
                       {selectedTemplate.content.replace('[NOME DO PACIENTE]', patient.name)}
                     </div>
                   </div>
@@ -1388,14 +1388,14 @@ function FormField({ label, value, onChange, textarea }: { label: string, value:
       <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-[0.2em] ml-2">{label}</label>
       {textarea ? (
         <textarea 
-          className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-[28px] p-6 outline-none focus:border-[#EADFD4]/30 transition-all font-light min-h-[120px] resize-none shadow-sm text-[#5C544E]"
+          className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-[28px] p-6 outline-none focus:border-[#EADFD4]/30 transition-all font-light min-h-[120px] resize-none shadow-sm text-[#4A433D]"
           value={value}
           onChange={e => onChange(e.target.value)}
           placeholder="Descreva aqui..."
         />
       ) : (
         <input 
-          className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-[20px] p-4 px-6 outline-none focus:border-[#EADFD4]/30 transition-all font-light shadow-sm text-[#5C544E]"
+          className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-[20px] p-4 px-6 outline-none focus:border-[#EADFD4]/30 transition-all font-light shadow-sm text-[#4A433D]"
           value={value}
           onChange={e => onChange(e.target.value)}
           placeholder="..."
@@ -1511,7 +1511,7 @@ function PrescriptionModule({ user, patient }: { user: User, patient: Patient })
   return (
     <div className="space-y-10">
       <div className="flex items-center justify-between pb-6 border-b border-[#F5F2F0]">
-        <h3 className="serif text-2xl text-[#5C544E]">Receituários & Prescrições</h3>
+        <h3 className="serif text-2xl text-[#4A433D]">Receituários & Prescrições</h3>
         <div className="flex items-center gap-3">
           <button 
             onClick={() => window.open('https://app.mevo.com.br/', '_blank')}
@@ -1537,7 +1537,7 @@ function PrescriptionModule({ user, patient }: { user: User, patient: Patient })
             className="p-10 bg-[#FDFBF9] rounded-[40px] border border-[#F5F2F0] space-y-8 shadow-sm overflow-hidden"
           >
             <div className="flex items-center justify-between">
-              <h4 className="serif text-2xl text-[#5C544E]">Prescrever Medicamentos</h4>
+              <h4 className="serif text-2xl text-[#4A433D]">Prescrever Medicamentos</h4>
               <button onClick={() => setIsAdding(false)} className="text-[#9CA3AF] hover:text-[#EADFD4]">
                 <X size={24} />
               </button>
@@ -1597,7 +1597,7 @@ function PrescriptionModule({ user, patient }: { user: User, patient: Patient })
                   <Printer size={20} />
                 </div>
                 <div>
-                  <h4 className="text-lg font-normal text-[#5C544E] serif leading-tight">Receituário #{p.id.slice(-4)}</h4>
+                  <h4 className="text-lg font-normal text-[#4A433D] serif leading-tight">Receituário #{p.id.slice(-4)}</h4>
                   <p className="text-[9px] text-[#9CA3AF] font-bold uppercase tracking-[0.2em] mt-1">Prescrito em {new Date(p.date).toLocaleDateString('pt-BR')}</p>
                 </div>
               </div>
@@ -1607,7 +1607,7 @@ function PrescriptionModule({ user, patient }: { user: User, patient: Patient })
                   <div key={idx} className="flex items-start gap-3">
                     <div className="w-1.5 h-1.5 rounded-full bg-[#EADFD4] mt-2 shrink-0" />
                     <div>
-                      <p className="text-sm font-semibold text-[#5C544E]">{m.name} <span className="font-light text-[#9CA3AF]">({m.dosage})</span></p>
+                      <p className="text-sm font-semibold text-[#4A433D]">{m.name} <span className="font-light text-[#9CA3AF]">({m.dosage})</span></p>
                       <p className="text-[10px] text-[#9CA3AF] font-medium leading-relaxed mt-0.5">{m.instructions}</p>
                     </div>
                   </div>

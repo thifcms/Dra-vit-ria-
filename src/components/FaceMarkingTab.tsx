@@ -126,7 +126,7 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between pb-6 border-b border-[#F5F2F0]">
-        <h3 className="serif text-2xl text-[#5C544E]">Mapa de Aplicação</h3>
+        <h3 className="serif text-2xl text-[#4A433D]">Mapa de Aplicação</h3>
         <button
           onClick={startNew}
           className="flex items-center gap-2 px-5 py-3 bg-[#EADFD4] text-white rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-[#DFCFBF] transition-all shadow-sm"
@@ -161,7 +161,7 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
                 <Calendar size={11} />
                 {new Date(session.date).toLocaleDateString('pt-BR')}
               </p>
-              <p className="text-[11px] text-[#5C544E] mt-1">{session.points.length} ponto(s)</p>
+              <p className="text-[11px] text-[#4A433D] mt-1">{session.points.length} ponto(s)</p>
             </button>
           ))}
         </div>
@@ -169,7 +169,7 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
 
       {/* Editor de novo mapa */}
       {editing && (
-        <div className="fixed inset-0 bg-[#5C544E]/20 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-[#4A433D]/20 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-4xl max-h-[92vh] rounded-[40px] shadow-2xl flex flex-col md:flex-row overflow-hidden">
             <div className="flex-1 bg-[#FDFBF9] p-8 flex items-center justify-center relative min-h-[400px]">
               <div className="relative w-full max-w-[320px] mx-auto" style={{ aspectRatio: patient.sex === 'F' ? '538/490' : '524/490' }}>
@@ -199,8 +199,8 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
 
             <div className="w-full md:w-[340px] p-8 flex flex-col overflow-y-auto">
               <div className="flex items-center justify-between mb-6">
-                <h4 className="serif text-xl text-[#5C544E]">Novo Mapa</h4>
-                <button onClick={() => setEditing(false)} className="text-[#9CA3AF] hover:text-[#5C544E]">
+                <h4 className="serif text-xl text-[#4A433D]">Novo Mapa</h4>
+                <button onClick={() => setEditing(false)} className="text-[#9CA3AF] hover:text-[#4A433D]">
                   <X size={22} />
                 </button>
               </div>
@@ -243,7 +243,7 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
                         value={p.label}
                         onChange={e => updatePointLabel(i, e.target.value)}
                         placeholder="Ex: 4U, região frontal"
-                        className="flex-1 text-xs bg-transparent outline-none text-[#5C544E]"
+                        className="flex-1 text-xs bg-transparent outline-none text-[#4A433D]"
                       />
                       <button onClick={() => removePoint(i)} className="text-[#9CA3AF] hover:text-red-400 shrink-0">
                         <Trash2 size={14} />
@@ -258,7 +258,7 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
                             const item = inventoryItems.find(it => it.id === e.target.value);
                             updatePointInventory(i, item?.id, item?.name, p.inventoryQuantity || 1);
                           }}
-                          className="flex-1 text-[10px] bg-white border border-[#F5F2F0] rounded-lg px-2 py-1 outline-none text-[#5C544E]"
+                          className="flex-1 text-[10px] bg-white border border-[#F5F2F0] rounded-lg px-2 py-1 outline-none text-[#4A433D]"
                         >
                           <option value="">Sem baixa de estoque</option>
                           {inventoryItems.map(item => (
@@ -272,7 +272,7 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
                             step="0.1"
                             value={p.inventoryQuantity ?? 1}
                             onChange={e => updatePointInventory(i, p.inventoryItemId, p.inventoryItemName, parseFloat(e.target.value) || 0)}
-                            className="w-14 text-[10px] bg-white border border-[#F5F2F0] rounded-lg px-2 py-1 outline-none text-[#5C544E]"
+                            className="w-14 text-[10px] bg-white border border-[#F5F2F0] rounded-lg px-2 py-1 outline-none text-[#4A433D]"
                           />
                         )}
                       </div>
@@ -303,18 +303,18 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
 
       {/* Visualização de mapa salvo */}
       {viewingSession && (
-        <div className="fixed inset-0 bg-[#5C544E]/20 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-[#4A433D]/20 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-lg max-h-[92vh] rounded-[40px] shadow-2xl p-8 overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h4 className="serif text-xl text-[#5C544E]">
+                <h4 className="serif text-xl text-[#4A433D]">
                   Mapa de {new Date(viewingSession.date).toLocaleDateString('pt-BR')}
                 </h4>
                 <p className="text-[10px] text-[#9CA3AF] uppercase tracking-widest font-bold mt-1">
                   {new Date(viewingSession.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                 </p>
               </div>
-              <button onClick={() => setViewingSession(null)} className="text-[#9CA3AF] hover:text-[#5C544E]">
+              <button onClick={() => setViewingSession(null)} className="text-[#9CA3AF] hover:text-[#4A433D]">
                 <X size={22} />
               </button>
             </div>
@@ -339,7 +339,7 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
                     {i + 1}
                   </span>
                   <div className="flex-1">
-                    <span className="text-xs text-[#5C544E] block">{p.label || '(sem descrição)'}</span>
+                    <span className="text-xs text-[#4A433D] block">{p.label || '(sem descrição)'}</span>
                     {p.inventoryItemName && (
                       <span className="text-[10px] text-[#9CA3AF] flex items-center gap-1 mt-0.5">
                         <Package size={10} /> {p.inventoryQuantity} {p.inventoryItemName} baixado(s) do estoque

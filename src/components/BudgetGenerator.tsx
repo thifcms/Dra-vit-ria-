@@ -54,7 +54,7 @@ export default function BudgetGenerator({ patient, user }: { patient: Patient; u
       // Cabeçalho
       docPdf.setFont('helvetica', 'normal');
       docPdf.setFontSize(20);
-      docPdf.setTextColor(92, 84, 78); // #5C544E
+      docPdf.setTextColor(92, 84, 78); // #4A433D
       docPdf.text(clinicName, margin, y);
       y += 7;
       if (professionalName) {
@@ -148,7 +148,7 @@ export default function BudgetGenerator({ patient, user }: { patient: Patient; u
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between pb-6 border-b border-[#F5F2F0]">
-        <h3 className="serif text-2xl text-[#5C544E]">Gerar Orçamento</h3>
+        <h3 className="serif text-2xl text-[#4A433D]">Gerar Orçamento</h3>
       </div>
 
       <div className="space-y-3">
@@ -179,14 +179,14 @@ export default function BudgetGenerator({ patient, user }: { patient: Patient; u
 
       <button
         onClick={addItem}
-        className="flex items-center gap-2 text-[#5C544E] text-xs font-bold uppercase tracking-widest hover:text-[#EADFD4] transition-all"
+        className="flex items-center gap-2 text-[#4A433D] text-xs font-bold uppercase tracking-widest hover:text-[#EADFD4] transition-all"
       >
         <Plus size={16} /> Adicionar Item
       </button>
 
       <div className="flex justify-end items-center gap-3 py-4 border-t border-[#F5F2F0]">
         <span className="text-xs text-[#9CA3AF] font-bold uppercase tracking-widest">Total</span>
-        <span className="serif text-2xl text-[#5C544E]">
+        <span className="serif text-2xl text-[#4A433D]">
           R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
         </span>
       </div>

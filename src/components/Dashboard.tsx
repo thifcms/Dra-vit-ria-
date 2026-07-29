@@ -199,28 +199,28 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
         <motion.div 
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="lg:col-span-2 bg-[#EADFD4] rounded-[48px] p-12 text-[#5C544E] relative overflow-hidden flex flex-col justify-between min-h-[300px] shadow-xl"
+          className="lg:col-span-2 bg-[#EADFD4] rounded-[48px] p-12 text-[#4A433D] relative overflow-hidden flex flex-col justify-between min-h-[300px] shadow-xl"
         >
           <div className="relative z-10">
             <h2 className="text-4xl font-light mb-4 serif">
-              Olá, <span className="italic">{professionalName}</span>
+              Olá, <span className="italic">Dra. {professionalName}</span>
             </h2>
-            <p className="text-[#5C544E]/70 font-light max-w-sm leading-relaxed text-lg">
-              Sua clínica está operando com <span className="text-[#5C544E] font-medium">excelência</span> hoje. Confira os destaques do seu consultório.
+            <p className="text-[#4A433D]/70 font-light max-w-sm leading-relaxed text-lg">
+              Sua clínica está operando com <span className="text-[#4A433D] font-medium">excelência</span> hoje. Confira os destaques do seu consultório.
             </p>
           </div>
           
           <div className="relative z-10 flex gap-4 mt-8">
             <button 
               onClick={() => onNavigate('schedule')}
-              className="px-10 py-5 bg-[#5C544E] text-white rounded-2xl hover:bg-[#4A433D] transition-all shadow-lg font-bold text-[10px] uppercase tracking-widest flex items-center gap-3"
+              className="px-10 py-5 bg-[#4A433D] text-white rounded-2xl hover:bg-[#4A433D] transition-all shadow-lg font-bold text-[10px] uppercase tracking-widest flex items-center gap-3"
             >
               Agenda de Hoje <ArrowRight size={16} />
             </button>
           </div>
 
           <div className="absolute right-0 top-0 w-80 h-80 bg-white/30 rounded-full -translate-y-1/3 translate-x-1/3 blur-3xl" />
-          <div className="absolute left-1/4 bottom-0 w-40 h-40 bg-[#5C544E]/5 rounded-full translate-y-1/2 blur-2xl" />
+          <div className="absolute left-1/4 bottom-0 w-40 h-40 bg-[#4A433D]/5 rounded-full translate-y-1/2 blur-2xl" />
         </motion.div>
 
         <AnimatePresence>
@@ -238,8 +238,8 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
                 <span className="bg-[#FDFBF9] text-[#9CA3AF] px-4 py-2 rounded-xl text-[9px] font-bold uppercase tracking-[0.2em] border border-[#F5F2F0]">
                   Próximo Atendimento
                 </span>
-                <h3 className="text-4xl font-light text-[#5C544E] serif mt-8 mb-2">{nextAppointment.time}</h3>
-                <p className="text-xl text-[#5C544E] font-medium">{nextAppointment.patientName}</p>
+                <h3 className="text-4xl font-light text-[#4A433D] serif mt-8 mb-2">{nextAppointment.time}</h3>
+                <p className="text-xl text-[#4A433D] font-medium">{nextAppointment.patientName}</p>
                 <p className="text-[#9CA3AF] font-light text-sm mt-1">{nextAppointment.notes || 'Procedimento Estético'}</p>
               </div>
 
@@ -293,7 +293,7 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
             <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-[#EADFD4] shadow-sm mb-6 group-hover:bg-[#EADFD4] group-hover:text-white transition-all">
               <Plus size={24} />
             </div>
-            <h3 className="serif text-2xl text-[#5C544E] mb-2">Novo Cadastro</h3>
+            <h3 className="serif text-2xl text-[#4A433D] mb-2">Novo Cadastro</h3>
             <p className="text-xs text-[#9CA3AF] font-light leading-relaxed">Adicione um novo paciente à sua base de dados em segundos.</p>
           </div>
           <ArrowRight className="mt-8 text-[#F5F2F0] group-hover:text-[#EADFD4] group-hover:translate-x-2 transition-all" />
@@ -308,7 +308,7 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
             <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-[#8BA888] shadow-sm mb-6 group-hover:bg-[#8BA888] group-hover:text-white transition-all">
               <TrendingUp size={24} />
             </div>
-            <h3 className="serif text-2xl text-[#5C544E] mb-2">Fluxo de Caixa</h3>
+            <h3 className="serif text-2xl text-[#4A433D] mb-2">Fluxo de Caixa</h3>
             <p className="text-xs text-[#9CA3AF] font-light leading-relaxed">Visualize a saúde financeira do seu consultório em tempo real.</p>
           </div>
           <ArrowRight className="mt-8 text-[#F5F2F0] group-hover:text-[#8BA888] group-hover:translate-x-2 transition-all" />
@@ -316,17 +316,17 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
 
         <motion.div 
           whileHover={{ scale: 1.01 }}
-          className="md:col-span-1 bg-[#EADFD4] rounded-[40px] p-10 flex flex-col justify-between group cursor-pointer text-[#5C544E]"
+          className="md:col-span-1 bg-[#EADFD4] rounded-[40px] p-10 flex flex-col justify-between group cursor-pointer text-[#4A433D]"
           onClick={() => onNavigate('settings')}
         >
           <div>
-            <div className="w-14 h-14 bg-white/50 rounded-2xl flex items-center justify-center text-[#5C544E] shadow-sm mb-6 group-hover:bg-white transition-all">
+            <div className="w-14 h-14 bg-white/50 rounded-2xl flex items-center justify-center text-[#4A433D] shadow-sm mb-6 group-hover:bg-white transition-all">
               <SettingsIcon size={24} />
             </div>
             <h3 className="serif text-2xl mb-2">Configurações</h3>
-            <p className="text-xs text-[#5C544E]/60 font-light leading-relaxed">Personalize os termos de consentimento e dados da clínica.</p>
+            <p className="text-xs text-[#4A433D]/60 font-light leading-relaxed">Personalize os termos de consentimento e dados da clínica.</p>
           </div>
-          <ArrowRight className="mt-8 text-[#5C544E]/30 group-hover:text-[#5C544E] group-hover:translate-x-2 transition-all" />
+          <ArrowRight className="mt-8 text-[#4A433D]/30 group-hover:text-[#4A433D] group-hover:translate-x-2 transition-all" />
         </motion.div>
       </div>
 
@@ -338,7 +338,7 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
       >
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-12 gap-4">
           <div>
-            <h3 className="serif text-2xl text-[#5C544E] mb-1">Crescimento Mensal</h3>
+            <h3 className="serif text-2xl text-[#4A433D] mb-1">Crescimento Mensal</h3>
             <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest">Acompanhamento de Receita • Últimos 6 meses</p>
           </div>
           <div className="flex items-center gap-4">
@@ -379,7 +379,7 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
                   boxShadow: '0 10px 30px rgba(0,0,0,0.05)',
                   padding: '15px 20px'
                 }}
-                itemStyle={{ color: '#5C544E', fontWeight: 600, fontSize: '14px' }}
+                itemStyle={{ color: '#4A433D', fontWeight: 600, fontSize: '14px' }}
                 labelStyle={{ fontSize: '10px', color: '#9CA3AF', fontWeight: 700, textTransform: 'uppercase', marginBottom: '5px' }}
               />
               <Area 
@@ -402,7 +402,7 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
           <div className="bg-[#FDFBF9] rounded-[40px] border border-[#F5F2F0] p-10 card-shadow lg:col-span-2">
             <div className="flex items-center justify-between mb-8">
               <div>
-                <h3 className="serif text-2xl text-[#5C544E]">Novos Agendamentos Online</h3>
+                <h3 className="serif text-2xl text-[#4A433D]">Novos Agendamentos Online</h3>
                 <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest">Confirme e envie o link de chegada para o paciente</p>
               </div>
               <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-[#EADFD4] shadow-sm">
@@ -413,7 +413,7 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
               {pendingOnlineBookings.map((appt) => (
                 <div key={appt.id} className="bg-white p-6 rounded-3xl border border-[#F5F2F0] flex items-center justify-between group">
                   <div>
-                    <p className="text-sm font-semibold text-[#5C544E]">{appt.patientName}</p>
+                    <p className="text-sm font-semibold text-[#4A433D]">{appt.patientName}</p>
                     <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest mt-1">
                       {new Date(appt.date + 'T00:00:00').toLocaleDateString('pt-BR')} às {appt.time}
                     </p>
@@ -433,7 +433,7 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
         {/* Today's Schedule List */}
         <div className="bg-white rounded-[40px] border border-[#F5F2F0] p-10 card-shadow">
           <div className="flex items-center justify-between mb-10">
-            <h3 className="serif text-2xl text-[#5C544E]">Agenda de Hoje</h3>
+            <h3 className="serif text-2xl text-[#4A433D]">Agenda de Hoje</h3>
             <button onClick={() => onNavigate('schedule')} className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest hover:text-red-400 transition-colors flex items-center gap-2">
               Agenda Completa <ChevronRight size={14} />
             </button>
@@ -443,7 +443,7 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
               <div key={appt.id} className="flex items-center gap-6 p-6 rounded-3xl border border-transparent hover:border-[#F5F2F0] hover:bg-[#FDFBF9]/40 transition-all group">
                 <div className="text-xs font-bold text-[#9CA3AF] uppercase w-12 text-center py-2 bg-[#FDFBF9] rounded-xl">{appt.time}</div>
                 <div className="flex-1">
-                  <p className="text-base font-semibold text-[#5C544E]">{appt.patientName}</p>
+                  <p className="text-base font-semibold text-[#4A433D]">{appt.patientName}</p>
                   <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest mt-1">{appt.notes || 'Avaliação Clínica'}</p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -476,7 +476,7 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
         {/* Recent Activity / Patients */}
         <div className="bg-white rounded-[40px] border border-[#F5F2F0] p-10 card-shadow">
           <div className="flex items-center justify-between mb-10">
-            <h3 className="serif text-2xl text-[#5C544E]">Novos Pacientes</h3>
+            <h3 className="serif text-2xl text-[#4A433D]">Novos Pacientes</h3>
             <button onClick={() => onNavigate('patients')} className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest hover:text-red-400 transition-colors flex items-center gap-2">
               Ver Todos <ChevronRight size={14} />
             </button>
@@ -489,7 +489,7 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
                     <Users size={20} />
                   </div>
                   <div>
-                    <p className="text-base font-semibold text-[#5C544E]">{p.name}</p>
+                    <p className="text-base font-semibold text-[#4A433D]">{p.name}</p>
                     <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest">Prontuário Ativo</p>
                   </div>
                 </div>
@@ -529,7 +529,7 @@ function StatCard({ label, value, icon, trend, variant = "default" }: any) {
       </div>
       <div>
         <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-[0.2em] mb-2 ml-1">{label}</p>
-        <p className="text-3xl font-light text-[#5C544E] serif leading-tight">{value}</p>
+        <p className="text-3xl font-light text-[#4A433D] serif leading-tight">{value}</p>
       </div>
       <div className="absolute right-0 bottom-0 w-24 h-24 bg-[#EADFD4]/5 rounded-full translate-x-1/2 translate-y-1/2" />
     </motion.div>

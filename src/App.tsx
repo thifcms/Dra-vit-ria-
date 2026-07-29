@@ -233,7 +233,7 @@ function AuthenticatedApp() {
           <div className="w-20 h-20 bg-[#EADFD4]/10 rounded-full flex items-center justify-center mx-auto mb-8">
             <UserIcon className="text-[#EADFD4] w-10 h-10" />
           </div>
-          <h1 className="text-3xl font-light text-[#5C544E] mb-2 serif">Bem-vindo</h1>
+          <h1 className="text-3xl font-light text-[#4A433D] mb-2 serif">Bem-vindo</h1>
           <p className="text-[#9CA3AF] mb-10 font-light italic">Gestão moderna e delicada</p>
           
           <button 
@@ -258,7 +258,7 @@ function AuthenticatedApp() {
           <div className="w-20 h-20 bg-[#EADFD4]/10 rounded-full flex items-center justify-center mx-auto mb-8">
             <UserIcon className="text-[#EADFD4] w-10 h-10" />
           </div>
-          <h1 className="text-2xl font-light text-[#5C544E] mb-2 serif">
+          <h1 className="text-2xl font-light text-[#4A433D] mb-2 serif">
             {clinicSettings?.webauthnCredentialId ? 'Confirme sua identidade' : 'Digite seu PIN'}
           </h1>
           <p className="text-[#9CA3AF] mb-8 font-light text-sm">Segurança extra pra abrir o app</p>
@@ -312,14 +312,14 @@ function AuthenticatedApp() {
             </>
           )}
 
-          <button onClick={handleForgotPin} className="text-xs text-[#9CA3AF] hover:text-[#5C544E] transition-all">
+          <button onClick={handleForgotPin} className="text-xs text-[#9CA3AF] hover:text-[#4A433D] transition-all">
             Esqueci o PIN / biometria
           </button>
         </motion.div>
         <ToastHost />
       </motion.div>
     ) : (
-    <motion.div key="app" {...PAGE_FADE} className="flex h-screen bg-[#FDFBF9] text-[#5C544E] overflow-hidden relative">
+    <motion.div key="app" {...PAGE_FADE} className="flex h-screen bg-[#FDFBF9] text-[#4A433D] overflow-hidden relative">
       <ToastHost />
       {/* Sidebar - Retractable Drawer */}
       <AnimatePresence>
@@ -347,7 +347,7 @@ function AuthenticatedApp() {
                   <div className="w-10 h-10 bg-[#EADFD4] rounded-2xl flex items-center justify-center shadow-sm">
                     <span className="text-white font-serif text-xl">{professionalName.trim().charAt(0).toUpperCase() || '?'}</span>
                   </div>
-                  <span className="serif text-xl tracking-tight text-[#5C544E]">{professionalName}</span>
+                  <span className="serif text-xl tracking-tight text-[#4A433D]">{professionalName}</span>
                 </div>
                 <button 
                   onClick={() => setIsSidebarOpen(false)}
@@ -373,7 +373,7 @@ function AuthenticatedApp() {
                       <button
                         key={p.id}
                         onClick={() => { setActiveView('patients'); setJumpToPatientId(p.id!); setIsSidebarOpen(false); setSidebarSearch(''); }}
-                        className="w-full text-left px-4 py-3 text-sm text-[#5C544E] hover:bg-[#FDFBF9] border-b border-[#F5F2F0] last:border-0"
+                        className="w-full text-left px-4 py-3 text-sm text-[#4A433D] hover:bg-[#FDFBF9] border-b border-[#F5F2F0] last:border-0"
                       >
                         {p.name}
                       </button>
@@ -431,7 +431,7 @@ function AuthenticatedApp() {
                     )}
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-[#5C544E] truncate">{professionalName}</p>
+                    <p className="text-sm font-semibold text-[#4A433D] truncate">{professionalName}</p>
                     <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest">{clinicSettings?.registrationNumber ? `CRO/CRM ${clinicSettings.registrationNumber}` : 'Especialista'}</p>
                   </div>
                 </div>
@@ -463,7 +463,7 @@ function AuthenticatedApp() {
                   <ArrowLeft size={20} />
                 </button>
               )}
-              <h1 className="serif text-xl md:text-2xl text-[#5C544E] leading-none">
+              <h1 className="serif text-xl md:text-2xl text-[#4A433D] leading-none">
                 {activeView === 'dashboard' ? '' : 
                  activeView === 'patients' ? 'Pacientes' :
                  activeView === 'schedule' ? 'Agenda' :
@@ -471,7 +471,7 @@ function AuthenticatedApp() {
                  activeView === 'finance' ? 'Financeiro' : 'Configurações'}
               </h1>
               {activeView === 'dashboard' && (
-                <span className="serif text-xl md:text-2xl text-[#EADFD4] leading-none">{professionalName}</span>
+                <span className="serif text-xl md:text-2xl text-[#EADFD4] leading-none">Dra. {professionalName}</span>
               )}
             </div>
             <p className="text-[10px] md:text-xs text-[#9CA3AF] font-semibold uppercase tracking-[0.2em] mt-2">

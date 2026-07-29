@@ -58,7 +58,7 @@ export default function Cancel() {
             <div className="w-20 h-20 bg-[#FDF0F0] rounded-full flex items-center justify-center mx-auto mb-8">
               <XCircle className="text-red-400 w-10 h-10" />
             </div>
-            <h1 className="text-2xl font-light text-[#5C544E] mb-3 serif">Consulta cancelada</h1>
+            <h1 className="text-2xl font-light text-[#4A433D] mb-3 serif">Consulta cancelada</h1>
             <p className="text-[#9CA3AF] font-light">Seu horário foi liberado. Se quiser remarcar, é só agendar de novo quando quiser.</p>
           </>
         ) : status === 'error' ? (
@@ -66,7 +66,7 @@ export default function Cancel() {
             <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-8">
               <XCircle className="text-red-400 w-10 h-10" />
             </div>
-            <h1 className="text-2xl font-light text-[#5C544E] mb-3 serif">Link inválido ou expirado</h1>
+            <h1 className="text-2xl font-light text-[#4A433D] mb-3 serif">Link inválido ou expirado</h1>
             <p className="text-[#9CA3AF] font-light">Se precisar cancelar, entre em contato diretamente com a clínica.</p>
           </>
         ) : (
@@ -74,7 +74,7 @@ export default function Cancel() {
             <div className="w-20 h-20 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-8">
               <AlertTriangle className="text-amber-500 w-10 h-10" />
             </div>
-            <h1 className="text-2xl font-light text-[#5C544E] mb-2 serif">Cancelar consulta?</h1>
+            <h1 className="text-2xl font-light text-[#4A433D] mb-2 serif">Cancelar consulta?</h1>
             {date && time && (
               <p className="text-[#9CA3AF] font-light mb-8">
                 {new Date(date + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })} às {time}

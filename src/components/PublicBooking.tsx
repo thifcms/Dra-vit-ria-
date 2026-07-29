@@ -44,7 +44,7 @@ function ProcedurePicker({
             className={`px-4 py-2.5 rounded-xl text-xs font-medium border transition-all ${
               value === opt
                 ? 'bg-[#EADFD4] text-white border-[#EADFD4]'
-                : 'bg-[#FDFBF9] text-[#5C544E] border-[#F5F2F0] hover:border-[#EADFD4]'
+                : 'bg-[#FDFBF9] text-[#4A433D] border-[#F5F2F0] hover:border-[#EADFD4]'
             }`}
           >
             {opt}
@@ -56,7 +56,7 @@ function ProcedurePicker({
           className={`px-4 py-2.5 rounded-xl text-xs font-medium border transition-all ${
             isCustom
               ? 'bg-[#EADFD4] text-white border-[#EADFD4]'
-              : 'bg-[#FDFBF9] text-[#5C544E] border-[#F5F2F0] hover:border-[#EADFD4]'
+              : 'bg-[#FDFBF9] text-[#4A433D] border-[#F5F2F0] hover:border-[#EADFD4]'
           }`}
         >
           {isCustom ? value : 'Outros'}
@@ -64,14 +64,14 @@ function ProcedurePicker({
       </div>
 
       {showOtherDialog && (
-        <div className="fixed inset-0 bg-[#5C544E]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6" onClick={() => setShowOtherDialog(false)}>
+        <div className="fixed inset-0 bg-[#4A433D]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6" onClick={() => setShowOtherDialog(false)}>
           <motion.div
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             onClick={e => e.stopPropagation()}
             className="bg-white w-full max-w-sm rounded-[32px] p-8 shadow-2xl"
           >
-            <h3 className="serif text-lg text-[#5C544E] mb-4">Qual procedimento?</h3>
+            <h3 className="serif text-lg text-[#4A433D] mb-4">Qual procedimento?</h3>
             <input
               autoFocus
               value={otherDraft}
@@ -124,7 +124,7 @@ function PrivacyConsent({ accepted, onChange, onReadMore }: {
         <button
           type="button"
           onClick={(e) => { e.preventDefault(); onReadMore(); }}
-          className="text-[#5C544E] font-medium underline underline-offset-2"
+          className="text-[#4A433D] font-medium underline underline-offset-2"
         >
           Política de Privacidade
         </button>
@@ -389,10 +389,10 @@ export default function PublicBooking() {
           <div className="w-20 h-20 bg-[#F0F7F0] rounded-full flex items-center justify-center mx-auto mb-8">
             <CheckCircle2 className="text-[#8BA888] w-10 h-10" />
           </div>
-          <h1 className="text-2xl font-light text-[#5C544E] mb-3 serif">Agendamento confirmado!</h1>
+          <h1 className="text-2xl font-light text-[#4A433D] mb-3 serif">Agendamento confirmado!</h1>
           <p className="text-[#9CA3AF] font-light mb-8">
             {name}, seu horário na {config.clinicName}{config.professionalName ? ` com ${config.professionalName}` : ''} está marcado para{' '}
-            <span className="text-[#5C544E] font-medium">
+            <span className="text-[#4A433D] font-medium">
               {new Date(selectedDate + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })} às {selectedTime}
             </span>. Até lá!
           </p>
@@ -480,7 +480,7 @@ export default function PublicBooking() {
           <div className="w-16 h-16 bg-[#EADFD4]/10 rounded-full flex items-center justify-center mx-auto mb-6">
             <Calendar className="text-[#EADFD4] w-8 h-8" />
           </div>
-          <h1 className="text-2xl font-light text-[#5C544E] serif">{config.clinicName}</h1>
+          <h1 className="text-2xl font-light text-[#4A433D] serif">{config.clinicName}</h1>
           {config.professionalName && (
             <p className="text-[#EADFD4] font-medium text-sm mt-1">{config.professionalName}</p>
           )}
@@ -497,13 +497,13 @@ export default function PublicBooking() {
           {step === 'calendar' && (
             <motion.div key="calendar" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <div className="flex items-center justify-between mb-6">
-                <button type="button" onClick={() => changeDay(-1)} className="p-2 text-[#9CA3AF] hover:text-[#5C544E] hover:bg-[#FDFBF9] rounded-xl transition-all">
+                <button type="button" onClick={() => changeDay(-1)} className="p-2 text-[#9CA3AF] hover:text-[#4A433D] hover:bg-[#FDFBF9] rounded-xl transition-all">
                   <ChevronLeft size={20} />
                 </button>
-                <p className="text-sm font-semibold text-[#5C544E] capitalize">
+                <p className="text-sm font-semibold text-[#4A433D] capitalize">
                   {new Date(selectedDate + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
                 </p>
-                <button type="button" onClick={() => changeDay(1)} className="p-2 text-[#9CA3AF] hover:text-[#5C544E] hover:bg-[#FDFBF9] rounded-xl transition-all">
+                <button type="button" onClick={() => changeDay(1)} className="p-2 text-[#9CA3AF] hover:text-[#4A433D] hover:bg-[#FDFBF9] rounded-xl transition-all">
                   <ChevronRight size={20} />
                 </button>
               </div>
@@ -525,7 +525,7 @@ export default function PublicBooking() {
                       key={t}
                       type="button"
                       onClick={() => handleSelectTime(t)}
-                      className="py-3 rounded-xl border border-[#F5F2F0] bg-[#FDFBF9] text-sm font-semibold text-[#5C544E] hover:bg-[#EADFD4] hover:text-white hover:border-[#EADFD4] transition-all"
+                      className="py-3 rounded-xl border border-[#F5F2F0] bg-[#FDFBF9] text-sm font-semibold text-[#4A433D] hover:bg-[#EADFD4] hover:text-white hover:border-[#EADFD4] transition-all"
                     >
                       {t}
                     </button>
@@ -540,13 +540,13 @@ export default function PublicBooking() {
               <button
                 type="button"
                 onClick={() => { setStep('calendar'); setSelectedTime(null); }}
-                className="flex items-center gap-2 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-6 hover:text-[#5C544E] transition-all"
+                className="flex items-center gap-2 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-6 hover:text-[#4A433D] transition-all"
               >
                 <ChevronLeft size={14} /> Trocar horário
               </button>
 
               <div className="mb-6 p-4 bg-[#FDFBF9] rounded-2xl border border-[#F5F2F0] text-center">
-                <p className="text-sm font-semibold text-[#5C544E] capitalize">
+                <p className="text-sm font-semibold text-[#4A433D] capitalize">
                   {new Date(selectedDate + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
                 </p>
                 <p className="text-2xl font-light text-[#EADFD4] serif mt-1">{selectedTime}</p>
@@ -587,7 +587,7 @@ export default function PublicBooking() {
               <button
                 type="button"
                 onClick={() => { setStep('phone'); setExistingPatientId(null); setName(''); }}
-                className="flex items-center gap-2 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-6 hover:text-[#5C544E] transition-all"
+                className="flex items-center gap-2 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-6 hover:text-[#4A433D] transition-all"
               >
                 <ChevronLeft size={14} /> Não sou eu / trocar telefone
               </button>
@@ -596,12 +596,12 @@ export default function PublicBooking() {
                 <div className="w-16 h-16 bg-[#F0F7F0] rounded-full flex items-center justify-center mx-auto mb-4">
                   <CheckCircle2 className="text-[#8BA888] w-8 h-8" />
                 </div>
-                <p className="text-lg font-medium text-[#5C544E]">Bem-vindo(a) de volta, {name.split(' ')[0]}!</p>
+                <p className="text-lg font-medium text-[#4A433D]">Bem-vindo(a) de volta, {name.split(' ')[0]}!</p>
                 <p className="text-xs text-[#9CA3AF] font-light mt-1">Já reconhecemos seu cadastro — não precisa preencher tudo de novo.</p>
               </div>
 
               <div className="mb-6 p-4 bg-[#FDFBF9] rounded-2xl border border-[#F5F2F0] text-center">
-                <p className="text-sm font-semibold text-[#5C544E] capitalize">
+                <p className="text-sm font-semibold text-[#4A433D] capitalize">
                   {new Date(selectedDate + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
                 </p>
                 <p className="text-2xl font-light text-[#EADFD4] serif mt-1">{selectedTime}</p>
@@ -637,7 +637,7 @@ export default function PublicBooking() {
               <button
                 type="button"
                 onClick={() => setStep('phone')}
-                className="flex items-center gap-2 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-6 hover:text-[#5C544E] transition-all"
+                className="flex items-center gap-2 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-6 hover:text-[#4A433D] transition-all"
               >
                 <ChevronLeft size={14} /> Voltar
               </button>
@@ -752,7 +752,7 @@ export default function PublicBooking() {
       </motion.div>
 
       {showPrivacyModal && (
-        <div className="fixed inset-0 bg-[#5C544E]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6" onClick={() => setShowPrivacyModal(false)}>
+        <div className="fixed inset-0 bg-[#4A433D]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6" onClick={() => setShowPrivacyModal(false)}>
           <motion.div
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
@@ -760,8 +760,8 @@ export default function PublicBooking() {
             className="bg-white w-full max-w-lg rounded-[32px] p-8 shadow-2xl max-h-[80vh] overflow-y-auto"
           >
             <div className="flex items-center justify-between mb-6">
-              <h3 className="serif text-xl text-[#5C544E]">Política de Privacidade</h3>
-              <button onClick={() => setShowPrivacyModal(false)} className="p-2 text-[#9CA3AF] hover:text-[#5C544E]">
+              <h3 className="serif text-xl text-[#4A433D]">Política de Privacidade</h3>
+              <button onClick={() => setShowPrivacyModal(false)} className="p-2 text-[#9CA3AF] hover:text-[#4A433D]">
                 <X size={22} />
               </button>
             </div>
