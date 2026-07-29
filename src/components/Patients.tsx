@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import SignaturePad from 'react-signature-canvas';
 import { showToast } from '../lib/toast';
+import { generatePatientPdf, patientPdfFileName } from '../lib/patientPdf';
 const AnatomyViewer = lazy(() => import('./AnatomyViewer'));
 import FaceMarkingTab from './FaceMarkingTab';
 import BudgetGenerator from './BudgetGenerator';
@@ -563,6 +564,23 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
   };
 
   const [releasingAnamnesis, setReleasingAnamnesis] = useState(false);
+  // Backup automático: sempre que algo é liberado (trava definitiva, o momento que
+  // importa legalmente), baixa sozinho um PDF atualizado do prontuário — sem depender de
+  // ninguém lembrar de ir em Configurações fazer isso manualmente depois.
+  const triggerAutoBackup = async (updatedPatientData: Patient) => {
+    try {
+      const blob = await generatePatientPdf(updatedPatientData, null);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = patientPdfFileName(updatedPatientData);
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      // Melhor esforço — não trava a liberação em si se o backup falhar por algum motivo
+    }
+  };
+
   const handleReleaseAnamnesis = async () => {
     if (patient.anamnesisReleased) return;
     if (!confirm('Depois de liberada, essa anamnese não poderá mais ser editada por ninguém — nem por administrador. Confirma?')) return;
@@ -570,15 +588,17 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
     try {
       const releasedAt = new Date().toISOString();
       const historyEntry = { snapshot: anamnesis, releasedAt, releasedBy: user.email || user.uid };
-      await updateDoc(doc(db, 'patients', patient.id!), {
+      const updatedFields = {
         anamnesis,
         anamnesisReleased: true,
         anamnesisReleasedAt: releasedAt,
         anamnesisReleasedBy: user.email || user.uid,
         anamnesisHistory: [...(patient.anamnesisHistory || []), historyEntry],
         updatedAt: releasedAt,
-      });
+      };
+      await updateDoc(doc(db, 'patients', patient.id!), updatedFields);
       showToast('Anamnese liberada — trancada no histórico do paciente');
+      triggerAutoBackup({ ...patient, ...updatedFields });
     } catch (err) {
       showToast('Erro ao liberar', 'error');
     }
@@ -631,12 +651,14 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
       const releasedAt = new Date().toISOString();
       const historyEntry = { ...draft, releasedAt, releasedBy: user.email || user.uid };
       const remainingDrafts = (patient.evolution || []).filter((_, i) => i !== index);
-      await updateDoc(doc(db, 'patients', patient.id!), {
+      const updatedFields = {
         evolution: remainingDrafts,
         evolutionHistory: [...(patient.evolutionHistory || []), historyEntry],
         updatedAt: releasedAt,
-      });
+      };
+      await updateDoc(doc(db, 'patients', patient.id!), updatedFields);
       showToast('Registro liberado — travado no histórico do paciente');
+      triggerAutoBackup({ ...patient, ...updatedFields });
     } catch (err) {
       showToast('Erro ao liberar', 'error');
     }
