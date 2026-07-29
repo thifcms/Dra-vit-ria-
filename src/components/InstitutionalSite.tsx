@@ -179,8 +179,8 @@ export default function InstitutionalSite() {
       <section id="sobre" className="bg-[#F5EFE8] py-28">
         <div className="max-w-6xl mx-auto px-6 md:px-10 grid grid-cols-1 md:grid-cols-12 gap-12 items-center">
           <motion.div {...reveal} className="md:col-span-5">
-            <div className="aspect-[4/5] bg-[#EADFD4]/50 rounded-[40px] flex items-center justify-center">
-              <FaceProfileLine className="w-2/3 text-[#B8846E]/50" />
+            <div className="aspect-[4/5] rounded-[40px] overflow-hidden">
+              <img src="/site/dra-vitoria.jpg" alt="Dra. Vitória Oliveira" className="w-full h-full object-cover" />
             </div>
           </motion.div>
           <motion.div {...reveal} className="md:col-span-7">
