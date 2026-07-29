@@ -21,6 +21,7 @@ import {
   Trash2,
   Paperclip,
   Microscope,
+  Stamp,
   Bone,
   MapPin,
   Lock,
@@ -411,7 +412,7 @@ function AddPatientModal({ user, onClose }: { user: User, onClose: () => void })
 }
 
 function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient, onBack: () => void }) {
-  const [activeTab, setActiveTab] = useState<'anamnesis' | 'evolution' | 'photos' | 'files' | 'exams' | 'consent' | 'prescriptions' | 'facemap' | 'budget'>('anamnesis');
+  const [activeTab, setActiveTab] = useState<'anamnesis' | 'evolution' | 'photos' | 'files' | 'exams' | 'atestado' | 'consent' | 'prescriptions' | 'facemap' | 'budget'>('anamnesis');
   const [phoneDraft, setPhoneDraft] = useState(patient.phone || '');
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deletingPatient, setDeletingPatient] = useState(false);
@@ -905,6 +906,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
             <TabButton active={activeTab === 'evolution'} onClick={() => setActiveTab('evolution')} icon={<History size={20} />} label="Evolução Clínica" />
             <TabButton active={activeTab === 'exams'} onClick={() => setActiveTab('exams')} icon={<Microscope size={20} />} label="Exames" />
             <TabButton active={activeTab === 'prescriptions'} onClick={() => setActiveTab('prescriptions')} icon={<Pill size={20} />} label="Receituários" />
+            <TabButton active={activeTab === 'atestado'} onClick={() => setActiveTab('atestado')} icon={<Stamp size={20} />} label="Atestado" />
             <TabButton active={activeTab === 'consent'} onClick={() => setActiveTab('consent')} icon={<CheckCircle2 size={20} />} label="Termos & Assinaturas" />
             <TabButton active={activeTab === 'photos'} onClick={() => setActiveTab('photos')} icon={<Camera size={20} />} label="Galeria de Fotos" />
             <TabButton active={activeTab === 'files'} onClick={() => setActiveTab('files')} icon={<Paperclip size={20} />} label="Anexos" />
@@ -1297,6 +1299,12 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
               </motion.div>
             )}
 
+            {activeTab === 'atestado' && (
+              <motion.div key="atestado" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <AtestadoModule user={user} patient={patient} />
+              </motion.div>
+            )}
+
             {activeTab === 'consent' && (
               <motion.div key="consent" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                 <ConsentTermsModule user={user} patient={patient} />
@@ -1608,6 +1616,136 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
           </motion.div>
         </div>
       )}
+    </div>
+  );
+}
+
+function AtestadoModule({ user, patient }: { user: User, patient: Patient }) {
+  const [clinicSettings, setClinicSettings] = useState<ClinicSettings | null>(null);
+  const [purpose, setPurpose] = useState('');
+  const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split('T')[0]);
+  const [timeFrom, setTimeFrom] = useState('');
+  const [timeTo, setTimeTo] = useState('');
+  const [restAmount, setRestAmount] = useState('');
+  const [restUnit, setRestUnit] = useState<'horas' | 'dias'>('horas');
+  const [cid, setCid] = useState('');
+  const [rg, setRg] = useState('');
+
+  useEffect(() => {
+    (async () => {
+      const ownerId = await getClinicOwnerId(db).catch(() => user.uid);
+      const snap = await getDoc(doc(db, 'settings', ownerId));
+      if (snap.exists()) setClinicSettings(snap.data() as ClinicSettings);
+    })();
+  }, [user.uid]);
+
+  const documentIdLabel = patient.cpf ? `CPF nº ${patient.cpf}` : rg ? `RG nº ${rg}` : '________________';
+
+  const bodyText = `Atesto, para fins ${purpose || '_______________________'} e a pedido do(a) interessado(a), que o(a) paciente ${patient.name}, ${documentIdLabel}, esteve sob meus cuidados profissionais${attendanceDate ? ` em ${new Date(attendanceDate + 'T00:00:00').toLocaleDateString('pt-BR')}` : ''}${timeFrom && timeTo ? `, no horário das ${timeFrom} às ${timeTo} horas` : ''}${cid ? `, em virtude de CID nº ${cid}, por este(a) solicitado` : ''}, necessitando de ${restAmount || '____'} (${restUnit === 'horas' ? 'horas' : 'dias'}) de afastamento de suas atividades a partir desta data.`;
+
+  const handlePrint = () => {
+    const clinicName = clinicSettings?.clinicName || clinicSettings?.professionalName || 'Clínica';
+    const professionalName = clinicSettings?.professionalName || '';
+    const today = new Date().toLocaleDateString('pt-BR');
+    const html = `
+      <!DOCTYPE html>
+      <html lang="pt-BR">
+      <head>
+        <meta charset="UTF-8" />
+        <title>Atestado — ${patient.name}</title>
+        <style>
+          body { font-family: Georgia, serif; max-width: 700px; margin: 60px auto; padding: 0 40px; color: #222; line-height: 1.8; }
+          h1 { font-size: 15px; text-transform: uppercase; letter-spacing: 0.15em; text-align: center; margin-bottom: 50px; }
+          .clinic { text-align: center; font-size: 13px; color: #555; margin-bottom: 60px; }
+          p { font-size: 14px; text-align: justify; }
+          .sign-area { margin-top: 100px; text-align: center; }
+          .sign-line { border-top: 1px solid #333; width: 320px; margin: 0 auto; padding-top: 8px; font-size: 12px; }
+          @media print { body { margin: 20px auto; } }
+        </style>
+      </head>
+      <body>
+        <div class="clinic">${clinicName}</div>
+        <h1>Atestado Odontológico</h1>
+        <p>${bodyText}</p>
+        <p style="margin-top: 60px;">Local e data: ${today}</p>
+        <div class="sign-area">
+          <div class="sign-line">
+            ${professionalName ? `${professionalName}<br/>` : ''}Cirurgião(ã)-Dentista
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.onload = () => printWindow.print();
+    }
+  };
+
+  return (
+    <div className="space-y-8">
+      <div className="flex items-center justify-between pb-6 border-b border-[#F5F2F0]">
+        <h3 className="serif text-2xl text-[#4A433D]">Atestado</h3>
+        <button
+          onClick={handlePrint}
+          className="bg-[#EADFD4] text-white px-8 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest shadow-md hover:bg-[#DFCFBF] transition-all flex items-center gap-2"
+        >
+          <Printer size={16} /> Imprimir
+        </button>
+      </div>
+
+      <div className="p-6 bg-[#FDFBF9] rounded-2xl border border-[#F5F2F0] text-xs text-[#9CA3AF] space-y-1">
+        <p><strong className="text-[#4A433D]">Paciente:</strong> {patient.name}</p>
+        <p><strong className="text-[#4A433D]">CPF:</strong> {patient.cpf || 'não cadastrado — preencha o RG abaixo'}</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <FormField label="Finalidade (ex: trabalhistas, escolares)" value={purpose} onChange={setPurpose} />
+        {!patient.cpf && <FormField label="RG (paciente sem CPF cadastrado)" value={rg} onChange={setRg} />}
+        <div>
+          <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Data do Atendimento</label>
+          <input
+            type="date"
+            value={attendanceDate}
+            onChange={e => setAttendanceDate(e.target.value)}
+            className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Horário Início</label>
+            <input type="time" value={timeFrom} onChange={e => setTimeFrom(e.target.value)} className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm" />
+          </div>
+          <div>
+            <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Horário Fim</label>
+            <input type="time" value={timeTo} onChange={e => setTimeTo(e.target.value)} className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm" />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <FormField label="Tempo de Afastamento" value={restAmount} onChange={setRestAmount} />
+          <div>
+            <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Unidade</label>
+            <select
+              value={restUnit}
+              onChange={e => setRestUnit(e.target.value as 'horas' | 'dias')}
+              className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
+            >
+              <option value="horas">Horas</option>
+              <option value="dias">Dias</option>
+            </select>
+          </div>
+        </div>
+        <FormField label="CID (opcional, só se solicitado pelo paciente)" value={cid} onChange={setCid} />
+      </div>
+
+      <div>
+        <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-3 ml-1">Pré-visualização</p>
+        <div className="p-8 bg-white border border-[#F5F2F0] rounded-[32px] text-sm text-[#4A433D] leading-relaxed shadow-sm italic">
+          {bodyText}
+        </div>
+      </div>
     </div>
   );
 }
