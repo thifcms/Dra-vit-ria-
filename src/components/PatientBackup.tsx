@@ -20,7 +20,7 @@ export default function PatientBackup({ user }: { user: User }) {
   const [downloadingAll, setDownloadingAll] = useState(false);
   const [allProgress, setAllProgress] = useState(0);
 
-  const [cloudBackups, setCloudBackups] = useState<{ path: string; name: string; patientId: string; created: string; url: string }[] | null>(null);
+  const [cloudBackups, setCloudBackups] = useState<{ path: string; name: string; patientId: string; created: string; url: string; size: number }[] | null>(null);
   const [loadingCloud, setLoadingCloud] = useState(false);
 
   const loadCloudBackups = async () => {
@@ -28,7 +28,7 @@ export default function PatientBackup({ user }: { user: User }) {
     try {
       const rootRef = ref(storage, 'backups');
       const rootList = await listAll(rootRef);
-      const files: { path: string; name: string; patientId: string; created: string; url: string }[] = [];
+      const files: { path: string; name: string; patientId: string; created: string; url: string; size: number }[] = [];
       // Cada subpasta é um patientId — lista os arquivos dentro de cada uma
       for (const patientFolder of rootList.prefixes) {
         const folderList = await listAll(patientFolder);
@@ -40,6 +40,7 @@ export default function PatientBackup({ user }: { user: User }) {
             patientId: patientFolder.name,
             created: meta.timeCreated,
             url,
+            size: meta.size,
           });
         }
       }
@@ -202,6 +203,22 @@ export default function PatientBackup({ user }: { user: User }) {
             </button>
           )}
         </div>
+        {cloudBackups !== null && cloudBackups.length > 0 && (() => {
+          const totalBytes = cloudBackups.reduce((sum, b) => sum + b.size, 0);
+          const totalMB = totalBytes / (1024 * 1024);
+          const freeLimitGB = 5;
+          const percentUsed = (totalMB / 1024 / freeLimitGB) * 100;
+          const isWarning = percentUsed > 70;
+          return (
+            <div className={`mb-4 p-4 rounded-2xl text-xs ${isWarning ? 'bg-[#FBEEE3] text-[#B8846E]' : 'bg-[#FDFBF9] text-[#9CA3AF]'}`}>
+              <strong>{cloudBackups.length}</strong> backup(s) — <strong>{totalMB < 1 ? `${Math.round(totalBytes / 1024)} KB` : `${totalMB.toFixed(1)} MB`}</strong> usados de {freeLimitGB} GB grátis ({percentUsed.toFixed(2)}%)
+              {isWarning && <span className="block mt-1 font-bold">⚠️ Passando de 70% do espaço grátis — considere conferir o plano no Firebase Console.</span>}
+              <span className="block mt-1 text-[10px] opacity-70">
+                (Esse número conta só os backups automáticos — fotos de pacientes usam espaço à parte. Pro total oficial e completo, veja o Firebase Console.)
+              </span>
+            </div>
+          );
+        })()}
         {cloudBackups !== null && (
           <div className="space-y-2 max-h-80 overflow-y-auto">
             {cloudBackups.length === 0 && (
