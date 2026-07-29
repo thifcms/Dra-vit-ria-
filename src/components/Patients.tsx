@@ -36,6 +36,7 @@ import {
 import SignaturePad from 'react-signature-canvas';
 import { showToast } from '../lib/toast';
 import { generatePatientPdf, patientPdfFileName } from '../lib/patientPdf';
+import { DEFAULT_CONSENT_TEMPLATES } from '../lib/defaultConsentTemplates';
 const AnatomyViewer = lazy(() => import('./AnatomyViewer'));
 import FaceMarkingTab from './FaceMarkingTab';
 import BudgetGenerator from './BudgetGenerator';
@@ -1757,17 +1758,29 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
   const [clinicSettings, setClinicSettings] = useState<ClinicSettings | null>(null);
   const sigPad = useRef<any>(null);
 
+  // Os 3 modelos padrão (TCLE, Autorização de Imagem, Recibo) sempre aparecem aqui, sem
+  // depender de nenhum passo em Configurações — só recebem um ID estável baseado no
+  // título, pra continuar reconhecíveis caso o mesmo modelo também exista salvo lá (evita
+  // duplicar na lista).
+  const defaultTemplatesWithIds = DEFAULT_CONSENT_TEMPLATES.map(t => ({
+    ...t,
+    id: `default-${t.title}`,
+  }));
+
   useEffect(() => {
     (async () => {
       try {
         const ownerId = await getClinicOwnerId(db).catch(() => user.uid);
         const snap = await getDoc(doc(db, 'settings', ownerId));
-        if (snap.exists()) {
-          const data = snap.data() as ClinicSettings;
-          setTemplates((data.consentTemplates || []) as any);
-          setClinicSettings(data);
-        }
+        const extraTemplates = snap.exists() ? ((snap.data().consentTemplates || []) as { id: string, title: string, content: string }[]) : [];
+        const defaultTitles = new Set(defaultTemplatesWithIds.map(t => t.title));
+        const merged = [...defaultTemplatesWithIds, ...extraTemplates.filter(t => !defaultTitles.has(t.title))];
+        setTemplates(merged);
+        if (snap.exists()) setClinicSettings(snap.data() as ClinicSettings);
       } catch (err) {
+        // Mesmo se a leitura de Configurações falhar, os modelos padrão continuam
+        // disponíveis — não dependem dela
+        setTemplates(defaultTemplatesWithIds);
         console.error(err);
       }
     })();

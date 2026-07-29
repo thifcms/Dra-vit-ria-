@@ -28,7 +28,6 @@ import { showToast } from '../lib/toast';
 import { hashPin, isValidPinFormat } from '../lib/pin';
 import { getClinicOwnerId } from '../lib/slots';
 import { isPlatformAuthenticatorAvailable, registerBiometric } from '../lib/webauthn';
-import { DEFAULT_CONSENT_TEMPLATES } from '../lib/defaultConsentTemplates';
 import AdminPanel from './AdminPanel';
 import PatientBackup from './PatientBackup';
 
@@ -124,18 +123,6 @@ export default function Settings({ user }: { user: User }) {
     showToast('Modelo removido');
   };
 
-  const handleAddDefaultTemplates = () => {
-    const existing = settings.consentTemplates || [];
-    const existingTitles = new Set(existing.map(t => t.title));
-    const toAdd = DEFAULT_CONSENT_TEMPLATES.filter(t => !existingTitles.has(t.title));
-    if (toAdd.length === 0) {
-      showToast('Esses modelos já foram adicionados antes', 'info');
-      return;
-    }
-    const next = [...existing, ...toAdd.map(t => ({ ...t, id: crypto.randomUUID() }))];
-    persist({ ...settings, consentTemplates: next });
-    showToast(`${toAdd.length} modelo(s) padrão adicionado(s)`);
-  };
 
   const handleToggleSecurityPin = () => {
     if (!settings.biometricEnabled && !settings.pinHash) {
@@ -523,23 +510,19 @@ export default function Settings({ user }: { user: User }) {
                 <div className="p-3 bg-[#FDFBF9] rounded-2xl text-[#9CA3AF]">
                   <FileText size={24} />
                 </div>
-                <h3 className="text-xl font-light text-[#4A433D] serif">Modelos de Consentimento</h3>
+                <h3 className="text-xl font-light text-[#4A433D] serif">Modelos Extras de Consentimento</h3>
               </div>
-              <div className="flex items-center gap-5">
-                <button
-                  onClick={handleAddDefaultTemplates}
-                  className="text-[#9CA3AF] text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 hover:text-[#4A433D] transition-colors"
-                >
-                  <FileDown size={16} /> Modelos Padrão
-                </button>
-                <button 
-                  onClick={() => setIsAddingTemplate(true)}
-                  className="text-[#EADFD4] text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 hover:text-[#9CA3AF] transition-colors"
-                >
-                  <Plus size={16} /> Adicionar Modelo
-                </button>
-              </div>
+              <button 
+                onClick={() => setIsAddingTemplate(true)}
+                className="text-[#EADFD4] text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 hover:text-[#9CA3AF] transition-colors"
+              >
+                <Plus size={16} /> Adicionar Modelo
+              </button>
             </div>
+            <p className="text-xs text-[#9CA3AF] font-light mb-6 -mt-4">
+              Os modelos padrão (TCLE, Autorização de Imagem, Recibo de Entrega) já aparecem automaticamente
+              no prontuário de cada paciente — aqui é só pra modelos extras que você queira adicionar.
+            </p>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {(settings.consentTemplates || []).map(template => (
