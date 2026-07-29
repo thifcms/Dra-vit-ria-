@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
-import { collection, query, onSnapshot, addDoc, updateDoc, setDoc, deleteDoc, deleteField, getDoc, doc, where, orderBy } from 'firebase/firestore';
+import { collection, query, onSnapshot, addDoc, updateDoc, setDoc, deleteDoc, deleteField, getDoc, getDocs, doc, where, orderBy, limit } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { compressImage } from '../lib/imageCompress';
 import { db, storage } from '../lib/firebase';
 import { Patient, ClinicSettings } from '../types';
-import { phoneIndexKey, getClinicOwnerId } from '../lib/slots';
+import { phoneIndexKey, getClinicOwnerId, todayLocalStr } from '../lib/slots';
 import { User } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -574,6 +574,27 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
   // importa legalmente), gera um PDF atualizado do prontuário — baixa localmente E sobe
   // pro Firebase Storage (cópia centralizada, acessível de qualquer aparelho, só por
   // administrador), sem depender de ninguém lembrar de fazer isso manualmente depois.
+  // Ao liberar uma anamnese/evolução, marca sozinho o agendamento de HOJE desse paciente
+  // como "realizado" — funciona independente de como o prontuário foi aberto (clicando na
+  // agenda ou direto na lista de pacientes), já que procura pela data, não por um vínculo
+  // de navegação. Se não houver agendamento de hoje pendente, simplesmente não faz nada.
+  const markTodaysAppointmentCompleted = async () => {
+    try {
+      const q = query(
+        collection(db, 'appointments'),
+        where('patientId', '==', patient.id),
+        where('date', '==', todayLocalStr())
+      );
+      const snap = await getDocs(q);
+      const pending = snap.docs.find(d => ['scheduled', 'confirmed'].includes(d.data().status));
+      if (pending) {
+        await updateDoc(doc(db, 'appointments', pending.id), { status: 'completed' });
+      }
+    } catch {
+      // Melhor esforço — não afeta a liberação em si se isso falhar
+    }
+  };
+
   const triggerAutoBackup = async (updatedPatientData: Patient) => {
     try {
       const blob = await generatePatientPdf(updatedPatientData, null);
@@ -615,6 +636,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
       await updateDoc(doc(db, 'patients', patient.id!), updatedFields);
       showToast('Anamnese liberada — trancada no histórico do paciente');
       triggerAutoBackup({ ...patient, ...updatedFields });
+      markTodaysAppointmentCompleted();
     } catch (err) {
       showToast('Erro ao liberar', 'error');
     }
@@ -675,6 +697,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
       await updateDoc(doc(db, 'patients', patient.id!), updatedFields);
       showToast('Registro liberado — travado no histórico do paciente');
       triggerAutoBackup({ ...patient, ...updatedFields });
+      markTodaysAppointmentCompleted();
     } catch (err) {
       showToast('Erro ao liberar', 'error');
     }
