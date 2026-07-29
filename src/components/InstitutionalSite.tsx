@@ -2,41 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { motion, useScroll, useTransform } from 'motion/react';
 import { Instagram, MapPin, Phone as PhoneIcon, ArrowRight, ArrowUpRight } from 'lucide-react';
 
-// Perfil facial em linha contínua — o elemento de assinatura visual do site. Desenhado do
-// zero (sem base em nenhuma imagem/atlas), estilo ilustração artística minimalista, não
-// anatômico — evoca a especialidade (rosto) sem tentar ser um diagrama médico.
-function FaceProfileLine({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 400 500" fill="none" className={className}>
-      <path
-        d="M 120 80
-           C 100 95, 88 120, 86 150
-           C 84 175, 90 190, 82 205
-           C 76 215, 68 218, 70 228
-           C 72 236, 82 236, 88 232
-           C 92 250, 96 268, 108 282
-           C 100 292, 98 304, 104 314
-           C 110 322, 122 324, 132 320
-           C 140 340, 156 356, 178 364
-           L 178 410
-           C 178 425, 168 435, 152 440
-           L 130 448
-           M 178 364
-           C 200 372, 224 372, 246 362
-           C 280 348, 302 316, 308 278
-           C 314 240, 304 200, 278 172
-           C 254 146, 220 130, 184 128
-           C 160 127, 138 132, 120 145"
-        stroke="currentColor"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <circle cx="252" cy="196" r="2.5" fill="currentColor" />
-    </svg>
-  );
-}
-
 const PROCEDURES = [
   {
     name: 'Harmonização Facial',
@@ -117,7 +82,11 @@ export default function InstitutionalSite() {
 
       {/* ===== HERO ===== */}
       <section className="relative min-h-[92vh] flex items-center overflow-hidden pt-20">
-        <FaceProfileLine className="absolute right-[-8%] top-1/2 -translate-y-1/2 w-[62%] max-w-[560px] text-[#EADFD4] opacity-60 pointer-events-none" />
+        <img
+          src="/logo/logo-mark-v2.png"
+          alt=""
+          className="absolute right-[-4%] top-1/2 -translate-y-1/2 w-[46%] max-w-[420px] opacity-[0.14] pointer-events-none select-none"
+        />
         <div className="max-w-6xl mx-auto px-6 md:px-10 relative z-10 w-full">
           <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-[#B8846E] mb-6">
             Cirurgia Buco-Maxilo-Facial &amp; Estética
