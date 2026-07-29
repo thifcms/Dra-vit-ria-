@@ -162,7 +162,7 @@ service cloud.firestore {
 
     // Inventory Validation
     function isValidInventory(data) {
-      return data.userId is string && data.userId == request.auth.uid
+      return data.userId is string
         && data.name is string && data.name.size() > 0
         && data.quantity is number
         && data.minThreshold is number
@@ -171,7 +171,7 @@ service cloud.firestore {
 
     // Inventory Movement Validation
     function isValidInventoryMovement(data) {
-      return data.userId is string && data.userId == request.auth.uid
+      return data.userId is string
         && data.itemId is string
         && data.quantity is number
         && data.type in ['consumption', 'restock']
@@ -180,7 +180,7 @@ service cloud.firestore {
 
     // Transaction Validation
     function isValidTransaction(data) {
-      return data.userId is string && data.userId == request.auth.uid
+      return data.userId is string
         && data.amount is number
         && data.type in ['income', 'expense']
         && data.date is timestamp;
@@ -225,17 +225,19 @@ service cloud.firestore {
       return !isSignedIn()
         && data.userId == resource.data.userId
         && data.userId == get(/databases/$(database)/documents/publicConfig/booking).data.ownerId
-        && data.cpf == resource.data.cpf
-        && (!('anamnesis' in resource.data) || data.anamnesis == resource.data.anamnesis)
-        && (!('anamnesisReleased' in resource.data) || data.anamnesisReleased == resource.data.anamnesisReleased)
-        && (!('anamnesisHistory' in resource.data) || data.anamnesisHistory == resource.data.anamnesisHistory)
-        && (!('evolution' in resource.data) || data.evolution == resource.data.evolution)
-        && (!('evolutionHistory' in resource.data) || data.evolutionHistory == resource.data.evolutionHistory)
-        && (!('faceMarkings' in resource.data) || data.faceMarkings == resource.data.faceMarkings)
-        && (!('files' in resource.data) || data.files == resource.data.files)
-        && (!('photoHistory' in resource.data) || data.photoHistory == resource.data.photoHistory)
-        && (!('consentTerms' in resource.data) || data.consentTerms == resource.data.consentTerms)
-        && (!('prescriptions' in resource.data) || data.prescriptions == resource.data.prescriptions);
+        && data.get('cpf', null) == resource.data.get('cpf', null)
+        && data.get('anamnesis', null) == resource.data.get('anamnesis', null)
+        && data.get('anamnesisReleased', null) == resource.data.get('anamnesisReleased', null)
+        && data.get('anamnesisReleasedAt', null) == resource.data.get('anamnesisReleasedAt', null)
+        && data.get('anamnesisReleasedBy', null) == resource.data.get('anamnesisReleasedBy', null)
+        && data.get('anamnesisHistory', null) == resource.data.get('anamnesisHistory', null)
+        && data.get('evolution', null) == resource.data.get('evolution', null)
+        && data.get('evolutionHistory', null) == resource.data.get('evolutionHistory', null)
+        && data.get('faceMarkings', null) == resource.data.get('faceMarkings', null)
+        && data.get('files', null) == resource.data.get('files', null)
+        && data.get('photoHistory', null) == resource.data.get('photoHistory', null)
+        && data.get('consentTerms', null) == resource.data.get('consentTerms', null)
+        && data.get('prescriptions', null) == resource.data.get('prescriptions', null);
     }
 
     // Rules for Patients — só o dono do dado (userId) pode ler; criar é permitido também
