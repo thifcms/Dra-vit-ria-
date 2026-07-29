@@ -29,6 +29,7 @@ import { hashPin, isValidPinFormat } from '../lib/pin';
 import { getClinicOwnerId } from '../lib/slots';
 import { isPlatformAuthenticatorAvailable, registerBiometric } from '../lib/webauthn';
 import AdminPanel from './AdminPanel';
+import PatientBackup from './PatientBackup';
 
 export default function Settings({ user }: { user: User }) {
   const [settings, setSettings] = useState<ClinicSettings>({
@@ -612,6 +613,10 @@ export default function Settings({ user }: { user: User }) {
 
       <div className="mt-8">
         <AdminPanel user={user} />
+      </div>
+
+      <div className="mt-8">
+        <PatientBackup user={user} />
       </div>
 
       <AnimatePresence>

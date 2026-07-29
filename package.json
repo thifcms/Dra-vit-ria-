@@ -22,6 +22,7 @@
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
     "jspdf": "^2.5.2",
+    "jszip": "^3.10.1",
     "react-signature-canvas": "^1.1.0-alpha.2",
     "recharts": "^3.10.0",
     "three": "^0.128.0",
