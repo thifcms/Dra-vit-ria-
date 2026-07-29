@@ -115,12 +115,17 @@ function AuthenticatedApp() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       if (u) {
-        // Confirma que o e-mail está na lista de administradores autorizados antes de
-        // deixar entrar — sem isso, qualquer conta Google conseguiria "se cadastrar"
-        // sozinha no sistema.
+        // Confirma que o e-mail está autorizado (como administrador OU como usuário
+        // comum) antes de deixar entrar — sem isso, qualquer conta Google conseguiria
+        // "se cadastrar" sozinha no sistema.
         try {
-          const authDoc = await getDoc(doc(db, 'system', 'authorized_admins'));
-          const allowedEmails: string[] = authDoc.exists() ? (authDoc.data().emails || []) : [];
+          const [adminDoc, staffDoc] = await Promise.all([
+            getDoc(doc(db, 'system', 'authorized_admins')),
+            getDoc(doc(db, 'system', 'authorized_staff')),
+          ]);
+          const adminEmails: string[] = adminDoc.exists() ? (adminDoc.data().emails || []) : [];
+          const staffEmails: string[] = staffDoc.exists() ? (staffDoc.data().emails || []) : [];
+          const allowedEmails = [...adminEmails, ...staffEmails];
           if (!u.email || !allowedEmails.includes(u.email)) {
             await signOut(auth);
             showToast('Este e-mail não tem autorização para acessar o sistema.', 'error');

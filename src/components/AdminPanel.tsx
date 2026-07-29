@@ -21,8 +21,10 @@ export default function AdminPanel({ user }: { user: User }) {
   const [recovering, setRecovering] = useState(false);
   const [biometricAvailable, setBiometricAvailable] = useState(false);
 
-  const [emails, setEmails] = useState<string[]>([]);
+  const [adminEmails, setAdminEmails] = useState<string[]>([]);
+  const [staffEmails, setStaffEmails] = useState<string[]>([]);
   const [newEmail, setNewEmail] = useState('');
+  const [newEmailRole, setNewEmailRole] = useState<'admin' | 'staff'>('staff');
 
   useEffect(() => {
     getDoc(doc(db, 'admin_security', user.uid)).then(snap => {
@@ -35,7 +37,10 @@ export default function AdminPanel({ user }: { user: User }) {
   useEffect(() => {
     if (!unlocked) return;
     getDoc(doc(db, 'system', 'authorized_admins')).then(snap => {
-      setEmails(snap.exists() ? (snap.data().emails || []) : []);
+      setAdminEmails(snap.exists() ? (snap.data().emails || []) : []);
+    });
+    getDoc(doc(db, 'system', 'authorized_staff')).then(snap => {
+      setStaffEmails(snap.exists() ? (snap.data().emails || []) : []);
     });
   }, [unlocked]);
 
@@ -128,29 +133,41 @@ export default function AdminPanel({ user }: { user: User }) {
       showToast('Digite um e-mail válido', 'error');
       return;
     }
-    if (emails.includes(email)) {
+    if (adminEmails.includes(email) || staffEmails.includes(email)) {
       showToast('Esse e-mail já está autorizado', 'error');
       return;
     }
-    const next = [...emails, email];
-    await setDoc(doc(db, 'system', 'authorized_admins'), { emails: next }, { merge: true });
-    setEmails(next);
+    if (newEmailRole === 'admin') {
+      const next = [...adminEmails, email];
+      await setDoc(doc(db, 'system', 'authorized_admins'), { emails: next }, { merge: true });
+      setAdminEmails(next);
+    } else {
+      const next = [...staffEmails, email];
+      await setDoc(doc(db, 'system', 'authorized_staff'), { emails: next }, { merge: true });
+      setStaffEmails(next);
+    }
     setNewEmail('');
     showToast('E-mail autorizado');
   };
 
-  const handleRemoveEmail = async (email: string) => {
+  const handleRemoveEmail = async (email: string, role: 'admin' | 'staff') => {
     if (email === user.email) {
       showToast('Você não pode remover seu próprio acesso por aqui', 'error');
       return;
     }
-    if (emails.length <= 1) {
-      showToast('Precisa deixar pelo menos um e-mail autorizado', 'error');
-      return;
+    if (role === 'admin') {
+      if (adminEmails.length <= 1) {
+        showToast('Precisa deixar pelo menos um administrador', 'error');
+        return;
+      }
+      const next = adminEmails.filter(e => e !== email);
+      await setDoc(doc(db, 'system', 'authorized_admins'), { emails: next }, { merge: true });
+      setAdminEmails(next);
+    } else {
+      const next = staffEmails.filter(e => e !== email);
+      await setDoc(doc(db, 'system', 'authorized_staff'), { emails: next }, { merge: true });
+      setStaffEmails(next);
     }
-    const next = emails.filter(e => e !== email);
-    await setDoc(doc(db, 'system', 'authorized_admins'), { emails: next }, { merge: true });
-    setEmails(next);
     showToast('Acesso removido');
   };
 
@@ -282,33 +299,77 @@ export default function AdminPanel({ user }: { user: User }) {
         </div>
       </div>
 
-      <div className="space-y-2">
-        {emails.map(email => (
-          <div key={email} className="flex items-center justify-between p-4 bg-[#FDFBF9] rounded-2xl">
-            <span className="text-sm text-[#5C544E]">{email}</span>
-            {email !== user.email && (
-              <button onClick={() => handleRemoveEmail(email)} className="text-[#9CA3AF] hover:text-red-400">
-                <Trash2 size={16} />
-              </button>
-            )}
-          </div>
-        ))}
+      <div>
+        <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-3">
+          Administradores — acesso a todos os prontuários
+        </p>
+        <div className="space-y-2">
+          {adminEmails.map(email => (
+            <div key={email} className="flex items-center justify-between p-4 bg-[#FDFBF9] rounded-2xl">
+              <span className="text-sm text-[#5C544E]">{email}</span>
+              {email !== user.email && (
+                <button onClick={() => handleRemoveEmail(email, 'admin')} className="text-[#9CA3AF] hover:text-red-400">
+                  <Trash2 size={16} />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
 
-      <div className="flex items-center gap-3">
-        <input
-          value={newEmail}
-          onChange={e => setNewEmail(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && handleAddEmail()}
-          placeholder="novo-email@exemplo.com"
-          className="flex-1 bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
-        />
-        <button
-          onClick={handleAddEmail}
-          className="w-14 h-14 shrink-0 bg-[#EADFD4] text-white rounded-2xl flex items-center justify-center hover:bg-[#DFCFBF] transition-all"
-        >
-          <Plus size={20} />
-        </button>
+      <div>
+        <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-3">
+          Usuários comuns — acesso só aos próprios pacientes
+        </p>
+        <div className="space-y-2">
+          {staffEmails.length === 0 && (
+            <p className="text-xs text-[#9CA3AF] italic">Nenhum usuário comum autorizado ainda.</p>
+          )}
+          {staffEmails.map(email => (
+            <div key={email} className="flex items-center justify-between p-4 bg-[#FDFBF9] rounded-2xl">
+              <span className="text-sm text-[#5C544E]">{email}</span>
+              <button onClick={() => handleRemoveEmail(email, 'staff')} className="text-[#9CA3AF] hover:text-red-400">
+                <Trash2 size={16} />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => setNewEmailRole('admin')}
+            className={`py-3 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all ${
+              newEmailRole === 'admin' ? 'bg-[#EADFD4] text-white' : 'bg-[#FDFBF9] text-[#9CA3AF] border border-[#F5F2F0]'
+            }`}
+          >
+            Administrador
+          </button>
+          <button
+            onClick={() => setNewEmailRole('staff')}
+            className={`py-3 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all ${
+              newEmailRole === 'staff' ? 'bg-[#EADFD4] text-white' : 'bg-[#FDFBF9] text-[#9CA3AF] border border-[#F5F2F0]'
+            }`}
+          >
+            Usuário Comum
+          </button>
+        </div>
+        <div className="flex items-center gap-3">
+          <input
+            value={newEmail}
+            onChange={e => setNewEmail(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleAddEmail()}
+            placeholder="novo-email@exemplo.com"
+            className="flex-1 bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
+          />
+          <button
+            onClick={handleAddEmail}
+            className="w-14 h-14 shrink-0 bg-[#EADFD4] text-white rounded-2xl flex items-center justify-center hover:bg-[#DFCFBF] transition-all"
+          >
+            <Plus size={20} />
+          </button>
+        </div>
       </div>
 
       {biometricAvailable && !security?.webauthnCredentialId && (

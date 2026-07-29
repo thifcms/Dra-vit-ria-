@@ -11,13 +11,26 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Lista de e-mails autorizados a usar o sistema, guardada em system/authorized_admins.
-    // Isso é o que impede qualquer pessoa com conta Google de conseguir criar uma conta
-    // nova dentro do app — só quem está nessa lista consegue criar/editar dados.
-    function isAuthorizedEmail() {
+    // Administradores — acesso total a todos os prontuários/agenda/financeiro, guardados
+    // em system/authorized_admins.
+    function isAdmin() {
       return isSignedIn()
         && request.auth.token.email in
            get(/databases/$(database)/documents/system/authorized_admins).data.emails;
+    }
+
+    // Usuários comuns — podem entrar no sistema, mas só enxergam os próprios pacientes
+    // (guardados em system/authorized_staff).
+    function isAuthorizedStaff() {
+      return isSignedIn()
+        && request.auth.token.email in
+           get(/databases/$(database)/documents/system/authorized_staff).data.emails;
+    }
+
+    // Pra saber só "essa pessoa pode entrar no sistema" (não decide o nível de acesso aos
+    // dados, só se consegue passar da tela de login)
+    function isAuthorizedToLogIn() {
+      return isAdmin() || isAuthorizedStaff();
     }
 
     function isValidId(id) {
@@ -29,20 +42,25 @@ service cloud.firestore {
     }
 
     function isOwner() {
-      return isSignedIn() && isAuthorizedEmail() && incoming().userId == request.auth.uid;
+      return isSignedIn() && isAuthorizedToLogIn() && incoming().userId == request.auth.uid;
     }
 
     function ownsExisting() {
-      return isSignedIn() && isAuthorizedEmail() && resource.data.userId == request.auth.uid;
+      return isSignedIn() && isAuthorizedToLogIn() && resource.data.userId == request.auth.uid;
     }
 
-    // Acesso compartilhado pros dados clínicos (pacientes, agendamentos, financeiro,
-    // estoque) — diferente de isOwner()/ownsExisting() acima, aqui QUALQUER administrador
-    // autorizado pode ler/escrever, não só quem criou o registro original. É assim que os
-    // dois administradores conseguem ver o mesmo prontuário/agenda, em vez de cada um só
-    // enxergar o que criou.
+    // Acesso aos dados clínicos (pacientes, agendamentos, financeiro, estoque):
+    // administrador vê/edita tudo; usuário comum só o que ele mesmo criou.
     function isSharedAccess() {
-      return isSignedIn() && isAuthorizedEmail();
+      return isAdmin();
+    }
+
+    function isOwnDataAccess() {
+      return isAuthorizedStaff() && resource.data.userId == request.auth.uid;
+    }
+
+    function isOwnDataCreate() {
+      return isAuthorizedStaff() && incoming().userId == request.auth.uid;
     }
 
     // Patient Validation — só o formato dos dados, independente de quem está criando
@@ -77,7 +95,7 @@ service cloud.firestore {
 
     // Criação normal, pelo dono autenticado (uso interno do app)
     function isOwnedAppointmentCreate(data) {
-      return isSignedIn() && isAuthorizedEmail() && data.userId == request.auth.uid;
+      return isSignedIn() && isAuthorizedToLogIn() && data.userId == request.auth.uid;
     }
 
     // Criação pública, pelo próprio paciente na página de agendamento (#agendar), sem login.
@@ -174,46 +192,46 @@ service cloud.firestore {
     // Rules for Patients — só o dono do dado (userId) pode ler; criar é permitido também
     // pela página pública de agendamento (ver isPublicPatientCreate)
     match /patients/{patientId} {
-      allow read: if isSharedAccess();
+      allow read: if isSharedAccess() || isOwnDataAccess();
       allow create: if isValidPatient(incoming()) && isValidId(patientId)
-        && (isSharedAccess() || isPublicPatientCreate(incoming()));
-      allow update: if isSharedAccess() && isValidPatient(incoming());
-      allow delete: if isSharedAccess();
+        && (isSharedAccess() || isOwnDataCreate() || isPublicPatientCreate(incoming()));
+      allow update: if (isSharedAccess() || isOwnDataAccess()) && isValidPatient(incoming());
+      allow delete: if isSharedAccess() || isOwnDataAccess();
     }
 
     // Rules for Appointments
     match /appointments/{appointmentId} {
-      allow read: if isSharedAccess();
+      allow read: if isSharedAccess() || isOwnDataAccess();
       allow create: if isValidAppointmentShape(incoming()) && isValidId(appointmentId)
-        && (isSharedAccess() || isPublicAppointmentCreate(incoming()));
-      allow update: if (isSharedAccess() && isValidAppointmentShape(incoming()))
+        && (isSharedAccess() || isOwnDataCreate() || isPublicAppointmentCreate(incoming()));
+      allow update: if ((isSharedAccess() || isOwnDataAccess()) && isValidAppointmentShape(incoming()))
         || isPublicCheckIn(incoming())
         || isPublicCancel(incoming());
-      allow delete: if isSharedAccess();
+      allow delete: if isSharedAccess() || isOwnDataAccess();
     }
 
     // Rules for Inventory
     match /inventory/{itemId} {
-      allow read: if isSharedAccess();
-      allow create: if isSharedAccess() && isValidInventory(incoming()) && isValidId(itemId);
-      allow update: if isSharedAccess() && isValidInventory(incoming());
-      allow delete: if isSharedAccess();
+      allow read: if isSharedAccess() || isOwnDataAccess();
+      allow create: if (isSharedAccess() || isOwnDataCreate()) && isValidInventory(incoming()) && isValidId(itemId);
+      allow update: if (isSharedAccess() || isOwnDataAccess()) && isValidInventory(incoming());
+      allow delete: if isSharedAccess() || isOwnDataAccess();
     }
 
     // Rules for Inventory Movements
     match /inventory_movements/{movementId} {
-      allow read: if isSharedAccess();
-      allow create: if isSharedAccess() && isValidInventoryMovement(incoming()) && isValidId(movementId);
-      allow update: if isSharedAccess() && isValidInventoryMovement(incoming());
-      allow delete: if isSharedAccess();
+      allow read: if isSharedAccess() || isOwnDataAccess();
+      allow create: if (isSharedAccess() || isOwnDataCreate()) && isValidInventoryMovement(incoming()) && isValidId(movementId);
+      allow update: if (isSharedAccess() || isOwnDataAccess()) && isValidInventoryMovement(incoming());
+      allow delete: if isSharedAccess() || isOwnDataAccess();
     }
 
     // Rules for Transactions
     match /transactions/{transactionId} {
-      allow read: if isSharedAccess();
-      allow create: if isSharedAccess() && isValidTransaction(incoming()) && isValidId(transactionId);
-      allow update: if isSharedAccess() && isValidTransaction(incoming());
-      allow delete: if isSharedAccess();
+      allow read: if isSharedAccess() || isOwnDataAccess();
+      allow create: if (isSharedAccess() || isOwnDataCreate()) && isValidTransaction(incoming()) && isValidId(transactionId);
+      allow update: if (isSharedAccess() || isOwnDataAccess()) && isValidTransaction(incoming());
+      allow delete: if isSharedAccess() || isOwnDataAccess();
     }
 
     // Marca horários como ocupados — coleção pública (só clinicId/data/hora, ZERO dado de
@@ -228,7 +246,7 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isValidBusySlot(incoming()) && isValidId(slotId)
         && incoming().clinicId == get(/databases/$(database)/documents/publicConfig/booking).data.ownerId
-        && (isSharedAccess() || !isSignedIn());
+        && (isAuthorizedToLogIn() || !isSignedIn());
       allow update: if false;
       // Liberar o horário: o dono sempre pode (ex: cancelou/excluiu pelo app). Sem login,
       // permitido em dois casos: (1) o slot referencia um agendamento (campo 'apt') que JÁ
@@ -236,7 +254,7 @@ service cloud.firestore {
       // (2) esse agendamento nunca chegou a ser criado de verdade (o agendamento falhou no
       // meio do caminho, depois de reservar o horário mas antes de criar o registro) — nesse
       // caso não há nada pra proteger, e travar o horário pra sempre seria pior que liberar.
-      allow delete: if isSignedIn()
+      allow delete: if isAuthorizedToLogIn()
         || (resource.data.apt is string
             && (
               !exists(/databases/$(database)/documents/appointments/$(resource.data.apt))
@@ -247,7 +265,7 @@ service cloud.firestore {
     // Configuração pública usada pela página de agendamento (nome da clínica)
     match /publicConfig/booking {
       allow read: if true; // Página pública precisa ler pra mostrar o nome da clínica
-      allow write: if isSignedIn(); // Apenas logados podem setar (em Settings.tsx)
+      allow write: if isAdmin(); // Só administrador altera a configuração pública da clínica
     }
 
     // Índice público telefone → paciente (ver isValidPhoneIndexEntry acima)
@@ -255,9 +273,9 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isValidPhoneIndexEntry(incoming()) && isValidId(phoneKey)
         && incoming().clinicId == get(/databases/$(database)/documents/publicConfig/booking).data.ownerId
-        && (isSharedAccess() || !isSignedIn());
+        && (isAuthorizedToLogIn() || !isSignedIn());
       allow update: if false;
-      allow delete: if isSharedAccess();
+      allow delete: if isAuthorizedToLogIn();
     }
 
     // Índice público CPF → paciente — mesmo padrão do índice de telefone acima, mas usado
@@ -267,34 +285,41 @@ service cloud.firestore {
       allow create: if isValidId(cpfKey)
         && incoming().clinicId == get(/databases/$(database)/documents/publicConfig/booking).data.ownerId
         && incoming().patientId is string
-        && (isSharedAccess() || !isSignedIn());
+        && (isAuthorizedToLogIn() || !isSignedIn());
       allow update: if isValidId(cpfKey)
         && incoming().clinicId == get(/databases/$(database)/documents/publicConfig/booking).data.ownerId
         && incoming().patientId is string
-        && (isSharedAccess() || !isSignedIn());
-      allow delete: if isSharedAccess();
+        && (isAuthorizedToLogIn() || !isSignedIn());
+      allow delete: if isAuthorizedToLogIn();
     }
 
-    // Configurações da clínica — agora um documento único e compartilhado (settings/{ownerId},
-    // sempre o mesmo id fixo do dono original da clínica), que qualquer administrador
-    // autorizado pode ler/editar. Deixou de ser "um documento por pessoa que loga".
+    // Configurações da clínica — documento único e compartilhado (settings/{ownerId}).
+    // Qualquer pessoa autorizada pode ler (precisa pra saber horário de atendimento etc.),
+    // mas só administrador pode alterar.
     match /settings/{uid} {
-      allow read, write: if isSharedAccess();
+      allow read: if isAuthorizedToLogIn();
+      allow write: if isAdmin();
     }
 
-    // Lista de e-mails autorizados a usar o sistema. Leitura liberada pra qualquer pessoa
-    // logada (é o que permite o app checar "posso entrar?" logo após o login do Google,
-    // antes de saber se a pessoa está autorizada) — mas só quem já está na lista pode
-    // alterar essa lista.
+    // Lista de e-mails administradores. Leitura liberada pra qualquer pessoa logada (é o
+    // que permite o app checar "posso entrar?" logo após o login do Google) — só
+    // administrador pode alterar quem está nessa lista.
     match /system/authorized_admins {
       allow read: if isSignedIn();
-      allow write: if isAuthorizedEmail();
+      allow write: if isAdmin();
+    }
+
+    // Lista de e-mails de usuários comuns (acesso só aos próprios pacientes). Mesmo padrão
+    // de leitura/escrita da lista de administradores acima.
+    match /system/authorized_staff {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
     }
 
     // Senha do painel de administração — uma por administrador (guardada por UID), pra
     // cada um poder ter a própria senha em vez de uma só compartilhada.
     match /admin_security/{uid} {
-      allow read, write: if isSignedIn() && isAuthorizedEmail() && uid == request.auth.uid;
+      allow read, write: if isSignedIn() && isAdmin() && uid == request.auth.uid;
     }
   }
 }
