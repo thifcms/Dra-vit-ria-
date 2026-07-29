@@ -36,6 +36,7 @@ const PublicBooking = lazy(() => import('./components/PublicBooking'));
 const CheckIn = lazy(() => import('./components/CheckIn'));
 const Cancel = lazy(() => import('./components/Cancel'));
 const ComingSoon = lazy(() => import('./components/ComingSoon'));
+const TestSite = lazy(() => import('./components/TestSite'));
 
 type View = 'dashboard' | 'patients' | 'schedule' | 'inventory' | 'finance' | 'settings';
 
@@ -70,6 +71,13 @@ export default function App() {
     return (
       <Suspense fallback={<ViewLoadingFallback />}>
         <Cancel />
+      </Suspense>
+    );
+  }
+  if (hash.startsWith('#teste')) {
+    return (
+      <Suspense fallback={<ViewLoadingFallback />}>
+        <TestSite />
       </Suspense>
     );
   }
