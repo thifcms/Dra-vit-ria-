@@ -85,6 +85,9 @@ export interface Patient {
     // Quando um procedimento tem mais de uma substância vinculada, guarda aqui qual foi
     // escolhida pra esse paciente especificamente (nome do procedimento -> nome da substância)
     plannedSubstances?: Record<string, string>;
+    // Controla quais procedimentos já geraram lançamento no financeiro — evita duplicar
+    // se o botão "Lançar no Financeiro" for clicado de novo por engano
+    launchedProcedures?: string[];
   };
   // Uma anamnese "liberada" trava pra sempre — nem administrador consegue mais editar
   // depois disso. Enquanto não for liberada, é só um rascunho, editável à vontade.
