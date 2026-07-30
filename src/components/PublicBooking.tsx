@@ -102,7 +102,7 @@ function ProcedurePicker({
   );
 }
 
-type Step = 'calendar' | 'cpf' | 'register' | 'confirm';
+type Step = 'professional' | 'calendar' | 'cpf' | 'register' | 'confirm';
 
 // Checkbox de consentimento com a Política de Privacidade, com botão "Leia mais" que
 // abre o texto completo. Sem marcar, o agendamento não pode ser confirmado.
@@ -147,7 +147,8 @@ export default function PublicBooking() {
   const [busySlotsToday, setBusySlotsToday] = useState<Set<string>>(new Set());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
 
-  const [step, setStep] = useState<Step>('calendar');
+  const [step, setStep] = useState<Step>('professional');
+  const [selectedProfessionalName, setSelectedProfessionalName] = useState<string>('');
   const [phone, setPhone] = useState('');
   const [checkingPhone, setCheckingPhone] = useState(false);
   const [existingPatientId, setExistingPatientId] = useState<string | null>(null);
@@ -177,6 +178,16 @@ export default function PublicBooking() {
       .catch(() => setConfigError(true))
       .finally(() => setLoadingConfig(false));
   }, []);
+
+  // Só mostra a etapa de escolha de profissional quando há mais de 1 disponível — com
+  // só a profissional padrão, pula direto pro calendário, sem passo extra desnecessário.
+  useEffect(() => {
+    if (!config) return;
+    if (!config.testProfessionals || config.testProfessionals.length === 0) {
+      setSelectedProfessionalName(config.professionalName);
+      setStep('calendar');
+    }
+  }, [config]);
 
   useEffect(() => {
     if (!config) return;
@@ -390,6 +401,7 @@ export default function PublicBooking() {
         createdAt: new Date().toISOString(),
       };
       if (procedureInterest) payload.notes = procedureInterest;
+      if (selectedProfessionalName) payload.professionalName = selectedProfessionalName;
       await setDoc(apptRef, payload);
       setCheckinUrl(checkinLink(apptRef.id, token, selectedDate, selectedTime));
       setCancelUrl(cancelLink(apptRef.id, token, selectedDate, selectedTime, config.ownerId));
@@ -443,7 +455,7 @@ export default function PublicBooking() {
           </div>
           <h1 className="text-2xl font-light text-[#4A433D] mb-3 serif">Agendamento confirmado!</h1>
           <p className="text-[#9CA3AF] font-light mb-8">
-            {name}, seu horário na {config.clinicName}{config.professionalName ? ` com ${config.professionalName}` : ''} está marcado para{' '}
+            {name}, seu horário na {config.clinicName}{selectedProfessionalName ? ` com ${selectedProfessionalName}` : ''} está marcado para{' '}
             <span className="text-[#4A433D] font-medium">
               {new Date(selectedDate + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })} às {selectedTime}
             </span>. Até lá!
@@ -454,7 +466,7 @@ export default function PublicBooking() {
               const msg = buildReminderMessage({
                 patientName: name,
                 clinicName: config.clinicName,
-                professionalName: config.professionalName,
+                professionalName: selectedProfessionalName,
                 dateLabel: new Date(selectedDate + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' }),
                 time: selectedTime!,
                 checkinUrl: checkinUrl,
@@ -529,8 +541,8 @@ export default function PublicBooking() {
         className="w-full max-w-md bg-white p-10 rounded-[32px] shadow-sm border border-[#F5F2F0]"
       >
         <div className="text-center mb-8">
-          <img src="/logo/logo-full-v2.png" alt={config.professionalName || config.clinicName} className="h-16 w-auto mx-auto mb-6 object-contain" />
-          <h1 className="text-2xl font-bold text-[#4A433D] serif">{config.professionalName || config.clinicName}</h1>
+          <img src="/logo/logo-full-v2.png" alt={config.clinicName} className="h-16 w-auto mx-auto mb-6 object-contain" />
+          <h1 className="text-2xl font-bold text-[#4A433D] serif">{selectedProfessionalName || config.professionalName || config.clinicName}</h1>
           <p className="text-[#9CA3AF] mt-2 font-light">Agende seu horário</p>
         </div>
 
@@ -541,6 +553,33 @@ export default function PublicBooking() {
         )}
 
         <AnimatePresence mode="wait">
+          {step === 'professional' && (
+            <motion.div key="professional" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <p className="text-xs text-[#9CA3AF] font-light mb-6 text-center">Com quem você gostaria de agendar?</p>
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  onClick={() => { setSelectedProfessionalName(config.professionalName); setStep('calendar'); }}
+                  className="w-full p-5 bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl text-left hover:border-[#EADFD4] transition-all flex items-center justify-between"
+                >
+                  <span className="font-medium text-[#4A433D]">{config.professionalName}</span>
+                  <ChevronRight size={18} className="text-[#9CA3AF]" />
+                </button>
+                {(config.testProfessionals || []).map(prof => (
+                  <button
+                    key={prof.email}
+                    type="button"
+                    onClick={() => { setSelectedProfessionalName(prof.name); setStep('calendar'); }}
+                    className="w-full p-5 bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl text-left hover:border-[#EADFD4] transition-all flex items-center justify-between"
+                  >
+                    <span className="font-medium text-[#4A433D]">{prof.name}</span>
+                    <ChevronRight size={18} className="text-[#9CA3AF]" />
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          )}
+
           {step === 'calendar' && (
             <motion.div key="calendar" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <div className="flex items-center justify-between mb-6">

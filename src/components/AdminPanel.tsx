@@ -13,6 +13,7 @@ const SESSION_KEY = 'adminPanelUnlocked';
 
 export default function AdminPanel({ user }: { user: User }) {
   const [isAdminUser, setIsAdminUser] = useState<boolean | null>(null); // null = ainda checando
+  const [testProfessionals, setTestProfessionals] = useState<{ email: string; name: string }[]>([]);
   const [security, setSecurity] = useState<AdminSecurity | null>(null);
   const [loading, setLoading] = useState(true);
   const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem(SESSION_KEY) === 'true');
@@ -56,6 +57,9 @@ export default function AdminPanel({ user }: { user: User }) {
     });
     getDoc(doc(db, 'system', 'authorized_staff')).then(snap => {
       setStaffEmails(snap.exists() ? (snap.data().emails || []) : []);
+    });
+    getDoc(doc(db, 'publicConfig', 'booking')).then(snap => {
+      setTestProfessionals(snap.exists() ? (snap.data().testProfessionals || []) : []);
     });
   }, [unlocked]);
 
@@ -213,6 +217,24 @@ export default function AdminPanel({ user }: { user: User }) {
     showToast('Acesso removido');
   };
 
+  // Marca/desmarca um e-mail como "profissional de teste" — aparece como opção de
+  // escolha na tela pública de agendamento (só quando houver mais de 1 profissional
+  // disponível; com só a Dra. Vitória, a etapa de escolha nem aparece).
+  const handleToggleTestProfessional = async (email: string) => {
+    const isCurrentlyOn = testProfessionals.some(p => p.email === email);
+    let next: { email: string; name: string }[];
+    if (isCurrentlyOn) {
+      next = testProfessionals.filter(p => p.email !== email);
+    } else {
+      const defaultName = window.prompt('Qual nome deve aparecer na tela de agendamento pra esse e-mail?', email.split('@')[0]);
+      if (!defaultName) return; // cancelou
+      next = [...testProfessionals, { email, name: defaultName }];
+    }
+    await setDoc(doc(db, 'publicConfig', 'booking'), { testProfessionals: next }, { merge: true });
+    setTestProfessionals(next);
+    showToast(isCurrentlyOn ? 'Removido da tela de agendamento' : 'Agora aparece na tela de agendamento');
+  };
+
   if (isAdminUser === null) return null; // ainda checando
   if (isAdminUser === false) return null; // não é administrador — não mostra nada, nem o título da seção
   if (loading) return null;
@@ -349,13 +371,24 @@ export default function AdminPanel({ user }: { user: User }) {
         </p>
         <div className="space-y-2">
           {adminEmails.map(email => (
-            <div key={email} className="flex items-center justify-between p-4 bg-[#FDFBF9] rounded-2xl">
-              <span className="text-sm text-[#5C544E]">{email}</span>
-              {email !== user.email && (
-                <button onClick={() => handleRemoveEmail(email, 'admin')} className="text-[#9CA3AF] hover:text-red-400">
-                  <Trash2 size={16} />
-                </button>
-              )}
+            <div key={email} className="flex items-center justify-between p-4 bg-[#FDFBF9] rounded-2xl gap-3">
+              <span className="text-sm text-[#5C544E] truncate">{email}</span>
+              <div className="flex items-center gap-3 shrink-0">
+                <label className="flex items-center gap-2 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={testProfessionals.some(p => p.email === email)}
+                    onChange={() => handleToggleTestProfessional(email)}
+                    className="accent-[#EADFD4] w-4 h-4"
+                  />
+                  Teste
+                </label>
+                {email !== user.email && (
+                  <button onClick={() => handleRemoveEmail(email, 'admin')} className="text-[#9CA3AF] hover:text-red-400">
+                    <Trash2 size={16} />
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>

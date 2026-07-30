@@ -268,6 +268,9 @@ export interface PublicBookingConfig {
   appointmentInterval?: number;
   agendaBlocked?: boolean;
   blockedDates?: string[];
+  // Profissionais extras (além da profissionalName padrão) que aparecem como opção de
+  // escolha na tela de agendamento — recurso de teste, gerenciado no Painel de Admin.
+  testProfessionals?: { email: string; name: string }[];
 }
 
 // Marca um horário como ocupado — coleção pública (só data/hora, sem nenhum dado do paciente),
