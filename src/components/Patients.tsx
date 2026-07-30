@@ -907,7 +907,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
             <TabButton active={activeTab === 'evolution'} onClick={() => setActiveTab('evolution')} icon={<History size={20} />} label="Evolução Clínica" />
             <TabButton active={activeTab === 'exams'} onClick={() => setActiveTab('exams')} icon={<Microscope size={20} />} label="Exames" />
             <TabButton active={activeTab === 'prescriptions'} onClick={() => setActiveTab('prescriptions')} icon={<Pill size={20} />} label="Receituários" />
-            <TabButton active={activeTab === 'atestado'} onClick={() => setActiveTab('atestado')} icon={<Stamp size={20} />} label="Atestado" />
+            <TabButton active={activeTab === 'atestado'} onClick={() => setActiveTab('atestado')} icon={<Stamp size={20} />} label="Atestados & Declarações" />
             <TabButton active={activeTab === 'consent'} onClick={() => setActiveTab('consent')} icon={<CheckCircle2 size={20} />} label="Termos & Assinaturas" />
             <TabButton active={activeTab === 'photos'} onClick={() => setActiveTab('photos')} icon={<Camera size={20} />} label="Galeria de Fotos" />
             <TabButton active={activeTab === 'files'} onClick={() => setActiveTab('files')} icon={<Paperclip size={20} />} label="Anexos" />
@@ -1621,8 +1621,19 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
   );
 }
 
+type AtestadoDocType = 'atestado' | 'atestado_cid' | 'atestado_menor' | 'declaracao_comparecimento' | 'declaracao_acompanhamento';
+
+const ATESTADO_DOC_LABELS: Record<AtestadoDocType, string> = {
+  atestado: 'Atestado (sem CID)',
+  atestado_cid: 'Atestado (com CID)',
+  atestado_menor: 'Atestado — Paciente Menor',
+  declaracao_comparecimento: 'Declaração de Comparecimento',
+  declaracao_acompanhamento: 'Declaração de Acompanhamento',
+};
+
 function AtestadoModule({ user, patient }: { user: User, patient: Patient }) {
   const [clinicSettings, setClinicSettings] = useState<ClinicSettings | null>(null);
+  const [docType, setDocType] = useState<AtestadoDocType>('atestado');
   const [purpose, setPurpose] = useState('');
   const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split('T')[0]);
   const currentTimeStr = new Date().toTimeString().slice(0, 5); // "HH:MM"
@@ -1632,6 +1643,11 @@ function AtestadoModule({ user, patient }: { user: User, patient: Patient }) {
   const [restUnit, setRestUnit] = useState<'horas' | 'dias'>('horas');
   const [cid, setCid] = useState('');
   const [rg, setRg] = useState('');
+  // Usados nos modelos de menor/acompanhante
+  const [guardianName, setGuardianName] = useState('');
+  const [guardianDoc, setGuardianDoc] = useState('');
+  const [companionName, setCompanionName] = useState('');
+  const [companionDoc, setCompanionDoc] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -1641,9 +1657,32 @@ function AtestadoModule({ user, patient }: { user: User, patient: Patient }) {
     })();
   }, [user.uid]);
 
-  const documentIdLabel = patient.cpf ? `CPF nº ${patient.cpf}` : rg ? `RG nº ${rg}` : '________________';
+  const patientDocLabel = patient.cpf ? `CPF nº ${patient.cpf}` : rg ? `RG nº ${rg}` : '________________';
+  const dateLabel = attendanceDate ? new Date(attendanceDate + 'T00:00:00').toLocaleDateString('pt-BR') : '____/____/____';
+  const timeRangeLabel = timeFrom && timeTo ? `das ${timeFrom} às ${timeTo} horas` : timeFrom ? `a partir das ${timeFrom}` : '____:____ às ____:____';
+  const restLabel = `${restAmount || '____'} (${restUnit})`;
+  const purposeLabel = purpose || '_______________________';
 
-  const bodyText = `Atesto, para fins ${purpose || '_______________________'} e a pedido do(a) interessado(a), que o(a) paciente ${patient.name}, ${documentIdLabel}, esteve sob meus cuidados profissionais${attendanceDate ? ` em ${new Date(attendanceDate + 'T00:00:00').toLocaleDateString('pt-BR')}` : ''}${timeFrom && timeTo ? `, no horário das ${timeFrom} às ${timeTo} horas` : ''}${cid ? `, em virtude de CID nº ${cid}, por este(a) solicitado` : ''}, necessitando de ${restAmount || '____'} (${restUnit === 'horas' ? 'horas' : 'dias'}) de afastamento de suas atividades a partir desta data.`;
+  const bodyText = (() => {
+    switch (docType) {
+      case 'atestado':
+        return `Atesto, para fins ${purposeLabel} e a pedido do(a) interessado(a), que o(a) paciente ${patient.name}, ${patientDocLabel}, esteve sob meus cuidados profissionais em ${dateLabel}, no horário ${timeRangeLabel}, necessitando de ${restLabel} de afastamento de suas atividades a partir desta data.`;
+      case 'atestado_cid':
+        return `Atesto, para fins ${purposeLabel} e a pedido do(a) interessado(a), inclusive com menção de Código CID por este(a) solicitado, que o(a) paciente ${patient.name}, ${patientDocLabel}, esteve sob os meus cuidados profissionais em virtude de CID nº ${cid || '________'}, tendo sido submetido(a) a tratamento odontológico em ${dateLabel}, no período ${timeRangeLabel}, sendo-lhe recomendado repouso por ${restLabel}, além da necessidade de seguir as orientações e tomar os medicamentos que lhe foram prescritos.`;
+      case 'atestado_menor':
+        return `Atesto, para fins ${purposeLabel} e a pedido do(a) Responsável Legal ${guardianName || '_______________________'}, ${guardianDoc || '________________'}, que o(a) menor ${patient.name}, ${patientDocLabel}, esteve sob os meus cuidados profissionais em ${dateLabel}, no período ${timeRangeLabel}, sendo-lhe recomendado repouso por ${restLabel}, além da necessidade de seguir as orientações e retornar conforme agendado.`;
+      case 'declaracao_comparecimento':
+        return `Declaro, para fins ${purposeLabel} e a pedido do(a) interessado(a), que o(a) Sr(a). ${companionName || '_______________________'}, ${companionDoc || '________________'}, compareceu no consultório odontológico ${clinicSettings?.clinicName || clinicSettings?.professionalName || ''}, acompanhando o(a) paciente ${patient.name}, ${patientDocLabel}, o(a) qual esteve sob os meus cuidados profissionais para tratamento odontológico em ${dateLabel}, no período ${timeRangeLabel}.`;
+      case 'declaracao_acompanhamento':
+        return `Declaro, para fins ${purposeLabel} e a pedido do(a) interessado(a), que o(a) Sr(a). ${guardianName || '_______________________'}, ${guardianDoc || '________________'}, Responsável Legal pelo(a) menor ${patient.name}, ${patientDocLabel}, acompanhou o(a) filho(a) durante tratamento odontológico por mim realizado em ${dateLabel}, no período ${timeRangeLabel}.`;
+    }
+  })();
+
+  const showRestFields = docType === 'atestado' || docType === 'atestado_cid' || docType === 'atestado_menor';
+  const showCidField = docType === 'atestado_cid';
+  const showGuardianFields = docType === 'atestado_menor' || docType === 'declaracao_acompanhamento';
+  const showCompanionFields = docType === 'declaracao_comparecimento';
+  const documentTitle = docType.startsWith('declaracao') ? (docType === 'declaracao_comparecimento' ? 'Declaração de Comparecimento' : 'Declaração de Acompanhamento') : 'Atestado Odontológico';
 
   const handlePrint = () => {
     const clinicName = clinicSettings?.clinicName || clinicSettings?.professionalName || 'Clínica';
@@ -1654,7 +1693,7 @@ function AtestadoModule({ user, patient }: { user: User, patient: Patient }) {
       <html lang="pt-BR">
       <head>
         <meta charset="UTF-8" />
-        <title>Atestado — ${patient.name}</title>
+        <title>${documentTitle} — ${patient.name}</title>
         <style>
           body { font-family: Georgia, serif; max-width: 700px; margin: 60px auto; padding: 0 40px; color: #222; line-height: 1.8; }
           h1 { font-size: 15px; text-transform: uppercase; letter-spacing: 0.15em; text-align: center; margin-bottom: 50px; }
@@ -1667,7 +1706,7 @@ function AtestadoModule({ user, patient }: { user: User, patient: Patient }) {
       </head>
       <body>
         <div class="clinic">${clinicName}</div>
-        <h1>Atestado Odontológico</h1>
+        <h1>${documentTitle}</h1>
         <p>${bodyText}</p>
         <p style="margin-top: 60px;">Local e data: ${today}</p>
         <div class="sign-area">
@@ -1689,13 +1728,26 @@ function AtestadoModule({ user, patient }: { user: User, patient: Patient }) {
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between pb-6 border-b border-[#F5F2F0]">
-        <h3 className="serif text-2xl text-[#4A433D]">Atestado</h3>
+        <h3 className="serif text-2xl text-[#4A433D]">Atestados & Declarações</h3>
         <button
           onClick={handlePrint}
           className="bg-[#EADFD4] text-white px-8 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest shadow-md hover:bg-[#DFCFBF] transition-all flex items-center gap-2"
         >
           <Printer size={16} /> Imprimir
         </button>
+      </div>
+
+      <div>
+        <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Tipo de Documento</label>
+        <select
+          value={docType}
+          onChange={e => setDocType(e.target.value as AtestadoDocType)}
+          className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm font-medium"
+        >
+          {Object.entries(ATESTADO_DOC_LABELS).map(([key, label]) => (
+            <option key={key} value={key}>{label}</option>
+          ))}
+        </select>
       </div>
 
       <div className="p-6 bg-[#FDFBF9] rounded-2xl border border-[#F5F2F0] text-xs text-[#9CA3AF] space-y-1">
@@ -1705,7 +1757,21 @@ function AtestadoModule({ user, patient }: { user: User, patient: Patient }) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <FormField label="Finalidade (ex: trabalhistas, escolares)" value={purpose} onChange={setPurpose} />
-        {!patient.cpf && <FormField label="RG (paciente sem CPF cadastrado)" value={rg} onChange={setRg} />}
+        {!patient.cpf && <FormField label="RG do Paciente" value={rg} onChange={setRg} />}
+
+        {showGuardianFields && (
+          <>
+            <FormField label="Nome do Responsável Legal" value={guardianName} onChange={setGuardianName} />
+            <FormField label="RG/CPF do Responsável Legal" value={guardianDoc} onChange={setGuardianDoc} />
+          </>
+        )}
+        {showCompanionFields && (
+          <>
+            <FormField label="Nome do Acompanhante" value={companionName} onChange={setCompanionName} />
+            <FormField label="RG/CPF do Acompanhante" value={companionDoc} onChange={setCompanionDoc} />
+          </>
+        )}
+
         <div>
           <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Data do Atendimento</label>
           <input
@@ -1725,21 +1791,24 @@ function AtestadoModule({ user, patient }: { user: User, patient: Patient }) {
             <input type="time" value={timeTo} onChange={e => setTimeTo(e.target.value)} className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm" />
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <FormField label="Tempo de Afastamento" value={restAmount} onChange={setRestAmount} />
-          <div>
-            <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Unidade</label>
-            <select
-              value={restUnit}
-              onChange={e => setRestUnit(e.target.value as 'horas' | 'dias')}
-              className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
-            >
-              <option value="horas">Horas</option>
-              <option value="dias">Dias</option>
-            </select>
+
+        {showRestFields && (
+          <div className="grid grid-cols-2 gap-3">
+            <FormField label="Tempo de Afastamento" value={restAmount} onChange={setRestAmount} />
+            <div>
+              <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Unidade</label>
+              <select
+                value={restUnit}
+                onChange={e => setRestUnit(e.target.value as 'horas' | 'dias')}
+                className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
+              >
+                <option value="horas">Horas</option>
+                <option value="dias">Dias</option>
+              </select>
+            </div>
           </div>
-        </div>
-        <FormField label="CID (opcional, só se solicitado pelo paciente)" value={cid} onChange={setCid} />
+        )}
+        {showCidField && <FormField label="Código CID" value={cid} onChange={setCid} />}
       </div>
 
       <div>
