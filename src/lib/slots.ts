@@ -48,8 +48,14 @@ export function cancelLink(appointmentId: string, token: string, date: string, t
   return `${base}#cancelar?apt=${appointmentId}&token=${token}&date=${date}&time=${time}&clinic=${clinicId}`;
 }
 
-// Normaliza telefone (só dígitos, com DDI 55 se não tiver) — usado como base do ID
-// determinístico no índice telefone → paciente (patientPhoneIndex).
+// Link de assinatura remota de termo, pelo próprio paciente, sem login — o token (que é
+// o próprio ID do documento signRequests) é o "segredo": só quem tem o link consegue ler
+// e assinar aquele pedido específico.
+export function remoteSignLink(requestId: string): string {
+  const base = window.location.href.split('#')[0];
+  return `${base}#assinar/${requestId}`;
+}
+
 export function normalizePhone(phone: string): string {
   const digits = phone.replace(/\D/g, '');
   if (digits.startsWith('55') && digits.length >= 12) return digits;

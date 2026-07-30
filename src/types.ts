@@ -1,3 +1,22 @@
+export interface SignRequest {
+  id?: string;
+  userId: string;
+  patientId: string;
+  patientName: string;
+  patientCpf?: string;
+  templateId: string;
+  templateTitle: string;
+  templateContent: string; // já preenchido, pronto pra exibir — a página pública não
+                            // precisa ler o paciente nem o modelo de termo diretamente
+  status: 'pending' | 'signed';
+  createdAt: string;
+  createdBy: string; // e-mail de quem gerou o link
+  ownerId: string; // dono canônico da clínica — usado só pra organização/auditoria
+  signedAt?: string;
+  signatureUrl?: string;
+  mergedIntoRecord?: boolean; // marca que já foi puxado pro prontuário do paciente
+}
+
 export interface Patient {
   id?: string;
   userId?: string;

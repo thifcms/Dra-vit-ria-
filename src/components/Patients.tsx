@@ -4,7 +4,7 @@ import { ref, uploadBytes, getDownloadURL, deleteObject, listAll } from 'firebas
 import { compressImage } from '../lib/imageCompress';
 import { db, storage } from '../lib/firebase';
 import { Patient, ClinicSettings } from '../types';
-import { phoneIndexKey, cpfIndexKey, getClinicOwnerId, todayLocalStr } from '../lib/slots';
+import { phoneIndexKey, cpfIndexKey, getClinicOwnerId, todayLocalStr, remoteSignLink } from '../lib/slots';
 import { User } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -22,6 +22,7 @@ import {
   Paperclip,
   Microscope,
   Stamp,
+  MessageCircle,
   Bone,
   MapPin,
   Lock,
@@ -1968,6 +1969,76 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
       .replace(/\[NOME DO PROFISSIONAL\]/g, clinicSettings?.professionalName || '_______________________');
   };
 
+  // Assinaturas feitas remotamente (link enviado por WhatsApp) ficam guardadas em
+  // signRequests até serem "puxadas" pro prontuário — isso acontece sozinho aqui, assim
+  // que o profissional abre essa aba do paciente.
+  useEffect(() => {
+    (async () => {
+      try {
+        const q = query(
+          collection(db, 'signRequests'),
+          where('patientId', '==', patient.id),
+          where('status', '==', 'signed')
+        );
+        const snap = await getDocs(q);
+        const toMerge = snap.docs.filter(d => !d.data().mergedIntoRecord);
+        if (toMerge.length === 0) return;
+
+        const newTerms = toMerge.map(d => {
+          const data = d.data();
+          return {
+            templateId: data.templateId,
+            templateTitle: data.templateTitle,
+            signedAt: data.signedAt,
+            signatureUrl: data.signatureUrl,
+          };
+        });
+        await updateDoc(doc(db, 'patients', patient.id!), {
+          consentTerms: [...(patient.consentTerms || []), ...newTerms],
+        });
+        await Promise.all(toMerge.map(d => updateDoc(doc(db, 'signRequests', d.id), { mergedIntoRecord: true })));
+        showToast(`${newTerms.length} assinatura(s) remota(s) recebida(s)`);
+      } catch (err) {
+        // Melhor esforço — não impede o resto da tela de funcionar
+      }
+    })();
+  }, [patient.id]);
+
+  const handleSendWhatsApp = async (template: { id: string, title: string, content: string }) => {
+    if (!patient.phone) {
+      showToast('Cadastre um telefone pro paciente antes de enviar por WhatsApp', 'error');
+      return;
+    }
+    try {
+      const ownerId = await getClinicOwnerId(db).catch(() => user.uid);
+      const requestData = {
+        userId: user.uid,
+        patientId: patient.id,
+        patientName: patient.name,
+        patientCpf: patient.cpf || '',
+        templateId: template.id,
+        templateTitle: template.title,
+        templateContent: fillTemplate(template.content),
+        status: 'pending' as const,
+        createdAt: new Date().toISOString(),
+        createdBy: user.email || user.uid,
+        ownerId,
+      };
+      const docRef = await addDoc(collection(db, 'signRequests'), requestData);
+      const link = remoteSignLink(docRef.id);
+      const phoneDigits = patient.phone.replace(/\D/g, '');
+      const whatsappPhone = phoneDigits.startsWith('55') ? phoneDigits : `55${phoneDigits}`;
+      const message = encodeURIComponent(
+        `Olá, ${patient.name}! Segue o link pra assinar o documento "${template.title}" da sua consulta:\n${link}`
+      );
+      window.open(`https://wa.me/${whatsappPhone}?text=${message}`, '_blank');
+      setIsSigning(false);
+      showToast('Link gerado — confirme o envio no WhatsApp');
+    } catch (err) {
+      showToast('Erro ao gerar o link de assinatura', 'error');
+    }
+  };
+
   const handleSign = async () => {
     if (sigPad.current && !sigPad.current.isEmpty()) {
       showToast('Processando assinatura...', 'info');
@@ -2062,19 +2133,25 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
                   ) : (
                     <div className="grid grid-cols-1 gap-4">
                       {templates.map(t => (
-                        <button 
-                          key={t.id} 
-                          onClick={() => setSelectedTemplate(t)}
-                          className="w-full text-left p-8 bg-white border border-[#F5F2F0] rounded-[32px] hover:border-[#EADFD4] hover:shadow-lg transition-all flex justify-between items-center group"
+                        <div
+                          key={t.id}
+                          className="w-full p-8 bg-white border border-[#F5F2F0] rounded-[32px] hover:border-[#EADFD4] hover:shadow-lg transition-all flex justify-between items-center group gap-4"
                         >
-                          <div>
+                          <button onClick={() => setSelectedTemplate(t)} className="text-left flex-1">
                             <span className="font-semibold text-[#4A433D] text-lg block">{t.title}</span>
-                            <span className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest mt-1">Pronto para assinatura</span>
-                          </div>
-                          <div className="w-10 h-10 rounded-full border border-[#F5F2F0] flex items-center justify-center text-[#9CA3AF] group-hover:bg-[#EADFD4] group-hover:text-white transition-all">
+                            <span className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest mt-1">Assinar agora, presencialmente</span>
+                          </button>
+                          <button
+                            onClick={() => handleSendWhatsApp(t)}
+                            title="Enviar link de assinatura por WhatsApp"
+                            className="shrink-0 w-10 h-10 rounded-full border border-[#F5F2F0] flex items-center justify-center text-[#9CA3AF] hover:bg-[#8BA888] hover:text-white hover:border-[#8BA888] transition-all"
+                          >
+                            <MessageCircle size={18} />
+                          </button>
+                          <button onClick={() => setSelectedTemplate(t)} className="shrink-0 w-10 h-10 rounded-full border border-[#F5F2F0] flex items-center justify-center text-[#9CA3AF] group-hover:bg-[#EADFD4] group-hover:text-white transition-all">
                             <ChevronRight size={20} />
-                          </div>
-                        </button>
+                          </button>
+                        </div>
                       ))}
                     </div>
                   )}

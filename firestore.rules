@@ -272,6 +272,37 @@ service cloud.firestore {
       allow delete: if isSharedAccess() || isOwnDataAccess();
     }
 
+    // Pedido de assinatura remota de termo (link enviado por WhatsApp) — o ID do próprio
+    // documento é o "segredo": ninguém consegue listar ou adivinhar o pedido de outro
+    // paciente, só quem tem o link exato consegue ler ou assinar aquele documento
+    // específico. affectedKeys().hasOnly trava que a assinatura pública só consiga mudar
+    // status/data/imagem da assinatura — nunca o texto do termo, o paciente vinculado, ou
+    // qualquer outro campo.
+    function isValidSignRequest(data) {
+      return data.patientId is string
+        && data.templateTitle is string
+        && data.templateContent is string
+        && data.status in ['pending', 'signed'];
+    }
+
+    function isPublicSign(data) {
+      return !isSignedIn()
+        && resource.data.status == 'pending'
+        && data.status == 'signed'
+        && data.signedAt is string
+        && data.signatureUrl is string
+        && data.diff(resource.data).affectedKeys().hasOnly(['status', 'signedAt', 'signatureUrl']);
+    }
+
+    match /signRequests/{requestId} {
+      allow get: if true;
+      allow list: if isSharedAccess() || isOwnDataAccess();
+      allow create: if (isSharedAccess() || isOwnDataCreate()) && isValidSignRequest(incoming());
+      allow update: if ((isSharedAccess() || isOwnDataAccess()) && isValidSignRequest(incoming()))
+        || isPublicSign(incoming());
+      allow delete: if isSharedAccess() || isOwnDataAccess();
+    }
+
     // Rules for Inventory
     match /inventory/{itemId} {
       allow read: if isSharedAccess() || isOwnDataAccess();
