@@ -208,6 +208,14 @@ export interface ClinicSettings {
   appointmentInterval?: number; // minutos entre um horário e outro: 15, 20, 30, 45, 60
   agendaBlocked?: boolean; // fecha a agenda inteira temporariamente, sem precisar mexer em cada dia
   blockedDates?: string[]; // datas específicas bloqueadas (AAAA-MM-DD) — feriado, viagem, etc.
+  // Catálogo de preços — usado pro Orçamento (BudgetGenerator) sugerir descrição e valor
+  // automaticamente ao adicionar um item, em vez de digitar tudo na mão toda vez.
+  priceCatalog?: {
+    id: string;
+    name: string;
+    unit: 'procedimento' | 'ml' | 'unidade';
+    price: number; // valor por procedimento inteiro, ou por ml/unidade, conforme "unit"
+  }[];
 }
 
 // Documento público (legível por qualquer um, sem login) usado pela página de agendamento

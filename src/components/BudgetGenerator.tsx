@@ -26,6 +26,19 @@ export default function BudgetGenerator({ patient, user }: { patient: Patient; u
   }, [user.uid]);
 
   const addItem = () => setItems(prev => [...prev, { description: '', value: '' }]);
+  const addFromCatalog = (item: { name: string; unit: 'procedimento' | 'ml' | 'unidade'; price: number }) => {
+    if (item.unit === 'procedimento') {
+      setItems(prev => [...prev, { description: item.name, value: item.price.toFixed(2).replace('.', ',') }]);
+      return;
+    }
+    const qtyStr = window.prompt(`Quantos ${item.unit === 'ml' ? 'ml' : 'unidades'} de "${item.name}"? (R$ ${item.price.toFixed(2).replace('.', ',')} por ${item.unit})`, '1');
+    const qty = parseFloat((qtyStr || '').replace(',', '.'));
+    if (!qty || qty <= 0) return;
+    setItems(prev => [...prev, {
+      description: `${item.name} (${qty} ${item.unit === 'ml' ? 'ml' : 'un.'})`,
+      value: (item.price * qty).toFixed(2).replace('.', ','),
+    }]);
+  };
   const removeItem = (idx: number) => setItems(prev => prev.filter((_, i) => i !== idx));
   const updateItem = (idx: number, field: keyof BudgetItem, value: string) => {
     setItems(prev => prev.map((it, i) => (i === idx ? { ...it, [field]: value } : it)));
@@ -184,6 +197,23 @@ export default function BudgetGenerator({ patient, user }: { patient: Patient; u
       >
         <Plus size={16} /> Adicionar Item
       </button>
+
+      {settings?.priceCatalog && settings.priceCatalog.length > 0 && (
+        <div>
+          <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-3">Ou escolha do catálogo</p>
+          <div className="flex flex-wrap gap-2">
+            {settings.priceCatalog.map(item => (
+              <button
+                key={item.id}
+                onClick={() => addFromCatalog(item)}
+                className="text-xs bg-[#FDFBF9] border border-[#F5F2F0] text-[#4A433D] px-4 py-2 rounded-xl hover:border-[#EADFD4] transition-all"
+              >
+                {item.name} <span className="text-[#9CA3AF]">— R$ {item.price.toFixed(2).replace('.', ',')}{item.unit !== 'procedimento' ? `/${item.unit}` : ''}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="flex justify-end items-center gap-3 py-4 border-t border-[#F5F2F0]">
         <span className="text-xs text-[#9CA3AF] font-bold uppercase tracking-widest">Total</span>

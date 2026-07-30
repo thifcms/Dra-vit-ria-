@@ -37,9 +37,25 @@ import SignaturePad from 'react-signature-canvas';
 import { showToast } from '../lib/toast';
 import { generatePatientPdf, patientPdfFileName } from '../lib/patientPdf';
 import { DEFAULT_CONSENT_TEMPLATES } from '../lib/defaultConsentTemplates';
+import { extractTextFromPdf, extractTextFromImage } from '../lib/textExtraction';
 const AnatomyViewer = lazy(() => import('./AnatomyViewer'));
 import FaceMarkingTab from './FaceMarkingTab';
 import BudgetGenerator from './BudgetGenerator';
+
+// Quebra um texto corrido em parágrafos por frase (ponto final + espaço/quebra de linha,
+// seguido de letra maiúscula) — evita quebrar números como "13.709/2018" ou "R$ 1.200,00",
+// que não são seguidos de maiúscula logo depois do ponto.
+function formatTermParagraphs(text: string): string[] {
+  return text
+    .split(/\n{2,}/) // já respeita quebras de parágrafo que o próprio texto já tinha
+    .flatMap(block =>
+      block
+        .split(/(?<=\.)\s+(?=[A-ZÀ-Ú])/)
+        .map(s => s.trim())
+        .filter(Boolean)
+    );
+}
+
 import { 
   LineChart, 
   Line, 
@@ -491,6 +507,8 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
   const [newExam, setNewExam] = useState({ examType: '', examDate: '', notes: '' });
   const [examFile, setExamFile] = useState<File | null>(null);
   const [savingExam, setSavingExam] = useState(false);
+  const [extractingText, setExtractingText] = useState(false);
+  const [extractProgress, setExtractProgress] = useState(0);
   const [newEvolution, setNewEvolution] = useState({ procedure: '', notes: '', bucoMaxiloNotes: '', numericValue: '' });
 
   const handleSaveAnamnesis = async () => {
@@ -818,6 +836,39 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
     } catch (err) {
       showToast('Erro ao remover arquivo', 'error');
     }
+  };
+
+  const handleImportPdf = async (file: File) => {
+    setExtractingText(true);
+    try {
+      const text = await extractTextFromPdf(file);
+      if (!text) {
+        showToast('Não consegui ler texto desse PDF (pode ser um PDF de imagem escaneada — tenta importar como foto)', 'error');
+      } else {
+        setNewExam(prev => ({ ...prev, notes: prev.notes ? `${prev.notes}\n\n${text}` : text }));
+        showToast('Texto do PDF importado');
+      }
+    } catch {
+      showToast('Erro ao ler o PDF', 'error');
+    }
+    setExtractingText(false);
+  };
+
+  const handleImportPhoto = async (file: File) => {
+    setExtractingText(true);
+    setExtractProgress(0);
+    try {
+      const text = await extractTextFromImage(file, setExtractProgress);
+      if (!text) {
+        showToast('Não consegui reconhecer texto nessa foto', 'error');
+      } else {
+        setNewExam(prev => ({ ...prev, notes: prev.notes ? `${prev.notes}\n\n${text}` : text }));
+        showToast('Texto da foto importado');
+      }
+    } catch {
+      showToast('Erro ao processar a foto', 'error');
+    }
+    setExtractingText(false);
   };
 
   const handleSaveExam = async () => {
@@ -1443,6 +1494,41 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
                       </div>
                     </div>
                     <FormField label="Observações / Resultado" value={newExam.notes} onChange={v => setNewExam({ ...newExam, notes: v })} textarea />
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">
+                        Importar texto automaticamente (opcional)
+                      </label>
+                      <div className="flex gap-3">
+                        <label className="flex-1 flex items-center justify-center gap-2 py-3 bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl text-[10px] font-bold uppercase tracking-widest text-[#4A433D] cursor-pointer hover:border-[#EADFD4] transition-all">
+                          <FileText size={14} /> Importar PDF
+                          <input
+                            type="file"
+                            accept="application/pdf"
+                            className="hidden"
+                            onChange={e => { const f = e.target.files?.[0]; if (f) handleImportPdf(f); e.target.value = ''; }}
+                          />
+                        </label>
+                        <label className="flex-1 flex items-center justify-center gap-2 py-3 bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl text-[10px] font-bold uppercase tracking-widest text-[#4A433D] cursor-pointer hover:border-[#EADFD4] transition-all">
+                          <Camera size={14} /> Importar Foto
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={e => { const f = e.target.files?.[0]; if (f) handleImportPhoto(f); e.target.value = ''; }}
+                          />
+                        </label>
+                      </div>
+                      {extractingText && (
+                        <p className="text-[10px] text-[#B8846E] font-bold uppercase tracking-widest mt-2">
+                          Lendo o texto... {extractProgress > 0 ? `${extractProgress}%` : ''}
+                        </p>
+                      )}
+                      <p className="text-[10px] text-[#9CA3AF] font-light mt-2">
+                        O texto reconhecido é adicionado ao campo "Observações / Resultado" acima — confira e ajuste antes de salvar.
+                      </p>
+                    </div>
+
                     <div>
                       <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Arquivo do Exame (opcional)</label>
                       <input
@@ -2000,8 +2086,10 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
                       <FileText size={24} />
                       <h2 className="serif text-3xl text-[#4A433D]">{selectedTemplate.title}</h2>
                     </div>
-                    <div className="p-8 bg-[#FDFBF9] rounded-[32px] border border-[#F5F2F0] text-sm text-[#4A433D] leading-relaxed max-h-64 overflow-y-auto shadow-sm italic">
-                      {fillTemplate(selectedTemplate.content)}
+                    <div className="p-8 bg-[#FDFBF9] rounded-[32px] border border-[#F5F2F0] text-sm text-[#4A433D] leading-relaxed max-h-64 overflow-y-auto shadow-sm space-y-3">
+                      {formatTermParagraphs(fillTemplate(selectedTemplate.content)).map((paragraph, i) => (
+                        <p key={i} className="italic">{paragraph}</p>
+                      ))}
                     </div>
                   </div>
                   
@@ -2115,6 +2203,7 @@ function PrescriptionModule({ user, patient }: { user: User, patient: Patient })
   const [medicines, setMedicines] = useState<{ name: string, dosage: string, instructions: string }[]>([{ name: '', dosage: '', instructions: '' }]);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const [externalModal, setExternalModal] = useState<{ title: string, url: string } | null>(null);
 
   const addMedicine = () => setMedicines([...medicines, { name: '', dosage: '', instructions: '' }]);
   const updateMedicine = (index: number, field: string, value: string) => {
@@ -2183,13 +2272,13 @@ function PrescriptionModule({ user, patient }: { user: User, patient: Patient })
         <h3 className="serif text-2xl text-[#4A433D]">Receituários & Prescrições</h3>
         <div className="flex items-center gap-3">
           <button 
-            onClick={() => window.open('https://app.mevo.com.br/', '_blank')}
+            onClick={() => setExternalModal({ title: 'Mevo Prescrição Digital', url: 'https://receita.mevosaude.com.br/' })}
             className="bg-white text-[#EADFD4] border border-[#F5F2F0] px-6 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 hover:bg-[#FDFBF9] transition-all shadow-sm"
           >
             <ExternalLink size={18} /> Mevo Prescrição Digital
           </button>
           <button 
-            onClick={() => window.open('https://memed.com.br/login', '_blank')}
+            onClick={() => setExternalModal({ title: 'Memed Prescrição Digital', url: 'https://memed.com.br/login' })}
             className="bg-white text-[#EADFD4] border border-[#F5F2F0] px-6 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 hover:bg-[#FDFBF9] transition-all shadow-sm"
           >
             <ExternalLink size={18} /> Memed Prescrição Digital
@@ -2306,6 +2395,37 @@ function PrescriptionModule({ user, patient }: { user: User, patient: Patient })
           </div>
         )}
       </div>
+
+      {externalModal && (
+        <div className="fixed inset-0 bg-[#4A433D]/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full h-full md:h-[90vh] md:max-w-4xl rounded-none md:rounded-[32px] shadow-2xl flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between p-5 border-b border-[#F5F2F0] shrink-0">
+              <div>
+                <h3 className="serif text-lg text-[#4A433D]">{externalModal.title}</h3>
+                <a
+                  href={externalModal.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[10px] text-[#9CA3AF] hover:text-[#B8846E] underline"
+                >
+                  Não carregou certo? Abrir em uma aba separada
+                </a>
+              </div>
+              <button
+                onClick={() => setExternalModal(null)}
+                className="p-2 text-[#9CA3AF] hover:text-[#4A433D] transition-all"
+              >
+                <X size={22} />
+              </button>
+            </div>
+            <iframe
+              src={externalModal.url}
+              title={externalModal.title}
+              className="flex-1 w-full border-0"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

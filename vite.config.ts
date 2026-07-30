@@ -114,6 +114,11 @@ export default defineConfig(() => {
               // isolar num chunk próprio, ele ia pro pacote "vendor" geral e todo mundo
               // baixaria isso, mesmo quem nunca abre o visualizador 3D
               if (id.includes('/three/') || id.includes('\\three\\')) return 'vendor-three';
+              // Mesmo princípio: o leitor de PDF só é usado na importação de exames —
+              // sem isso, ia pro pacote geral e carregaria pra todo mundo, mesmo quem
+              // nunca usa essa função específica. (OCR de foto usa tesseract.js carregado
+              // por CDN em tempo real, não pelo bundler — ver textExtraction.ts)
+              if (id.includes('pdfjs-dist')) return 'vendor-pdfjs';
               return 'vendor';
             }
           },

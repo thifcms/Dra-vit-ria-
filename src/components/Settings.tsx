@@ -53,6 +53,7 @@ export default function Settings({ user }: { user: User }) {
   const [saving, setSaving] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<ConsentTemplate | null>(null);
   const [isAddingTemplate, setIsAddingTemplate] = useState(false);
+  const [newPriceItem, setNewPriceItem] = useState<{ name: string; unit: 'procedimento' | 'ml' | 'unidade'; price: string }>({ name: '', unit: 'procedimento', price: '' });
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -121,6 +122,18 @@ export default function Settings({ user }: { user: User }) {
     if (!window.confirm('Excluir este modelo de termo?')) return;
     persist({ ...settings, consentTemplates: (settings.consentTemplates || []).filter(t => t.id !== id) });
     showToast('Modelo removido');
+  };
+
+  const handleAddPriceCatalogItem = (item: { name: string; unit: 'procedimento' | 'ml' | 'unidade'; price: number }) => {
+    const next = [...(settings.priceCatalog || []), { ...item, id: crypto.randomUUID() }];
+    persist({ ...settings, priceCatalog: next });
+    showToast('Item adicionado ao catálogo');
+  };
+
+  const handleDeletePriceCatalogItem = (id: string) => {
+    if (!window.confirm('Excluir este item do catálogo?')) return;
+    persist({ ...settings, priceCatalog: (settings.priceCatalog || []).filter(i => i.id !== id) });
+    showToast('Item removido');
   };
 
 
@@ -613,6 +626,72 @@ export default function Settings({ user }: { user: User }) {
             <Calendar size={20} />
             <span>{clearingSlots ? 'Verificando...' : 'Destravar Horários da Agenda'}</span>
           </button>
+        </div>
+      </div>
+
+      <div className="mt-8 bg-white rounded-[40px] border border-[#F5F2F0] p-10">
+        <h3 className="serif text-2xl text-[#4A433D] mb-2">Catálogo de Preços</h3>
+        <p className="text-xs text-[#9CA3AF] font-light mb-8">
+          Cadastre aqui os procedimentos e substâncias com seus valores — ao montar um Orçamento
+          no prontuário do paciente, você escolhe da lista em vez de digitar tudo na mão.
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto_auto] gap-3 mb-8">
+          <input
+            value={newPriceItem.name}
+            onChange={e => setNewPriceItem({ ...newPriceItem, name: e.target.value })}
+            placeholder="Nome (ex: Toxina Botulínica, Ácido Hialurônico...)"
+            className="bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
+          />
+          <select
+            value={newPriceItem.unit}
+            onChange={e => setNewPriceItem({ ...newPriceItem, unit: e.target.value as any })}
+            className="bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
+          >
+            <option value="procedimento">Por procedimento</option>
+            <option value="ml">Por ml</option>
+            <option value="unidade">Por unidade</option>
+          </select>
+          <input
+            value={newPriceItem.price}
+            onChange={e => setNewPriceItem({ ...newPriceItem, price: e.target.value })}
+            placeholder="R$"
+            inputMode="decimal"
+            className="bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm w-full md:w-28"
+          />
+          <button
+            onClick={() => {
+              const price = parseFloat(newPriceItem.price.replace(',', '.'));
+              if (!newPriceItem.name.trim() || !price || price <= 0) {
+                showToast('Preencha nome e um valor válido', 'error');
+                return;
+              }
+              handleAddPriceCatalogItem({ name: newPriceItem.name.trim(), unit: newPriceItem.unit, price });
+              setNewPriceItem({ name: '', unit: 'procedimento', price: '' });
+            }}
+            className="bg-[#EADFD4] text-white rounded-2xl px-6 py-4 text-[10px] font-bold uppercase tracking-widest hover:bg-[#DFCFBF] transition-all flex items-center justify-center gap-2"
+          >
+            <Plus size={16} /> Adicionar
+          </button>
+        </div>
+
+        <div className="space-y-2">
+          {(settings.priceCatalog || []).map(item => (
+            <div key={item.id} className="flex items-center justify-between p-4 bg-[#FDFBF9] rounded-2xl">
+              <div>
+                <p className="text-sm text-[#4A433D] font-medium">{item.name}</p>
+                <p className="text-[10px] text-[#9CA3AF] uppercase tracking-widest">
+                  R$ {item.price.toFixed(2).replace('.', ',')} {item.unit === 'procedimento' ? '(procedimento)' : `por ${item.unit}`}
+                </p>
+              </div>
+              <button onClick={() => handleDeletePriceCatalogItem(item.id)} className="p-2 text-[#9CA3AF] hover:text-red-400">
+                <Trash2 size={16} />
+              </button>
+            </div>
+          ))}
+          {(!settings.priceCatalog || settings.priceCatalog.length === 0) && (
+            <p className="text-xs text-[#9CA3AF] italic text-center py-6">Nenhum item cadastrado ainda.</p>
+          )}
         </div>
       </div>
 
