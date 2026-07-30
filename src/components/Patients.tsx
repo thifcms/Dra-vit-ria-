@@ -2189,6 +2189,12 @@ function PrescriptionModule({ user, patient }: { user: User, patient: Patient })
             <ExternalLink size={18} /> Mevo Prescrição Digital
           </button>
           <button 
+            onClick={() => window.open('https://memed.com.br/login', '_blank')}
+            className="bg-white text-[#EADFD4] border border-[#F5F2F0] px-6 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 hover:bg-[#FDFBF9] transition-all shadow-sm"
+          >
+            <ExternalLink size={18} /> Memed Prescrição Digital
+          </button>
+          <button 
             onClick={() => setIsAdding(true)}
             className="bg-[#EADFD4] text-white px-8 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest shadow-md hover:bg-[#DFCFBF] transition-all flex items-center gap-2"
           >
