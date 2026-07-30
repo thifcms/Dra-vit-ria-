@@ -97,6 +97,14 @@ export function cpfIndexKey(clinicId: string, cpf: string): string {
 // índices de busca), em vez do UID de quem está logado no momento. Sem isso, o segundo
 // administrador (com um UID diferente do primeiro) veria configurações vazias e poderia
 // até criar horários "bloqueados" duplicados que não colidem com os do primeiro.
+// Financeiro (aba, gráficos de receita, tudo relacionado a dinheiro da clínica) é visível
+// só pra esses dois e-mails especificamente — não é o mesmo critério de "administrador"
+// (que pode incluir outras pessoas no futuro sem necessariamente dar acesso financeiro).
+const FINANCE_AUTHORIZED_EMAILS = ['contato.dravitoriaoliveira@gmail.com', 'thifcms@gmail.com'];
+export function hasFinanceAccess(email: string | null | undefined): boolean {
+  return !!email && FINANCE_AUTHORIZED_EMAILS.includes(email.toLowerCase());
+}
+
 export async function getClinicOwnerId(db: Firestore): Promise<string> {
   const snap = await getDoc(doc(db, 'publicConfig', 'booking'));
   const ownerId = snap.exists() ? snap.data().ownerId : null;

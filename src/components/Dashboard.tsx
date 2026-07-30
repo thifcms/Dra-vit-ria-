@@ -21,7 +21,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { doc, getDoc } from 'firebase/firestore';
 import { buildReminderMessage, whatsappLink } from '../lib/reminders';
-import { checkinLink, cancelLink, todayLocalStr, getClinicOwnerId } from '../lib/slots';
+import { checkinLink, cancelLink, todayLocalStr, getClinicOwnerId, hasFinanceAccess } from '../lib/slots';
 import { ClinicSettings } from '../types';
 import { 
   AreaChart, 
@@ -33,7 +33,7 @@ import {
   ResponsiveContainer 
 } from 'recharts';
 
-export default function Dashboard({ user, onNavigate, professionalName }: { user: User, onNavigate: (view: any) => void, professionalName: string }) {
+export default function Dashboard({ user, onNavigate, onOpenPatient, professionalName }: { user: User, onNavigate: (view: any) => void, onOpenPatient?: (patientId: string) => void, professionalName: string }) {
   const [stats, setStats] = useState({
     totalPatients: 0,
     monthRevenue: 0,
@@ -195,21 +195,21 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
         <motion.div 
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="lg:col-span-2 bg-[#EADFD4] rounded-[48px] p-12 text-[#4A433D] relative overflow-hidden flex flex-col justify-between min-h-[300px] shadow-xl"
+          className="lg:col-span-2 bg-[#EADFD4] rounded-[40px] p-8 text-[#4A433D] relative overflow-hidden flex flex-col justify-between min-h-[200px] shadow-xl"
         >
           <div className="relative z-10">
-            <h2 className="text-4xl font-light mb-4 serif">
+            <h2 className="text-2xl font-light mb-3 serif">
               Olá, <span className="italic">{/^dra\.?\s/i.test(professionalName || '') ? professionalName : `Dra. ${professionalName}`}</span>
             </h2>
-            <p className="text-[#4A433D]/70 font-light max-w-sm leading-relaxed text-lg">
+            <p className="text-[#4A433D]/70 font-light max-w-sm leading-relaxed text-sm">
               Sua clínica está operando com <span className="text-[#4A433D] font-medium">excelência</span> hoje. Confira os destaques do seu consultório.
             </p>
           </div>
           
-          <div className="relative z-10 flex gap-4 mt-8">
+          <div className="relative z-10 flex gap-4 mt-6">
             <button 
               onClick={() => onNavigate('schedule')}
-              className="px-10 py-5 bg-[#4A433D] text-white rounded-2xl hover:bg-[#4A433D] transition-all shadow-lg font-bold text-[10px] uppercase tracking-widest flex items-center gap-3"
+              className="px-8 py-4 bg-[#4A433D] text-white rounded-2xl hover:bg-[#4A433D] transition-all shadow-lg font-bold text-[10px] uppercase tracking-widest flex items-center gap-3"
             >
               Agenda de Hoje <ArrowRight size={16} />
             </button>
@@ -258,12 +258,14 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
           icon={<Users className="text-[#EADFD4]" size={20} />} 
           trend="+4 novos"
         />
-        <StatCard 
-          label="Faturamento Mês" 
-          value={`R$ ${stats.monthRevenue.toLocaleString('pt-BR')}`} 
-          icon={<TrendingUp className="text-[#8BA888]" size={20} />} 
-          trend="Estável"
-        />
+        {hasFinanceAccess(user?.email) && (
+          <StatCard 
+            label="Faturamento Mês" 
+            value={`R$ ${stats.monthRevenue.toLocaleString('pt-BR')}`} 
+            icon={<TrendingUp className="text-[#8BA888]" size={20} />} 
+            trend="Estável"
+          />
+        )}
         <StatCard 
           label="Consultas Hoje" 
           value={stats.todayAppointments} 
@@ -295,20 +297,22 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
           <ArrowRight className="mt-8 text-[#F5F2F0] group-hover:text-[#EADFD4] group-hover:translate-x-2 transition-all" />
         </motion.div>
 
-        <motion.div 
-          whileHover={{ scale: 1.01 }}
-          className="md:col-span-1 bg-[#FDFBF9] border border-[#F5F2F0] rounded-[40px] p-10 flex flex-col justify-between group cursor-pointer"
-          onClick={() => onNavigate('finance')}
-        >
-          <div>
-            <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-[#8BA888] shadow-sm mb-6 group-hover:bg-[#8BA888] group-hover:text-white transition-all">
-              <TrendingUp size={24} />
+        {hasFinanceAccess(user?.email) && (
+          <motion.div 
+            whileHover={{ scale: 1.01 }}
+            className="md:col-span-1 bg-[#FDFBF9] border border-[#F5F2F0] rounded-[40px] p-10 flex flex-col justify-between group cursor-pointer"
+            onClick={() => onNavigate('finance')}
+          >
+            <div>
+              <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-[#8BA888] shadow-sm mb-6 group-hover:bg-[#8BA888] group-hover:text-white transition-all">
+                <TrendingUp size={24} />
+              </div>
+              <h3 className="serif text-2xl text-[#4A433D] mb-2">Fluxo de Caixa</h3>
+              <p className="text-xs text-[#9CA3AF] font-light leading-relaxed">Visualize a saúde financeira do seu consultório em tempo real.</p>
             </div>
-            <h3 className="serif text-2xl text-[#4A433D] mb-2">Fluxo de Caixa</h3>
-            <p className="text-xs text-[#9CA3AF] font-light leading-relaxed">Visualize a saúde financeira do seu consultório em tempo real.</p>
-          </div>
-          <ArrowRight className="mt-8 text-[#F5F2F0] group-hover:text-[#8BA888] group-hover:translate-x-2 transition-all" />
-        </motion.div>
+            <ArrowRight className="mt-8 text-[#F5F2F0] group-hover:text-[#8BA888] group-hover:translate-x-2 transition-all" />
+          </motion.div>
+        )}
 
         <motion.div 
           whileHover={{ scale: 1.01 }}
@@ -326,71 +330,73 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
         </motion.div>
       </div>
 
-      {/* Chart Section */}
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-white rounded-[48px] border border-[#F5F2F0] p-12 card-shadow"
-      >
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-12 gap-4">
-          <div>
-            <h3 className="serif text-2xl text-[#4A433D] mb-1">Crescimento Mensal</h3>
-            <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest">Acompanhamento de Receita • Últimos 6 meses</p>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-[#EADFD4]" />
-              <span className="text-xs text-[#9CA3AF]">Receita Bruta</span>
+      {/* Chart Section — Receita, visível só pra quem tem acesso financeiro */}
+      {hasFinanceAccess(user?.email) && (
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white rounded-[48px] border border-[#F5F2F0] p-12 card-shadow"
+        >
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-12 gap-4">
+            <div>
+              <h3 className="serif text-2xl text-[#4A433D] mb-1">Crescimento Mensal</h3>
+              <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest">Acompanhamento de Receita • Últimos 6 meses</p>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-[#EADFD4]" />
+                <span className="text-xs text-[#9CA3AF]">Receita Bruta</span>
+              </div>
             </div>
           </div>
-        </div>
-        
-        <div className="h-[300px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData}>
-              <defs>
-                <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#EADFD4" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#EADFD4" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F5F2F0" />
-              <XAxis 
-                dataKey="name" 
-                axisLine={false} 
-                tickLine={false} 
-                tick={{ fill: '#9CA3AF', fontSize: 10, fontWeight: 700 }}
-                dy={10}
-              />
-              <YAxis 
-                axisLine={false} 
-                tickLine={false} 
-                tick={{ fill: '#9CA3AF', fontSize: 10 }}
-                tickFormatter={(v) => `R$ ${v/1000}k`}
-              />
-              <Tooltip 
-                contentStyle={{ 
-                  borderRadius: '20px', 
-                  border: 'none', 
-                  boxShadow: '0 10px 30px rgba(0,0,0,0.05)',
-                  padding: '15px 20px'
-                }}
-                itemStyle={{ color: '#4A433D', fontWeight: 600, fontSize: '14px' }}
-                labelStyle={{ fontSize: '10px', color: '#9CA3AF', fontWeight: 700, textTransform: 'uppercase', marginBottom: '5px' }}
-              />
-              <Area 
-                type="monotone" 
-                dataKey="revenue" 
-                stroke="#EADFD4" 
-                strokeWidth={4}
-                fillOpacity={1} 
-                fill="url(#colorRevenue)" 
-                animationDuration={2000}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </motion.div>
+          
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData}>
+                <defs>
+                  <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#EADFD4" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#EADFD4" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F5F2F0" />
+                <XAxis 
+                  dataKey="name" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fill: '#9CA3AF', fontSize: 10, fontWeight: 700 }}
+                  dy={10}
+                />
+                <YAxis 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fill: '#9CA3AF', fontSize: 10 }}
+                  tickFormatter={(v) => `R$ ${v/1000}k`}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    borderRadius: '20px', 
+                    border: 'none', 
+                    boxShadow: '0 10px 30px rgba(0,0,0,0.05)',
+                    padding: '15px 20px'
+                  }}
+                  itemStyle={{ color: '#4A433D', fontWeight: 600, fontSize: '14px' }}
+                  labelStyle={{ fontSize: '10px', color: '#9CA3AF', fontWeight: 700, textTransform: 'uppercase', marginBottom: '5px' }}
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="revenue" 
+                  stroke="#EADFD4" 
+                  strokeWidth={4}
+                  fillOpacity={1} 
+                  fill="url(#colorRevenue)" 
+                  animationDuration={2000}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </motion.div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Pending Online Bookings */}
@@ -479,7 +485,11 @@ export default function Dashboard({ user, onNavigate, professionalName }: { user
           </div>
           <div className="space-y-4">
             {recentPatients.map((p) => (
-              <div key={p.id} className="flex items-center justify-between p-6 bg-[#FDFBF9]/50 rounded-3xl border border-[#F5F2F0] hover:border-[#EADFD4] transition-all group">
+              <div
+                key={p.id}
+                onClick={() => { if (p.id) { onOpenPatient ? onOpenPatient(p.id) : onNavigate('patients'); } }}
+                className="flex items-center justify-between p-6 bg-[#FDFBF9]/50 rounded-3xl border border-[#F5F2F0] hover:border-[#EADFD4] transition-all group cursor-pointer"
+              >
                 <div className="flex items-center gap-5">
                   <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center border border-[#F5F2F0] text-[#9CA3AF] group-hover:bg-[#EADFD4] group-hover:text-white transition-all">
                     <Users size={20} />

@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ToastHost, showToast } from './lib/toast';
 import { hashPin, isValidPinFormat } from './lib/pin';
 import { verifyBiometric } from './lib/webauthn';
-import { getClinicOwnerId } from './lib/slots';
+import { getClinicOwnerId, hasFinanceAccess } from './lib/slots';
 import type { ClinicSettings, Patient } from './types';
 import { 
   Users, 
@@ -464,12 +464,14 @@ function AuthenticatedApp() {
                   icon={<Package size={20} />}
                   label="Estoque & Insumos"
                 />
-                <NavItemExpanded 
-                  active={activeView === 'finance'} 
-                  onClick={() => { setActiveView('finance'); setIsSidebarOpen(false); }}
-                  icon={<CreditCard size={20} />}
-                  label="Controle Financeiro"
-                />
+                {hasFinanceAccess(user?.email) && (
+                  <NavItemExpanded 
+                    active={activeView === 'finance'} 
+                    onClick={() => { setActiveView('finance'); setIsSidebarOpen(false); }}
+                    icon={<CreditCard size={20} />}
+                    label="Controle Financeiro"
+                  />
+                )}
                 <NavItemExpanded 
                   active={activeView === 'settings'} 
                   onClick={() => { setActiveView('settings'); setIsSidebarOpen(false); }}
@@ -552,7 +554,7 @@ function AuthenticatedApp() {
               {...PAGE_FADE}
             >
               <Suspense fallback={<ViewLoadingFallback />}>
-                {activeView === 'dashboard' && <Dashboard user={user} onNavigate={setActiveView} professionalName={professionalName} />}
+                {activeView === 'dashboard' && <Dashboard user={user} onNavigate={setActiveView} onOpenPatient={(patientId: string) => { setActiveView('patients'); setJumpToPatientId(patientId); }} professionalName={professionalName} />}
                 {activeView === 'patients' && (
                   <Patients
                     user={user}
@@ -566,7 +568,7 @@ function AuthenticatedApp() {
                   />
                 )}
                 {activeView === 'inventory' && <Inventory user={user} />}
-                {activeView === 'finance' && <Finance user={user} />}
+                {activeView === 'finance' && hasFinanceAccess(user?.email) && <Finance user={user} />}
                 {activeView === 'settings' && <Settings user={user} />}
               </Suspense>
             </motion.div>

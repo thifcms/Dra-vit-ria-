@@ -388,7 +388,7 @@ function HomePage() {
             />
           </div>
 
-          <div className="md:col-span-7 text-center md:text-left order-1 md:order-2">
+          <div className="md:col-span-7 text-center md:text-left order-1 md:order-2 md:-ml-16 lg:-ml-24">
             <img src="/logo/logo-full-v2.png" alt="Dra. Vitória Oliveira" className="h-24 md:h-32 w-auto object-contain mb-10 mx-auto md:mx-0" />
             <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-[#B8846E] mb-6">
               Cirurgia Buco-Maxilo-Facial &amp; Estética

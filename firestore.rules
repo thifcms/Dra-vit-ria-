@@ -55,6 +55,14 @@ service cloud.firestore {
       return isAdmin();
     }
 
+    // Financeiro é visível/editável só por esses dois e-mails especificamente — mais
+    // restrito que "administrador" comum, já que a lista de admins pode crescer no futuro
+    // sem que isso implique acesso a dado financeiro da clínica.
+    function isFinanceAuthorized() {
+      return isSignedIn() && request.auth.token.email in
+        ['contato.dravitoriaoliveira@gmail.com', 'thifcms@gmail.com'];
+    }
+
     function isOwnDataAccess() {
       return isAuthorizedStaff() && resource.data.userId == request.auth.uid;
     }
@@ -282,10 +290,10 @@ service cloud.firestore {
 
     // Rules for Transactions
     match /transactions/{transactionId} {
-      allow read: if isSharedAccess() || isOwnDataAccess();
-      allow create: if (isSharedAccess() || isOwnDataCreate()) && isValidTransaction(incoming()) && isValidId(transactionId);
-      allow update: if (isSharedAccess() || isOwnDataAccess()) && isValidTransaction(incoming());
-      allow delete: if isSharedAccess() || isOwnDataAccess();
+      allow read: if isFinanceAuthorized();
+      allow create: if isFinanceAuthorized() && isValidTransaction(incoming()) && isValidId(transactionId);
+      allow update: if isFinanceAuthorized() && isValidTransaction(incoming());
+      allow delete: if isFinanceAuthorized();
     }
 
     // Marca horários como ocupados — coleção pública (só clinicId/data/hora, ZERO dado de
