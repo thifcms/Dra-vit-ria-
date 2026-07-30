@@ -1,13 +1,20 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    // Confere a mesma lista de administradores usada no Firestore — assim, qualquer
-    // administrador autorizado acessa os arquivos de qualquer paciente, não só os que ele
-    // mesmo enviou (mesmo princípio de "acesso compartilhado" já usado no banco de dados).
+    // Limitação real e documentada do Firebase: regras de Storage só conseguem consultar
+    // o banco Firestore "(default)" via firestore.get() — não alcançam bancos com nome
+    // próprio como o desta clínica. Isso significa que a versão anterior desta função
+    // (que tentava ler system/authorized_admins do Firestore) NUNCA funcionava de
+    // verdade — falhava silenciosamente, sem erro visível. Por isso os e-mails dos
+    // administradores estão fixos aqui diretamente.
+    //
+    // Atenção: se um novo administrador for adicionado pelo painel do app no futuro,
+    // ele terá acesso normal ao Firestore, mas NÃO vai conseguir ver fotos/arquivos
+    // enviados por outros administradores até o e-mail dele também ser adicionado aqui
+    // manualmente e as regras republicadas.
     function isAdmin() {
-      return request.auth != null
-        && request.auth.token.email in
-           firestore.get(/databases/(default)/documents/system/authorized_admins).data.emails;
+      return request.auth != null && request.auth.token.email in
+        ['contato.dravitoriaoliveira@gmail.com', 'thifcms@gmail.com'];
     }
 
     // Fotos e arquivos de pacientes ficam em: patients/{uid}/{patientId}/...
