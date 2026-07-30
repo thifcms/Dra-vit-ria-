@@ -374,7 +374,7 @@ function HomePage() {
           className="hidden md:block absolute right-[2%] top-1/2 -translate-y-1/2 w-[32%] max-w-[380px] opacity-[0.07] pointer-events-none select-none"
         />
 
-        <div className="max-w-6xl mx-auto px-6 md:px-10 relative z-10 w-full grid grid-cols-1 md:grid-cols-12 gap-10 items-center">
+        <div className="max-w-6xl mx-auto px-6 md:px-10 relative z-10 w-full grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
           {/* Foto — bordas esmaecidas, se confundindo com o fundo da página */}
           <div className="md:col-span-5 flex justify-center order-2 md:order-1">
             <img
@@ -388,7 +388,7 @@ function HomePage() {
             />
           </div>
 
-          <div className="md:col-span-7 text-center md:text-left order-1 md:order-2 md:-ml-16 lg:-ml-24">
+          <div className="md:col-span-7 text-center md:text-left order-1 md:order-2">
             <img src="/logo/logo-full-v2.png" alt="Dra. Vitória Oliveira" className="h-24 md:h-32 w-auto object-contain mb-10 mx-auto md:mx-0" />
             <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-[#B8846E] mb-6">
               Cirurgia Buco-Maxilo-Facial &amp; Estética
