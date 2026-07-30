@@ -321,8 +321,14 @@ service cloud.firestore {
 
     // Rules for Transactions
     match /transactions/{transactionId} {
+      // Ler o financeiro completo, editar valores ou apagar lançamentos continua restrito
+      // aos 2 e-mails autorizados (dado sensível de faturamento da clínica). Já CRIAR um
+      // lançamento é diferente — acontece como consequência natural do trabalho clínico
+      // de qualquer usuário autorizado (concluir uma consulta na agenda, marcar um
+      // procedimento na anamnese) e não expõe ninguém aos dados financeiros de outros
+      // pacientes/lançamentos, então não precisa da mesma restrição.
       allow read: if isFinanceAuthorized();
-      allow create: if isFinanceAuthorized() && isValidTransaction(incoming()) && isValidId(transactionId);
+      allow create: if (isSharedAccess() || isOwnDataCreate()) && isValidTransaction(incoming()) && isValidId(transactionId);
       allow update: if isFinanceAuthorized() && isValidTransaction(incoming());
       allow delete: if isFinanceAuthorized();
     }
