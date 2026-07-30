@@ -119,6 +119,16 @@ export default defineConfig(() => {
               // nunca usa essa função específica. (OCR de foto usa tesseract.js carregado
               // por CDN em tempo real, não pelo bundler — ver textExtraction.ts)
               if (id.includes('pdfjs-dist')) return 'vendor-pdfjs';
+              // jsPDF e JSZip já são importados sob demanda no código (só quando alguém
+              // gera um PDF ou baixa um .zip de backup) — sem isolar, iam parar no
+              // pacote geral mesmo assim e carregar pra todo mundo, sempre, mesmo quem
+              // nunca usa essas funções.
+              // jsPDF carrega o html2canvas por dentro (recurso de "HTML pra PDF" que a
+              // gente não usa — só geramos PDF por texto/desenho direto), mas ele vem
+              // hospedado fora da pasta do jspdf, então escapava dessa regra e caía no
+              // pacote geral sem querer. Junto ele e as duas dependências dele aqui.
+              if (id.includes('jspdf') || id.includes('html2canvas') || id.includes('css-line-break') || id.includes('utrie')) return 'vendor-jspdf';
+              if (id.includes('jszip')) return 'vendor-jszip';
               return 'vendor';
             }
           },
