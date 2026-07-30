@@ -1,42 +1,91 @@
 import React, { useState, useEffect } from 'react';
-import { motion, useScroll, useTransform } from 'motion/react';
-import { Instagram, MapPin, Phone as PhoneIcon, ArrowRight, ArrowUpRight } from 'lucide-react';
+import { motion } from 'motion/react';
+import { Instagram, MapPin, Phone as PhoneIcon, ArrowRight, ArrowUpRight, ArrowLeft } from 'lucide-react';
 
 const PROCEDURES = [
   {
+    slug: 'harmonizacao-facial',
     name: 'Harmonização Facial',
     desc: 'Reequilíbrio dos contornos do rosto com técnicas combinadas, respeitando a anatomia individual de cada paciente.',
     indicated: 'Indicado pra quem busca simetria e equilíbrio entre as regiões do rosto, sem depender de um procedimento isolado.',
+    long: [
+      'Harmonização facial não é um procedimento único — é um plano que combina diferentes técnicas (toxina, preenchimento, bioestimuladores, entre outras) na medida certa pra cada rosto, sempre a partir de uma leitura cuidadosa da anatomia da pessoa.',
+      'A ideia central é proporção: nenhuma região do rosto é tratada isoladamente, porque uma mudança num ponto afeta a leitura visual do conjunto. Por isso a avaliação inicial é tão detalhada quanto o procedimento em si.',
+      'Os ajustes costumam ser feitos em etapas, com retornos entre elas — isso permite calibrar o resultado aos poucos, em vez de tentar acertar tudo de uma vez.',
+    ],
+    recovery: 'Varia por técnica combinada, mas a maioria dos procedimentos usados na harmonização tem recuperação rápida, sem afastamento das atividades.',
   },
   {
+    slug: 'toxina-botulinica',
     name: 'Toxina Botulínica',
     desc: 'Suavização de linhas de expressão com resultado natural — sem congelamento, sem perda de movimento.',
     indicated: 'Testa e sorriso natural (marcas de expressão na testa, glabela e ao redor dos olhos), enxaqueca tensional e bruxismo.',
+    long: [
+      'A toxina botulínica relaxa temporariamente a musculatura responsável pelas linhas de expressão mais marcadas — testa, entre as sobrancelhas e ao redor dos olhos — sem eliminar o movimento natural do rosto.',
+      'A dose e os pontos de aplicação são definidos individualmente: o objetivo é suavizar, nunca imobilizar. Um rosto que ainda se movimenta e expressa emoção continua parecendo natural depois do procedimento.',
+      'Também é usada com fins terapêuticos, como no alívio de dores relacionadas a bruxismo e enxaqueca tensional, quando indicado.',
+    ],
+    recovery: 'Sem tempo de afastamento. O resultado começa a aparecer em poucos dias e se estabiliza em cerca de duas semanas.',
   },
   {
+    slug: 'bioestimuladores-colageno',
     name: 'Bioestimuladores de Colágeno',
     desc: 'Estímulo à produção natural de colágeno pra firmeza e qualidade de pele a médio e longo prazo.',
     indicated: 'Flacidez inicial, perda de firmeza e prevenção do envelhecimento — resultado que aparece aos poucos, ao longo de semanas.',
+    long: [
+      'Diferente de um preenchimento, o bioestimulador não entrega volume na hora — ele estimula o próprio corpo a produzir mais colágeno ao longo do tempo, o que resulta em pele mais firme e com melhor qualidade.',
+      'É uma abordagem pensada pra quem quer prevenir ou tratar sinais iniciais de flacidez, com um resultado que evolui de forma gradual e discreta, sem uma mudança abrupta perceptível de uma consulta pra outra.',
+      'Costuma ser aplicado em sessões espaçadas, conforme protocolo individualizado.',
+    ],
+    recovery: 'Recuperação rápida, com possível vermelhidão ou pequenos inchaços nos primeiros dias.',
   },
   {
+    slug: 'preenchimento-facial',
     name: 'Preenchimento Facial',
     desc: 'Volume e definição em regiões específicas — malar, mandíbula, lábios — com ácido hialurônico.',
     indicated: 'Perda de volume na região malar, contorno mandibular pouco definido, lábios que perderam projeção com o tempo.',
+    long: [
+      'O preenchimento com ácido hialurônico devolve volume a regiões específicas do rosto — maçãs do rosto, mandíbula, lábios — que perderam projeção com o tempo ou nunca tiveram a definição desejada.',
+      'Por ser uma substância biocompatível e reabsorvível, o resultado tem prazo de validade natural, o que permite reavaliar e ajustar a abordagem nas sessões seguintes, conforme a resposta de cada pessoa.',
+      'A técnica de aplicação varia bastante conforme a região e o objetivo — desde reposição sutil de volume até definição mais marcada de contorno.',
+    ],
+    recovery: 'Pode haver inchaço leve nas primeiras 48 horas. A maioria das pessoas retoma a rotina normalmente no mesmo dia.',
   },
   {
+    slug: 'cirurgia-ortognatica',
     name: 'Cirurgia Ortognática',
     desc: 'Correção cirúrgica de desproporções entre maxila e mandíbula, com impacto funcional e estético.',
     indicated: 'Dificuldade de mastigação, desvio de mordida, desproporção visível entre o terço médio e inferior do rosto.',
+    long: [
+      'A cirurgia ortognática corrige o posicionamento dos ossos da maxila e da mandíbula quando existe uma desproporção que afeta tanto a função (mastigação, respiração, fala) quanto a harmonia do rosto.',
+      'É um procedimento que costuma envolver planejamento conjunto com ortodontia, já que o alinhamento dentário e o posicionamento ósseo caminham juntos na maioria dos casos.',
+      'Por ser cirúrgico, exige avaliação de imagem detalhada, planejamento cuidadoso da técnica e acompanhamento próximo no pós-operatório.',
+    ],
+    recovery: 'Recuperação cirúrgica, com tempo de afastamento que varia por caso — discutido em detalhe durante a avaliação e o planejamento.',
   },
   {
+    slug: 'rinoplastia',
     name: 'Rinoplastia',
     desc: 'Remodelação do nariz com foco em harmonia com o restante do rosto, preservando a função respiratória.',
     indicated: 'Desvios de septo com impacto respiratório, giba nasal, ponta nasal pouco definida — sempre olhando a função junto da estética.',
+    long: [
+      'A rinoplastia trata tanto a forma quanto a função do nariz — muitas vezes as duas coisas estão relacionadas, como em casos de desvio de septo que afetam a respiração além da aparência.',
+      'O planejamento leva em conta o rosto como um todo, não o nariz isolado: o objetivo é uma proporção que combine com as demais estruturas faciais, evitando um resultado "genérico".',
+      'É um procedimento cirúrgico, com técnica escolhida conforme a anatomia e o objetivo de cada pessoa.',
+    ],
+    recovery: 'Recuperação cirúrgica, com inchaço e possíveis hematomas nas primeiras semanas — o resultado final leva alguns meses pra se estabilizar completamente.',
   },
   {
+    slug: 'cirurgia-buco-maxilo-facial',
     name: 'Cirurgia Buco-Maxilo-Facial',
     desc: 'Procedimentos cirúrgicos especializados na face, mandíbula e estruturas orais — a base técnica de tudo o que fazemos.',
     indicated: 'Extrações complexas, cistos e lesões orais, traumas faciais, disfunções da ATM (articulação temporomandibular).',
+    long: [
+      'Essa é a especialidade cirúrgica de base — cuida de extrações complexas (como dentes inclusos), cistos e lesões da boca, traumas faciais e disfunções da articulação temporomandibular (ATM).',
+      'É o alicerce técnico que sustenta também os procedimentos estéticos: entender a estrutura óssea e muscular da face em profundidade é o que permite planejar harmonização, preenchimento ou cirurgia com segurança.',
+      'Cada caso é avaliado individualmente, com exames de imagem quando necessário, antes de qualquer indicação de conduta.',
+    ],
+    recovery: 'Varia bastante conforme o procedimento específico — de recuperação simples (algumas extrações) a mais prolongada (cirurgias maiores).',
   },
 ];
 
@@ -95,6 +144,14 @@ const FAQ = [
     q: 'Tem tempo de recuperação?',
     a: 'Procedimentos não-cirúrgicos costumam ter recuperação mínima, muitas vezes sem afastamento. Procedimentos cirúrgicos têm um tempo próprio de recuperação, sempre explicado com clareza antes de qualquer decisão.',
   },
+  {
+    q: 'Como sei qual procedimento é indicado pro meu caso?',
+    a: 'Só numa avaliação presencial — cada rosto tem uma anatomia diferente, e muitas vezes o que resolve uma queixa é a combinação de mais de uma técnica, não um procedimento isolado escolhido antes de examinar.',
+  },
+  {
+    q: 'Qual a diferença entre um procedimento estético e uma cirurgia buco-maxilo-facial?',
+    a: 'Procedimentos estéticos (toxina, preenchimento, bioestimuladores) ajustam volume, contorno e qualidade de pele, sem alterar a estrutura óssea. Já a cirurgia buco-maxilo-facial trata questões estruturais — como posição da maxila/mandíbula ou lesões — que têm impacto funcional além do estético.',
+  },
 ];
 
 function useRevealOnScroll() {
@@ -106,7 +163,101 @@ function useRevealOnScroll() {
   };
 }
 
-export default function InstitutionalSite() {
+// Extrai o "sub-caminho" depois de #teste — usado pra decidir se mostra a página inicial
+// do site ou o detalhe de um procedimento específico (ex: #teste/procedimento/rinoplastia)
+function useSiteSubRoute() {
+  const [subRoute, setSubRoute] = useState(() => window.location.hash.replace(/^#teste\/?/, ''));
+  useEffect(() => {
+    const onHashChange = () => setSubRoute(window.location.hash.replace(/^#teste\/?/, ''));
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+  return subRoute;
+}
+
+function scrollToSection(id: string) {
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+}
+
+function NavLink({ id, label }: { id: string; label: string }) {
+  return (
+    <button
+      onClick={() => scrollToSection(id)}
+      className="hover:text-[#4A433D] transition-colors uppercase"
+    >
+      {label}
+    </button>
+  );
+}
+
+function ProcedureDetailPage({ slug }: { slug: string }) {
+  const procedure = PROCEDURES.find(p => p.slug === slug);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [slug]);
+
+  if (!procedure) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#FDFBF9] p-6 text-center">
+        <p className="text-[#4A433D] mb-6">Procedimento não encontrado.</p>
+        <a href="#teste" className="text-[11px] font-bold uppercase tracking-widest border-b-2 border-[#4A433D] pb-1">Voltar ao início</a>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-[#FDFBF9] text-[#4A433D] min-h-screen" style={{ fontFamily: 'Inter, sans-serif' }}>
+      <header className="fixed top-0 left-0 right-0 z-40 bg-[#FDFBF9]/85 backdrop-blur-md border-b border-[#EADFD4]/30">
+        <div className="max-w-3xl mx-auto px-6 md:px-10 h-20 flex items-center">
+          <img src="/logo/logo-mark-v2.png" alt="" className="h-9 w-auto" />
+        </div>
+      </header>
+
+      <div className="max-w-3xl mx-auto px-6 md:px-10 pt-36 pb-28">
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
+          <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-[#B8846E] mb-4">Procedimento</p>
+          <h1 className="serif text-4xl md:text-5xl mb-8">{procedure.name}</h1>
+          <p className="text-lg text-[#4A433D]/70 font-light leading-relaxed mb-10 italic">{procedure.desc}</p>
+
+          <div className="space-y-6 mb-12">
+            {procedure.long.map((paragraph, i) => (
+              <p key={i} className="text-[#4A433D]/80 font-light leading-relaxed">{paragraph}</p>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-14">
+            <div className="p-6 bg-white border border-[#F5F2F0] rounded-3xl">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-[#B8846E] mb-2">Indicado para</p>
+              <p className="text-sm text-[#4A433D]/70 font-light leading-relaxed">{procedure.indicated}</p>
+            </div>
+            <div className="p-6 bg-white border border-[#F5F2F0] rounded-3xl">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-[#B8846E] mb-2">Recuperação</p>
+              <p className="text-sm text-[#4A433D]/70 font-light leading-relaxed">{procedure.recovery}</p>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-4">
+            <a
+              href="#agendar"
+              className="inline-flex items-center justify-center gap-3 bg-[#4A433D] text-white text-[11px] font-bold uppercase tracking-[0.15em] px-8 py-4 rounded-full hover:bg-[#5C544E] transition-colors"
+            >
+              Agendar Avaliação <ArrowRight size={14} />
+            </a>
+            <a
+              href="#teste"
+              className="inline-flex items-center justify-center gap-3 border border-[#F5F2F0] text-[#4A433D] text-[11px] font-bold uppercase tracking-[0.15em] px-8 py-4 rounded-full hover:bg-[#FDFBF9] transition-colors"
+            >
+              <ArrowLeft size={14} /> Voltar
+            </a>
+          </div>
+        </motion.div>
+      </div>
+    </div>
+  );
+}
+
+function HomePage() {
   const reveal = useRevealOnScroll();
 
   return (
@@ -115,9 +266,9 @@ export default function InstitutionalSite() {
       <header className="fixed top-0 left-0 right-0 z-40 bg-[#FDFBF9]/85 backdrop-blur-md border-b border-[#EADFD4]/30">
         <div className="max-w-6xl mx-auto px-6 md:px-10 h-20 flex items-center justify-end gap-10">
           <nav className="hidden md:flex items-center gap-10 text-[11px] font-medium uppercase tracking-[0.15em] text-[#4A433D]/70">
-            <a href="#procedimentos" className="hover:text-[#4A433D] transition-colors">Procedimentos</a>
-            <a href="#sobre" className="hover:text-[#4A433D] transition-colors">Sobre</a>
-            <a href="#contato" className="hover:text-[#4A433D] transition-colors">Contato</a>
+            <NavLink id="procedimentos" label="Procedimentos" />
+            <NavLink id="sobre" label="Sobre" />
+            <NavLink id="contato" label="Contato" />
           </nav>
           <a
             href="#agendar"
@@ -129,17 +280,17 @@ export default function InstitutionalSite() {
       </header>
 
       {/* ===== HERO ===== */}
-      <section className="relative md:min-h-[85vh] flex items-center overflow-hidden pt-28 pb-16 md:pb-0">
-        <div className="max-w-6xl mx-auto px-6 md:px-10 relative z-10 w-full text-center md:text-left">
-          <img src="/logo/logo-full-v2.png" alt="Dra. Vitória Oliveira" className="h-28 md:h-40 w-auto object-contain mb-10 md:mb-14 mx-auto md:mx-0" />
+      <section className="relative md:min-h-[85vh] flex items-center overflow-hidden pt-28 pb-16">
+        <div className="max-w-3xl mx-auto px-6 md:px-10 relative z-10 w-full text-center">
+          <img src="/logo/logo-full-v2.png" alt="Dra. Vitória Oliveira" className="h-28 md:h-36 w-auto object-contain mb-10 mx-auto" />
           <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-[#B8846E] mb-6">
             Cirurgia Buco-Maxilo-Facial &amp; Estética
           </p>
-          <h1 className="serif text-[13vw] md:text-[5.2vw] leading-[1.02] font-normal max-w-4xl mx-auto md:mx-0">
+          <h1 className="serif text-[13vw] md:text-6xl leading-[1.05] font-normal">
             Precisão cirúrgica.<br />
             <span className="italic">Delicadeza estética.</span>
           </h1>
-          <p className="mt-8 max-w-md mx-auto md:mx-0 text-[#4A433D]/70 font-light leading-relaxed">
+          <p className="mt-8 max-w-md mx-auto text-[#4A433D]/70 font-light leading-relaxed">
             Uma abordagem que une formação cirúrgica sólida à sensibilidade estética —
             cada procedimento pensado pra realçar, nunca transformar quem você é.
           </p>
@@ -170,13 +321,14 @@ export default function InstitutionalSite() {
         </motion.div>
         <div className="divide-y divide-[#EADFD4]/40 border-t border-b border-[#EADFD4]/40">
           {PROCEDURES.map((p, i) => (
-            <motion.div
+            <motion.a
+              href={`#teste/procedimento/${p.slug}`}
               key={p.name}
               initial={{ opacity: 0, y: 16 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: '-60px' }}
               transition={{ duration: 0.5, delay: i * 0.04 }}
-              className="group grid grid-cols-1 md:grid-cols-12 gap-2 md:gap-8 py-8 md:items-start"
+              className="group grid grid-cols-1 md:grid-cols-12 gap-2 md:gap-8 py-8 md:items-start cursor-pointer"
             >
               <h3 className="md:col-span-4 serif text-2xl group-hover:italic transition-all">{p.name}</h3>
               <div className="md:col-span-7 space-y-2">
@@ -189,7 +341,7 @@ export default function InstitutionalSite() {
               <div className="md:col-span-1 flex md:justify-end">
                 <ArrowUpRight size={18} className="text-[#EADFD4] group-hover:text-[#B8846E] transition-colors" />
               </div>
-            </motion.div>
+            </motion.a>
           ))}
         </div>
       </section>
@@ -331,4 +483,15 @@ export default function InstitutionalSite() {
       </footer>
     </div>
   );
+}
+
+export default function InstitutionalSite() {
+  const subRoute = useSiteSubRoute();
+  const procedureMatch = subRoute.match(/^procedimento\/(.+)$/);
+
+  if (procedureMatch) {
+    return <ProcedureDetailPage slug={procedureMatch[1]} />;
+  }
+
+  return <HomePage />;
 }

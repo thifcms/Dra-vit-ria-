@@ -6,13 +6,18 @@ const InstitutionalSite = lazy(() => import('./InstitutionalSite'));
 
 const TEST_PASSWORD = 'vitoria2026'; // Página de pré-visualização, não é uma senha de segurança de verdade — só afasta visitante casual até o site estar pronto pra valer
 const SESSION_KEY = 'testSiteUnlocked';
+const INTRO_SEEN_KEY = 'testSiteIntroSeen';
 
 type Phase = 'password' | 'intro' | 'site';
 
 export default function TestSite() {
-  const [phase, setPhase] = useState<Phase>(() =>
-    sessionStorage.getItem(SESSION_KEY) === 'true' ? 'intro' : 'password'
-  );
+  const [phase, setPhase] = useState<Phase>(() => {
+    if (sessionStorage.getItem(SESSION_KEY) !== 'true') return 'password';
+    // Já desbloqueou antes — se a animação já rodou nessa sessão (ex: veio de outra
+    // página do próprio site, como o detalhe de um procedimento), pula direto pro
+    // conteúdo, sem repetir a introdução toda vez que o hash muda.
+    return sessionStorage.getItem(INTRO_SEEN_KEY) === 'true' ? 'site' : 'intro';
+  });
   const [passwordInput, setPasswordInput] = useState('');
   const [error, setError] = useState(false);
 
@@ -34,7 +39,10 @@ export default function TestSite() {
   // tempo total de exibição do logo.
   useEffect(() => {
     if (phase !== 'intro') return;
-    const timer = setTimeout(() => setPhase('site'), 5800);
+    const timer = setTimeout(() => {
+      sessionStorage.setItem(INTRO_SEEN_KEY, 'true');
+      setPhase('site');
+    }, 5800);
     return () => clearTimeout(timer);
   }, [phase]);
 
@@ -75,7 +83,7 @@ export default function TestSite() {
         <motion.div
           key="intro"
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.9, ease: 'easeInOut' }}
+          transition={{ duration: 1.4, ease: [0.16, 1, 0.3, 1] }}
           className="h-screen w-screen flex flex-col items-center justify-center bg-white p-6 text-center overflow-hidden"
         >
           <motion.img
@@ -94,7 +102,7 @@ export default function TestSite() {
           key="site"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 1, ease: 'easeOut' }}
+          transition={{ duration: 1.8, ease: [0.16, 1, 0.3, 1] }}
         >
           <Suspense fallback={<div className="h-screen w-screen bg-[#FDFBF9]" />}>
             <InstitutionalSite />
