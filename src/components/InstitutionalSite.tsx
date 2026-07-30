@@ -190,6 +190,86 @@ function NavLink({ id, label }: { id: string; label: string }) {
   );
 }
 
+// Diagrama simples e original (perfil de rosto em linha) com a região do procedimento
+// destacada — evita usar fotos de terceiros (direitos autorais) e mantém a identidade
+// visual do site.
+const PROCEDURE_ZONES: Record<string, { cx: number; cy: number; rx: number; ry: number }[]> = {
+  'harmonizacao-facial': [
+    { cx: 195, cy: 175, rx: 55, ry: 65 }, // rosto inteiro, sutil
+  ],
+  'toxina-botulinica': [
+    { cx: 175, cy: 95, rx: 42, ry: 22 }, // testa
+    { cx: 195, cy: 130, rx: 18, ry: 12 }, // ao redor dos olhos
+  ],
+  'bioestimuladores-colageno': [
+    { cx: 205, cy: 190, rx: 38, ry: 45 }, // bochecha
+  ],
+  'preenchimento-facial': [
+    { cx: 210, cy: 175, rx: 30, ry: 30 }, // malar
+    { cx: 218, cy: 250, rx: 20, ry: 12 }, // lábios
+  ],
+  'cirurgia-ortognatica': [
+    { cx: 215, cy: 270, rx: 45, ry: 30 }, // mandíbula
+  ],
+  'rinoplastia': [
+    { cx: 150, cy: 180, rx: 18, ry: 40 }, // nariz
+  ],
+  'cirurgia-buco-maxilo-facial': [
+    { cx: 190, cy: 250, rx: 55, ry: 40 }, // boca/mandíbula
+  ],
+};
+
+function ProcedureIllustration({ slug }: { slug: string }) {
+  const zones = PROCEDURE_ZONES[slug] || [];
+  return (
+    <div className="w-full aspect-[4/3] bg-[#F5EFE8] rounded-[32px] flex items-center justify-center overflow-hidden">
+      <svg viewBox="0 0 400 340" className="w-3/4 h-3/4">
+        {zones.map((z, i) => (
+          <ellipse
+            key={i}
+            cx={z.cx}
+            cy={z.cy}
+            rx={z.rx}
+            ry={z.ry}
+            fill="#B8846E"
+            opacity={0.18}
+          />
+        ))}
+        {/* Perfil de rosto — traço simples e original */}
+        <path
+          d="M 130 60
+             C 100 60 80 100 82 150
+             C 84 190 95 210 90 225
+             C 87 233 78 235 78 245
+             C 78 253 90 253 98 250
+             C 102 270 115 290 140 305
+             C 165 320 195 325 215 320
+             C 245 313 265 295 272 270
+             C 275 258 273 248 278 240
+             C 283 232 290 228 290 218
+             C 290 208 282 205 278 198
+             C 285 180 288 160 285 140
+             C 280 100 250 65 210 55
+             C 185 49 155 51 130 60 Z"
+          fill="none"
+          stroke="#4A433D"
+          strokeWidth="2.5"
+          strokeLinejoin="round"
+          opacity={0.55}
+        />
+        {/* Linha do nariz */}
+        <path d="M 155 145 C 148 165 145 180 152 192 C 156 197 165 198 172 195" fill="none" stroke="#4A433D" strokeWidth="2" opacity={0.4} />
+        {/* Olho */}
+        <ellipse cx="190" cy="128" rx="10" ry="5" fill="none" stroke="#4A433D" strokeWidth="1.5" opacity={0.4} />
+        {/* Sobrancelha */}
+        <path d="M 172 112 C 182 106 198 106 208 112" fill="none" stroke="#4A433D" strokeWidth="1.5" opacity={0.4} />
+        {/* Boca */}
+        <path d="M 205 248 C 213 253 225 253 233 248" fill="none" stroke="#4A433D" strokeWidth="1.5" opacity={0.4} />
+      </svg>
+    </div>
+  );
+}
+
 function ProcedureDetailPage({ slug }: { slug: string }) {
   const procedure = PROCEDURES.find(p => p.slug === slug);
 
@@ -219,6 +299,11 @@ function ProcedureDetailPage({ slug }: { slug: string }) {
           <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-[#B8846E] mb-4">Procedimento</p>
           <h1 className="serif text-4xl md:text-5xl mb-8">{procedure.name}</h1>
           <p className="text-lg text-[#4A433D]/70 font-light leading-relaxed mb-10 italic">{procedure.desc}</p>
+
+          <div className="mb-12">
+            <ProcedureIllustration slug={procedure.slug} />
+            <p className="text-[10px] text-[#9CA3AF] text-center mt-3 uppercase tracking-widest">Região de atuação (ilustrativo)</p>
+          </div>
 
           <div className="space-y-6 mb-12">
             {procedure.long.map((paragraph, i) => (
@@ -281,36 +366,70 @@ function HomePage() {
 
       {/* ===== HERO ===== */}
       <section className="relative md:min-h-[85vh] flex items-center overflow-hidden pt-28 pb-16">
-        <div className="max-w-3xl mx-auto px-6 md:px-10 relative z-10 w-full text-center">
-          <img src="/logo/logo-full-v2.png" alt="Dra. Vitória Oliveira" className="h-28 md:h-36 w-auto object-contain mb-10 mx-auto" />
-          <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-[#B8846E] mb-6">
-            Cirurgia Buco-Maxilo-Facial &amp; Estética
-          </p>
-          <h1 className="serif text-[13vw] md:text-6xl leading-[1.05] font-normal">
-            Precisão cirúrgica.<br />
-            <span className="italic">Delicadeza estética.</span>
-          </h1>
-          <p className="mt-8 max-w-md mx-auto text-[#4A433D]/70 font-light leading-relaxed">
-            Uma abordagem que une formação cirúrgica sólida à sensibilidade estética —
-            cada procedimento pensado pra realçar, nunca transformar quem você é.
-          </p>
-          <a
-            href="#agendar"
-            className="mt-10 inline-flex items-center gap-3 text-[11px] font-bold uppercase tracking-[0.15em] border-b-2 border-[#4A433D] pb-2 hover:gap-4 transition-all"
-          >
-            Agendar Avaliação <ArrowRight size={14} />
-          </a>
+        {/* Marca d'água — símbolo da harmonização orofacial, sutil, atrás do texto */}
+        <img
+          src="/logo/logo-mark-v2.png"
+          alt=""
+          aria-hidden="true"
+          className="hidden md:block absolute right-[2%] top-1/2 -translate-y-1/2 w-[32%] max-w-[380px] opacity-[0.07] pointer-events-none select-none"
+        />
+
+        <div className="max-w-6xl mx-auto px-6 md:px-10 relative z-10 w-full grid grid-cols-1 md:grid-cols-12 gap-10 items-center">
+          {/* Foto — bordas esmaecidas, se confundindo com o fundo da página */}
+          <div className="md:col-span-5 flex justify-center order-2 md:order-1">
+            <img
+              src="/site/dra-vitoria-hero.png"
+              alt="Dra. Vitória Oliveira"
+              className="w-full max-w-[340px] md:max-w-none h-auto object-contain"
+              style={{
+                maskImage: 'radial-gradient(ellipse 75% 90% at center, black 55%, transparent 100%)',
+                WebkitMaskImage: 'radial-gradient(ellipse 75% 90% at center, black 55%, transparent 100%)',
+              }}
+            />
+          </div>
+
+          <div className="md:col-span-7 text-center md:text-left order-1 md:order-2">
+            <img src="/logo/logo-full-v2.png" alt="Dra. Vitória Oliveira" className="h-24 md:h-32 w-auto object-contain mb-10 mx-auto md:mx-0" />
+            <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-[#B8846E] mb-6">
+              Cirurgia Buco-Maxilo-Facial &amp; Estética
+            </p>
+            <h1 className="serif text-[13vw] md:text-6xl leading-[1.05] font-normal">
+              Precisão cirúrgica.<br />
+              <span className="italic">Delicadeza estética.</span>
+            </h1>
+            <p className="mt-8 max-w-md mx-auto md:mx-0 text-[#4A433D]/70 font-light leading-relaxed">
+              Uma abordagem que une formação cirúrgica sólida à sensibilidade estética —
+              cada procedimento pensado pra realçar, nunca transformar quem você é.
+            </p>
+            <a
+              href="#agendar"
+              className="mt-10 inline-flex items-center gap-3 text-[11px] font-bold uppercase tracking-[0.15em] border-b-2 border-[#4A433D] pb-2 hover:gap-4 transition-all"
+            >
+              Agendar Avaliação <ArrowRight size={14} />
+            </a>
+          </div>
         </div>
       </section>
 
       {/* ===== PHILOSOPHY STRIP ===== */}
-      <section className="border-y border-[#EADFD4]/40 py-16">
-        <motion.p
-          {...reveal}
-          className="serif italic text-2xl md:text-3xl text-center max-w-3xl mx-auto px-6 leading-snug text-[#4A433D]"
-        >
-          "Estética que nasce da anatomia — não o contrário."
-        </motion.p>
+      <section className="border-y border-[#EADFD4]/40 py-16 space-y-10">
+        <motion.div {...reveal} className="max-w-3xl mx-auto px-6 text-center">
+          <p className="serif italic text-2xl md:text-3xl leading-snug text-[#4A433D]">
+            "Estética que nasce da anatomia — não o contrário."
+          </p>
+        </motion.div>
+        <motion.div {...reveal} className="max-w-3xl mx-auto px-6 text-center">
+          <p className="serif italic text-2xl md:text-3xl leading-snug text-[#4A433D]">
+            "A beleza é a melhor carta de recomendação."
+          </p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#B8846E] mt-4">— Aristóteles</p>
+        </motion.div>
+        <motion.div {...reveal} className="max-w-3xl mx-auto px-6 text-center">
+          <p className="serif italic text-2xl md:text-3xl leading-snug text-[#4A433D]">
+            "A proporção não está só nos números — está em tudo o que a natureza cria."
+          </p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#B8846E] mt-4">— Leonardo da Vinci</p>
+        </motion.div>
       </section>
 
       {/* ===== PROCEDIMENTOS ===== */}
@@ -471,7 +590,9 @@ function HomePage() {
             </div>
             <div className="flex items-start gap-3">
               <Instagram size={16} className="mt-0.5 shrink-0 text-[#EADFD4]" />
-              <span>@ do Instagram<br />a definir</span>
+              <a href="https://instagram.com/dravitoriaoliveira" target="_blank" rel="noreferrer" className="hover:text-[#FDFBF9] transition-colors">
+                Instagram<br />@dravitoriaoliveira
+              </a>
             </div>
           </div>
         </div>
