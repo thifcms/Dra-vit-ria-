@@ -1625,7 +1625,8 @@ function AtestadoModule({ user, patient }: { user: User, patient: Patient }) {
   const [clinicSettings, setClinicSettings] = useState<ClinicSettings | null>(null);
   const [purpose, setPurpose] = useState('');
   const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split('T')[0]);
-  const [timeFrom, setTimeFrom] = useState('');
+  const currentTimeStr = new Date().toTimeString().slice(0, 5); // "HH:MM"
+  const [timeFrom, setTimeFrom] = useState(currentTimeStr);
   const [timeTo, setTimeTo] = useState('');
   const [restAmount, setRestAmount] = useState('');
   const [restUnit, setRestUnit] = useState<'horas' | 'dias'>('horas');
