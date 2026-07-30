@@ -1928,6 +1928,9 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
   const [templates, setTemplates] = useState<{ id: string, title: string, content: string }[]>([]);
   const [clinicSettings, setClinicSettings] = useState<ClinicSettings | null>(null);
   const sigPad = useRef<any>(null);
+  const [preparingWhatsAppTemplate, setPreparingWhatsAppTemplate] = useState<{ id: string, title: string, content: string } | null>(null);
+  const [editableContent, setEditableContent] = useState('');
+  const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
 
   // Os 3 modelos padrão (TCLE, Autorização de Imagem, Recibo) sempre aparecem aqui, sem
   // depender de nenhum passo em Configurações — só recebem um ID estável baseado no
@@ -2004,11 +2007,18 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
     })();
   }, [patient.id]);
 
-  const handleSendWhatsApp = async (template: { id: string, title: string, content: string }) => {
+  const openWhatsAppPreparation = (template: { id: string, title: string, content: string }) => {
     if (!patient.phone) {
       showToast('Cadastre um telefone pro paciente antes de enviar por WhatsApp', 'error');
       return;
     }
+    setPreparingWhatsAppTemplate(template);
+    setEditableContent(fillTemplate(template.content));
+  };
+
+  const handleSaveAndSendWhatsApp = async () => {
+    if (!preparingWhatsAppTemplate || !editableContent.trim()) return;
+    setSendingWhatsApp(true);
     try {
       const ownerId = await getClinicOwnerId(db).catch(() => user.uid);
       const requestData = {
@@ -2016,9 +2026,11 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
         patientId: patient.id,
         patientName: patient.name,
         patientCpf: patient.cpf || '',
-        templateId: template.id,
-        templateTitle: template.title,
-        templateContent: fillTemplate(template.content),
+        templateId: preparingWhatsAppTemplate.id,
+        templateTitle: preparingWhatsAppTemplate.title,
+        // Texto final, já revisado/preenchido pelo profissional — é isso que fica
+        // salvo permanentemente, não o modelo genérico original.
+        templateContent: editableContent,
         status: 'pending' as const,
         createdAt: new Date().toISOString(),
         createdBy: user.email || user.uid,
@@ -2026,17 +2038,20 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
       };
       const docRef = await addDoc(collection(db, 'signRequests'), requestData);
       const link = remoteSignLink(docRef.id);
-      const phoneDigits = patient.phone.replace(/\D/g, '');
+      const phoneDigits = patient.phone!.replace(/\D/g, '');
       const whatsappPhone = phoneDigits.startsWith('55') ? phoneDigits : `55${phoneDigits}`;
       const message = encodeURIComponent(
-        `Olá, ${patient.name}! Segue o link pra assinar o documento "${template.title}" da sua consulta:\n${link}`
+        `Olá, ${patient.name}! Segue o link pra assinar o documento "${preparingWhatsAppTemplate.title}" da sua consulta:\n${link}`
       );
       window.open(`https://wa.me/${whatsappPhone}?text=${message}`, '_blank');
+      setPreparingWhatsAppTemplate(null);
+      setEditableContent('');
       setIsSigning(false);
-      showToast('Link gerado — confirme o envio no WhatsApp');
+      showToast('Documento salvo e link gerado — confirme o envio no WhatsApp');
     } catch (err) {
-      showToast('Erro ao gerar o link de assinatura', 'error');
+      showToast('Erro ao salvar e gerar o link de assinatura', 'error');
     }
+    setSendingWhatsApp(false);
   };
 
   const handleSign = async () => {
@@ -2142,7 +2157,7 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
                             <span className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest mt-1">Assinar agora, presencialmente</span>
                           </button>
                           <button
-                            onClick={() => handleSendWhatsApp(t)}
+                            onClick={() => openWhatsAppPreparation(t)}
                             title="Enviar link de assinatura por WhatsApp"
                             className="shrink-0 w-10 h-10 rounded-full border border-[#F5F2F0] flex items-center justify-center text-[#9CA3AF] hover:bg-[#8BA888] hover:text-white hover:border-[#8BA888] transition-all"
                           >
@@ -2192,6 +2207,54 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
                   </div>
                 </div>
               )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {preparingWhatsAppTemplate && (
+          <div className="fixed inset-0 bg-[#4A433D]/20 backdrop-blur-md z-[60] flex items-center justify-center p-6">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white w-full max-w-2xl rounded-[48px] p-12 shadow-2xl overflow-y-auto max-h-[90vh] border border-[#F5F2F0]"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center gap-3 text-[#8BA888]">
+                  <MessageCircle size={24} />
+                  <h2 className="serif text-3xl text-[#4A433D]">{preparingWhatsAppTemplate.title}</h2>
+                </div>
+                <button onClick={() => { setPreparingWhatsAppTemplate(null); setEditableContent(''); }} className="text-[#9CA3AF] hover:text-[#4A433D] transition-all"><X size={28} /></button>
+              </div>
+
+              <p className="text-sm text-[#9CA3AF] font-light mb-6">
+                Revise e complete o texto abaixo antes de enviar — o que estiver aqui é exatamente o que o paciente vai ver e assinar. Depois de salvo, esse texto fica permanente no prontuário.
+              </p>
+
+              <textarea
+                value={editableContent}
+                onChange={e => setEditableContent(e.target.value)}
+                rows={14}
+                className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-[28px] p-6 text-sm text-[#4A433D] leading-relaxed outline-none focus:border-[#EADFD4]/50 transition-all font-light mb-8"
+              />
+
+              <div className="flex gap-4">
+                <button
+                  onClick={() => { setPreparingWhatsAppTemplate(null); setEditableContent(''); }}
+                  className="flex-1 py-5 border border-[#F5F2F0] text-[#9CA3AF] rounded-[24px] font-bold text-[10px] uppercase tracking-widest hover:bg-[#FDFBF9] transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleSaveAndSendWhatsApp}
+                  disabled={sendingWhatsApp || !editableContent.trim()}
+                  className="flex-1 py-5 bg-[#8BA888] text-white rounded-[24px] font-bold text-[10px] uppercase tracking-widest shadow-xl hover:bg-[#7A9877] transition-all disabled:opacity-50"
+                >
+                  {sendingWhatsApp ? 'Salvando...' : 'Salvar e Enviar por WhatsApp'}
+                </button>
+              </div>
             </motion.div>
           </div>
         )}
