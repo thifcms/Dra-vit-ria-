@@ -681,10 +681,24 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
     try {
       const ownerId = await getClinicOwnerId(db).catch(() => user.uid);
 
-      // Arquivos no Storage: fotos, exames e anexos (pasta inteira do paciente)
+      // Apaga cada arquivo pelo link que já temos guardado no prontuário — funciona
+      // corretamente não importa qual administrador/usuário tenha feito o upload original
+      // (a pasta no Storage é nomeada pelo UID de quem enviou, que pode não ser o mesmo
+      // "dono" da clínica usado como referência fixa em outros lugares do sistema).
+      const knownUrls: string[] = [
+        ...(patient.photoHistory || []),
+        ...(patient.files || []).map(f => f.url),
+        ...(patient.exams || []).filter(e => e.fileUrl).map(e => e.fileUrl!),
+        ...(patient.consentTerms || []).map(t => t.signatureUrl).filter(Boolean),
+      ];
+      await Promise.all(knownUrls.map(url =>
+        deleteObject(ref(storage, url)).catch(() => {})
+      ));
+
+      // Reforço extra: também limpa a pasta do dono fixo da clínica, caso exista algum
+      // arquivo órfão sem link salvo no prontuário (ex: dado legado)
       try {
         const folderRef = ref(storage, `patients/${ownerId}/${patient.id}`);
-        const listing = await listAll(folderRef);
         const deleteRecursive = async (r: typeof folderRef) => {
           const l = await listAll(r);
           await Promise.all(l.items.map(item => deleteObject(item).catch(() => {})));
