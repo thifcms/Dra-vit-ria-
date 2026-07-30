@@ -16,7 +16,8 @@ import {
   Settings as SettingsIcon,
   Plus,
   MessageSquare,
-  Send
+  Send,
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { doc, getDoc } from 'firebase/firestore';
@@ -41,6 +42,8 @@ export default function Dashboard({ user, onNavigate, onOpenPatient, professiona
     lowStock: 0
   });
   const [recentPatients, setRecentPatients] = useState<any[]>([]);
+  const [lowStockItems, setLowStockItems] = useState<{ id: string, name: string, quantity: number, minThreshold: number, unit: string }[]>([]);
+  const [showLowStockModal, setShowLowStockModal] = useState(false);
   const [todaySchedule, setTodaySchedule] = useState<any[]>([]);
   const [pendingOnlineBookings, setPendingOnlineBookings] = useState<any[]>([]);
   const [clinicSettings, setClinicSettings] = useState<ClinicSettings | null>(null);
@@ -145,8 +148,11 @@ export default function Dashboard({ user, onNavigate, onOpenPatient, professiona
     // Inventory low stock
     const qInventory = query(collection(db, 'inventory'));
     const unsubInventory = onSnapshot(qInventory, (snap) => {
-      const low = snap.docs.filter(doc => doc.data().quantity <= doc.data().minThreshold).length;
-      setStats(prev => ({ ...prev, lowStock: low }));
+      const lowItems = snap.docs
+        .filter(doc => doc.data().quantity <= doc.data().minThreshold)
+        .map(doc => ({ id: doc.id, name: doc.data().name, quantity: doc.data().quantity, minThreshold: doc.data().minThreshold, unit: doc.data().unit || '' }));
+      setLowStockItems(lowItems);
+      setStats(prev => ({ ...prev, lowStock: lowItems.length }));
       setLoading(false);
     });
 
@@ -277,6 +283,7 @@ export default function Dashboard({ user, onNavigate, onOpenPatient, professiona
           icon={<AlertCircle className={stats.lowStock > 0 ? "text-red-400" : "text-[#9CA3AF]"} size={20} />} 
           variant={stats.lowStock > 0 ? "danger" : "default"}
           trend={stats.lowStock > 0 ? "Revisar" : "Normal"}
+          onClick={stats.lowStock > 0 ? () => setShowLowStockModal(true) : undefined}
         />
       </div>
 
@@ -513,15 +520,49 @@ export default function Dashboard({ user, onNavigate, onOpenPatient, professiona
           </div>
         </div>
       </div>
+
+      {showLowStockModal && (
+        <div className="fixed inset-0 bg-[#4A433D]/30 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            className="bg-white w-full max-w-md rounded-[40px] p-10 shadow-2xl"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <AlertCircle className="text-red-400" size={22} />
+                <h3 className="serif text-2xl text-[#4A433D]">Estoque Baixo</h3>
+              </div>
+              <button onClick={() => setShowLowStockModal(false)} className="text-[#9CA3AF] hover:text-[#4A433D] transition-all"><X size={22} /></button>
+            </div>
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              {lowStockItems.map(item => (
+                <div key={item.id} className="p-4 bg-red-50/40 rounded-2xl flex items-center justify-between">
+                  <span className="text-sm text-[#4A433D] font-medium">{item.name}</span>
+                  <span className="text-xs text-red-500 font-bold">{item.quantity} {item.unit} (mín. {item.minThreshold})</span>
+                </div>
+              ))}
+              {lowStockItems.length === 0 && <p className="text-sm text-[#9CA3AF] italic text-center py-4">Nenhum item com estoque baixo.</p>}
+            </div>
+            <button
+              onClick={() => { setShowLowStockModal(false); onNavigate('inventory'); }}
+              className="w-full mt-8 py-4 bg-[#4A433D] text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest hover:bg-[#5C544E] transition-all"
+            >
+              Ir para o Estoque
+            </button>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }
 
-function StatCard({ label, value, icon, trend, variant = "default" }: any) {
+function StatCard({ label, value, icon, trend, variant = "default", onClick }: any) {
   return (
     <motion.div 
       whileHover={{ y: -5 }}
-      className={`p-10 bg-white border border-[#F5F2F0] rounded-[40px] shadow-sm relative overflow-hidden group ${variant === 'danger' ? 'bg-red-50/20' : ''}`}
+      onClick={onClick}
+      className={`p-10 bg-white border border-[#F5F2F0] rounded-[40px] shadow-sm relative overflow-hidden group ${variant === 'danger' ? 'bg-red-50/20' : ''} ${onClick ? 'cursor-pointer' : ''}`}
     >
       <div className="flex items-center justify-between mb-8">
         <div className={`p-4 rounded-2xl transition-all ${variant === 'danger' ? 'bg-red-100/50 text-red-500' : 'bg-[#FDFBF9] text-[#9CA3AF] group-hover:bg-[#EADFD4] group-hover:text-white'}`}>

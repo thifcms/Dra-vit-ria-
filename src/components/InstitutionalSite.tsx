@@ -375,16 +375,12 @@ function HomePage() {
         />
 
         <div className="max-w-6xl mx-auto px-6 md:px-10 relative z-10 w-full grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
-          {/* Foto — bordas esmaecidas, se confundindo com o fundo da página */}
+          {/* Foto — recorte nítido, sem esmaecimento nas bordas */}
           <div className="md:col-span-5 flex justify-center order-2 md:order-1">
             <img
               src="/site/dra-vitoria-hero.png"
               alt="Dra. Vitória Oliveira"
               className="w-full max-w-[340px] md:max-w-none h-auto object-contain"
-              style={{
-                maskImage: 'radial-gradient(ellipse 75% 90% at center, black 55%, transparent 100%)',
-                WebkitMaskImage: 'radial-gradient(ellipse 75% 90% at center, black 55%, transparent 100%)',
-              }}
             />
           </div>
 

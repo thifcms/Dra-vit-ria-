@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
-import { auth, signInWithGoogle, db } from './lib/firebase';
+import { auth, signInWithGoogle, signInEmail, signUpEmail, resetPasswordEmail, db } from './lib/firebase';
 import { doc, getDoc, updateDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { onAuthStateChanged, User as FirebaseUser, signOut } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
@@ -178,6 +178,51 @@ function AuthenticatedApp() {
     }
   };
 
+  const [showEmailLogin, setShowEmailLogin] = useState(false);
+  const [emailLoginMode, setEmailLoginMode] = useState<'signin' | 'signup'>('signin');
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [emailLoginBusy, setEmailLoginBusy] = useState(false);
+
+  const handleEmailAuth = async () => {
+    if (!loginEmail.trim() || !loginPassword) {
+      showToast('Preencha e-mail e senha', 'error');
+      return;
+    }
+    setEmailLoginBusy(true);
+    try {
+      if (emailLoginMode === 'signin') {
+        await signInEmail(loginEmail.trim(), loginPassword);
+      } else {
+        await signUpEmail(loginEmail.trim(), loginPassword);
+      }
+    } catch (err: any) {
+      if (err?.code === 'auth/user-not-found' || err?.code === 'auth/invalid-credential') {
+        showToast('E-mail ou senha incorretos. Se ainda não tem conta, use "Criar conta".', 'error');
+      } else if (err?.code === 'auth/email-already-in-use') {
+        showToast('Já existe conta com esse e-mail — tente entrar em vez de criar.', 'error');
+      } else if (err?.code === 'auth/weak-password') {
+        showToast('A senha precisa ter pelo menos 6 caracteres', 'error');
+      } else {
+        showToast('Não foi possível entrar. Confira o e-mail e a senha.', 'error');
+      }
+    }
+    setEmailLoginBusy(false);
+  };
+
+  const handleForgotPassword = async () => {
+    if (!loginEmail.trim()) {
+      showToast('Digite seu e-mail primeiro, aí manda o link de redefinição', 'error');
+      return;
+    }
+    try {
+      await resetPasswordEmail(loginEmail.trim());
+      showToast('E-mail de redefinição enviado — confira sua caixa de entrada');
+    } catch (err) {
+      showToast('Não foi possível enviar o e-mail de redefinição', 'error');
+    }
+  };
+
   useEffect(() => {
     // Segura a tela de abertura por tempo suficiente pra dar pra ver a animação da logo
     // por completo, mesmo quando o Firebase confirma o login quase instantaneamente.
@@ -307,6 +352,51 @@ function AuthenticatedApp() {
           >
             <span className="tracking-wide">Entrar com Google</span>
           </button>
+
+          {!showEmailLogin ? (
+            <button
+              onClick={() => setShowEmailLogin(true)}
+              className="w-full mt-4 text-[11px] font-bold text-[#9CA3AF] uppercase tracking-widest hover:text-[#4A433D] transition-all"
+            >
+              Ou entrar com e-mail e senha
+            </button>
+          ) : (
+            <div className="mt-6 space-y-3 text-left">
+              <input
+                type="email"
+                value={loginEmail}
+                onChange={e => setLoginEmail(e.target.value)}
+                placeholder="seu@email.com"
+                className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
+              />
+              <input
+                type="password"
+                value={loginPassword}
+                onChange={e => setLoginPassword(e.target.value)}
+                placeholder="Senha"
+                onKeyDown={e => e.key === 'Enter' && handleEmailAuth()}
+                className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
+              />
+              <button
+                onClick={handleEmailAuth}
+                disabled={emailLoginBusy}
+                className="w-full py-4 bg-[#4A433D] text-white rounded-2xl font-medium hover:bg-[#5C544E] transition-all disabled:opacity-50"
+              >
+                {emailLoginBusy ? 'Entrando...' : emailLoginMode === 'signin' ? 'Entrar' : 'Criar Conta e Entrar'}
+              </button>
+              <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest pt-1">
+                <button
+                  onClick={() => setEmailLoginMode(emailLoginMode === 'signin' ? 'signup' : 'signin')}
+                  className="text-[#9CA3AF] hover:text-[#4A433D] transition-all"
+                >
+                  {emailLoginMode === 'signin' ? 'Criar conta' : 'Já tenho conta'}
+                </button>
+                <button onClick={handleForgotPassword} className="text-[#9CA3AF] hover:text-[#4A433D] transition-all">
+                  Esqueci a senha
+                </button>
+              </div>
+            </div>
+          )}
           
           <p className="mt-8 text-xs text-[#9CA3AF] font-light uppercase tracking-[0.2em]">Acesso Seguro & Criptografado</p>
         </div>
@@ -386,6 +476,14 @@ function AuthenticatedApp() {
     ) : (
     <motion.div key="app" {...PAGE_FADE} className="flex h-screen bg-[#FDFBF9] text-[#4A433D] overflow-hidden relative">
       <ToastHost />
+      {/* Zona de detecção na borda esquerda — só desktop (mouse), abre a barra sozinha ao
+          encostar, sem precisar clicar no botão de menu. Invisível, só a área sensível. */}
+      {!isSidebarOpen && (
+        <div
+          onMouseEnter={() => setIsSidebarOpen(true)}
+          className="hidden md:block fixed left-0 top-0 bottom-0 w-3 z-[40]"
+        />
+      )}
       {/* Sidebar - Retractable Drawer */}
       <AnimatePresence>
         {isSidebarOpen && (

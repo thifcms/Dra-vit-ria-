@@ -483,6 +483,9 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
                                   )}
                                   <MenuOption onClick={() => handleSetStatus(appt.id!, 'confirmed')} label="Confirmar" color="text-[#EADFD4]" />
                                   <MenuOption onClick={() => handleSetStatus(appt.id!, 'completed')} label="Marcar como realizado" color="text-[#8BA888]" />
+                                  {appt.status === 'completed' && (
+                                    <MenuOption onClick={() => handleSetStatus(appt.id!, 'confirmed')} label="Desfazer marcação de realizado" color="text-amber-500" />
+                                  )}
                                   <MenuOption onClick={() => handleSetStatus(appt.id!, 'cancelled')} label="Cancelar" color="text-red-400" />
                                   <div className="h-px bg-[#F5F2F0] my-2" />
                                   <MenuOption onClick={() => handleDeleteAppointment(appt.id!)} label="Excluir agendamento" color="text-red-500" />

@@ -21,6 +21,10 @@ export default function AdminPanel({ user }: { user: User }) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [recovering, setRecovering] = useState(false);
   const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [oldPasswordForChange, setOldPasswordForChange] = useState('');
+  const [newPasswordForChange, setNewPasswordForChange] = useState('');
+  const [confirmPasswordForChange, setConfirmPasswordForChange] = useState('');
 
   const [adminEmails, setAdminEmails] = useState<string[]>([]);
   const [staffEmails, setStaffEmails] = useState<string[]>([]);
@@ -81,6 +85,33 @@ export default function AdminPanel({ user }: { user: User }) {
       showToast('Senha incorreta', 'error');
     }
     setPasswordInput('');
+  };
+
+  // Troca de senha por quem já está com o painel desbloqueado — exige a senha atual
+  // antes de aceitar a nova, mesmo já estando "logado" no painel (evita que alguém que
+  // pegue o celular destravado troque a senha sem saber a atual).
+  const handleChangePassword = async () => {
+    if (newPasswordForChange.length < 4) {
+      showToast('A nova senha precisa ter pelo menos 4 caracteres', 'error');
+      return;
+    }
+    if (newPasswordForChange !== confirmPasswordForChange) {
+      showToast('As senhas novas não coincidem', 'error');
+      return;
+    }
+    const oldHash = await hashPin(oldPasswordForChange);
+    if (oldHash !== security?.passwordHash) {
+      showToast('Senha atual incorreta', 'error');
+      return;
+    }
+    const newHash = await hashPin(newPasswordForChange);
+    await setDoc(doc(db, 'admin_security', user.uid), { passwordHash: newHash }, { merge: true });
+    setSecurity(prev => ({ ...prev, passwordHash: newHash }));
+    setOldPasswordForChange('');
+    setNewPasswordForChange('');
+    setConfirmPasswordForChange('');
+    setChangingPassword(false);
+    showToast('Senha alterada com sucesso');
   };
 
   const handleBiometricUnlock = async () => {
@@ -393,6 +424,58 @@ export default function AdminPanel({ user }: { user: User }) {
           <Fingerprint size={16} /> Ativar biometria pra esse painel
         </button>
       )}
+
+      <div className="pt-6 border-t border-[#F5F2F0]">
+        {!changingPassword ? (
+          <button
+            onClick={() => setChangingPassword(true)}
+            className="w-full py-4 border border-[#F5F2F0] text-[#5C544E] rounded-2xl font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:border-[#EADFD4]/40 transition-all"
+          >
+            <KeyRound size={16} /> Trocar Senha do Painel
+          </button>
+        ) : (
+          <div className="space-y-3 p-6 bg-[#FDFBF9] rounded-[28px]">
+            <input
+              type="password"
+              value={oldPasswordForChange}
+              onChange={e => setOldPasswordForChange(e.target.value)}
+              placeholder="Senha atual"
+              className="w-full bg-white border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
+            />
+            <input
+              type="password"
+              value={newPasswordForChange}
+              onChange={e => setNewPasswordForChange(e.target.value)}
+              placeholder="Nova senha"
+              className="w-full bg-white border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
+            />
+            <input
+              type="password"
+              value={confirmPasswordForChange}
+              onChange={e => setConfirmPasswordForChange(e.target.value)}
+              placeholder="Confirme a nova senha"
+              className="w-full bg-white border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setChangingPassword(false); setOldPasswordForChange(''); setNewPasswordForChange(''); setConfirmPasswordForChange(''); }}
+                className="flex-1 py-3 text-[#9CA3AF] font-bold text-[10px] uppercase"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleChangePassword}
+                className="flex-1 py-3 bg-[#EADFD4] text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest hover:bg-[#DFCFBF] transition-all"
+              >
+                Salvar Nova Senha
+              </button>
+            </div>
+            <p className="text-[10px] text-[#9CA3AF] text-center pt-2">
+              Esqueceu a senha atual? Saia do painel e use "Esqueci minha senha" na tela de entrada — ela reconfirma sua identidade pelo Google.
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

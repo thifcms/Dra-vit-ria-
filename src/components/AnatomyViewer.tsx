@@ -83,7 +83,9 @@ function createProceduralEye(radius: number): THREE.Group {
   // efeito "olhar vítreo assustador" que já tínhamos identificado antes)
   const scleraGeo = new THREE.SphereGeometry(radius, 32, 32);
   const scleraMat = new THREE.MeshStandardMaterial({ color: 0xf0e9df, roughness: 0.85, metalness: 0 });
-  group.add(new THREE.Mesh(scleraGeo, scleraMat));
+  const sclera = new THREE.Mesh(scleraGeo, scleraMat);
+  sclera.renderOrder = 0;
+  group.add(sclera);
 
   // Textura da íris desenhada por código (gradiente radial + linhas simulando o estroma)
   const canvas = document.createElement('canvas');
@@ -107,18 +109,25 @@ function createProceduralEye(radius: number): THREE.Group {
   }
   const irisTexture = new THREE.CanvasTexture(canvas);
 
+  // Íris e pupila precisam ficar visivelmente na FRENTE da esclera, não quase coladas na
+  // superfície dela — muito perto causava um efeito de "cintilação"/distorção (duas
+  // superfícies quase no mesmo lugar, disputando qual aparece por cima), que era
+  // exatamente o que dava aquele aspecto de "olho de zumbi". Empurrado bem mais pra
+  // frente agora, e com renderOrder explícito garantindo a ordem certa mesmo assim.
   const irisRadius = radius * 0.42;
   const irisGeo = new THREE.CircleGeometry(irisRadius, 32);
-  const irisMat = new THREE.MeshStandardMaterial({ map: irisTexture, roughness: 0.55 });
+  const irisMat = new THREE.MeshStandardMaterial({ map: irisTexture, roughness: 0.55, depthTest: true });
   const iris = new THREE.Mesh(irisGeo, irisMat);
-  iris.position.z = radius * 0.97;
+  iris.position.z = radius * 1.08;
+  iris.renderOrder = 2;
   group.add(iris);
 
   // Pupila
   const pupilGeo = new THREE.CircleGeometry(irisRadius * 0.4, 24);
-  const pupilMat = new THREE.MeshBasicMaterial({ color: 0x0a0805 });
+  const pupilMat = new THREE.MeshBasicMaterial({ color: 0x0a0805, depthTest: true });
   const pupil = new THREE.Mesh(pupilGeo, pupilMat);
-  pupil.position.z = radius * 0.975;
+  pupil.position.z = radius * 1.09;
+  pupil.renderOrder = 3;
   group.add(pupil);
 
   // Córnea — camada transparente com um pouco de brilho, sem usar "transmission" (mais
@@ -132,10 +141,12 @@ function createProceduralEye(radius: number): THREE.Group {
     roughness: 0.1,
     clearcoat: 1,
     clearcoatRoughness: 0.1,
+    depthWrite: false,
   });
   const cornea = new THREE.Mesh(corneaGeo, corneaMat);
   cornea.rotation.x = -Math.PI / 2;
   cornea.position.z = radius * 0.55;
+  cornea.renderOrder = 4;
   group.add(cornea);
 
   return group;

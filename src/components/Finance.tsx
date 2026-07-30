@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { collection, query, onSnapshot, addDoc, deleteDoc, doc, where, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, where, orderBy, Timestamp, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { getClinicOwnerId } from '../lib/slots';
 import { Transaction, Appointment } from '../types';
 import { User } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
@@ -12,6 +13,7 @@ import {
   Filter,
   Search,
   Trash2,
+  Pencil,
   TrendingUp,
   CreditCard,
   DollarSign,
@@ -35,6 +37,7 @@ export default function Finance({ user }: { user: User }) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [isAdding, setIsAdding] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [filter, setFilter] = useState<'all' | 'income' | 'expense'>('all');
   const [loading, setLoading] = useState(true);
 
@@ -165,22 +168,75 @@ export default function Finance({ user }: { user: User }) {
     }
   };
 
-  const handleExportCSV = () => {
-    const headers = ['Data', 'Descrição', 'Categoria', 'Tipo', 'Valor'];
-    const rows = filteredTransactions.map(t => [
-      new Date(t.date).toLocaleDateString('pt-BR'),
-      t.description,
-      t.category,
-      t.type === 'income' ? 'Entrada' : 'Saída',
-      t.amount.toString()
-    ]);
-    const csvContent = [headers, ...rows].map(e => e.join(',')).join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const handleExportExcel = async () => {
+    const ExcelJS = await import('exceljs');
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('Relatório Financeiro');
+
+    // Colunas nomeadas e com largura própria — sem sobreposição de texto
+    sheet.columns = [
+      { header: 'Data', key: 'date', width: 14 },
+      { header: 'Descrição', key: 'description', width: 32 },
+      { header: 'Categoria', key: 'category', width: 20 },
+      { header: 'Tipo', key: 'type', width: 14 },
+      { header: 'Valor (R$)', key: 'amount', width: 16 },
+    ];
+
+    // Cabeçalho — letra maior, negrito, fundo na cor da identidade do app
+    const headerRow = sheet.getRow(1);
+    headerRow.font = { name: 'Arial', size: 13, bold: true, color: { argb: 'FFFFFFFF' } };
+    headerRow.eachCell(cell => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4A433D' } };
+      cell.alignment = { vertical: 'middle', horizontal: 'left' };
+    });
+    headerRow.height = 26;
+
+    filteredTransactions.forEach(t => {
+      const row = sheet.addRow({
+        date: new Date(t.date).toLocaleDateString('pt-BR'),
+        description: t.description,
+        category: t.category,
+        type: t.type === 'income' ? 'Entrada' : 'Saída',
+        amount: t.amount,
+      });
+      row.font = { name: 'Arial', size: 12 };
+      row.height = 22;
+      // Mesmas cores usadas no app: verde pra entrada, vermelho suave pra saída
+      const fillColor = t.type === 'income' ? 'FFF0F7F0' : 'FFFDF0EE';
+      const fontColor = t.type === 'income' ? 'FF4E7A4B' : 'FFC0522D';
+      row.eachCell(cell => {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fillColor } };
+      });
+      const amountCell = row.getCell('amount');
+      amountCell.numFmt = '"R$" #,##0.00';
+      amountCell.font = { name: 'Arial', size: 12, bold: true, color: { argb: fontColor } };
+    });
+
+    // Linha de totais ao final, destacada
+    const totalRow = sheet.addRow({
+      date: '',
+      description: '',
+      category: '',
+      type: 'SALDO',
+      amount: totalIncome - totalExpense,
+    });
+    totalRow.font = { name: 'Arial', size: 13, bold: true };
+    totalRow.height = 26;
+    totalRow.eachCell(cell => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEADFD4' } };
+      cell.border = { top: { style: 'medium', color: { argb: 'FF4A433D' } } };
+    });
+    totalRow.getCell('amount').numFmt = '"R$" #,##0.00';
+
+    sheet.views = [{ state: 'frozen', ySplit: 1 }]; // cabeçalho sempre visível ao rolar
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `financeiro-${new Date().toISOString().split('T')[0]}.csv`;
+    link.download = `financeiro-${new Date().toISOString().split('T')[0]}.xlsx`;
     link.click();
-    showToast('Relatório exportado');
+    showToast('Relatório em Excel exportado');
   };
 
   return (
@@ -378,7 +434,7 @@ export default function Finance({ user }: { user: User }) {
         
         <div className="flex items-center gap-4 w-full md:w-auto">
           <button 
-            onClick={handleExportCSV}
+            onClick={handleExportExcel}
             className="flex-1 md:flex-none p-4 bg-white border border-[#F5F2F0] text-[#9CA3AF] rounded-2xl hover:border-[#EADFD4] transition-all flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-widest"
           >
             <Download size={18} />
@@ -424,12 +480,20 @@ export default function Finance({ user }: { user: User }) {
                       {t.type === 'income' ? '+' : '-'} R$ {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </td>
                     <td className="p-6 text-right">
-                      <button 
-                        onClick={() => handleDelete(t.id!)}
-                        className="p-2 text-[#F5F2F0] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
-                      >
-                        <Trash2 size={18} />
-                      </button>
+                      <div className="flex items-center justify-end gap-1">
+                        <button 
+                          onClick={() => setEditingTransaction(t)}
+                          className="p-2 text-[#F5F2F0] hover:text-[#EADFD4] opacity-0 group-hover:opacity-100 transition-all"
+                        >
+                          <Pencil size={18} />
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(t.id!)}
+                          className="p-2 text-[#F5F2F0] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -447,10 +511,11 @@ export default function Finance({ user }: { user: User }) {
       </div>
 
       <AnimatePresence>
-        {isAdding && (
+        {(isAdding || editingTransaction) && (
           <AddTransactionModal 
             user={user} 
-            onClose={() => setIsAdding(false)} 
+            editingTransaction={editingTransaction}
+            onClose={() => { setIsAdding(false); setEditingTransaction(null); }} 
           />
         )}
       </AnimatePresence>
@@ -485,14 +550,23 @@ function FilterButton({ active, onClick, label }: any) {
   );
 }
 
-function AddTransactionModal({ user, onClose }: any) {
-  const [type, setType] = useState<'income' | 'expense'>('income');
-  const [amount, setAmount] = useState('');
-  const [description, setDescription] = useState('');
-  const [category, setCategory] = useState('');
+function AddTransactionModal({ user, onClose, editingTransaction }: any) {
+  const [type, setType] = useState<'income' | 'expense'>(editingTransaction?.type || 'income');
+  const [amount, setAmount] = useState(editingTransaction ? String(editingTransaction.amount).replace('.', ',') : '');
+  const [description, setDescription] = useState(editingTransaction?.description || '');
+  const [category, setCategory] = useState(editingTransaction?.category || '');
   const [isRecurring, setIsRecurring] = useState(false);
   const [months, setMonths] = useState(12);
   const [saving, setSaving] = useState(false);
+  const [procedures, setProcedures] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      const ownerId = await getClinicOwnerId(db).catch(() => user.uid);
+      const snap = await getDoc(doc(db, 'settings', ownerId));
+      if (snap.exists()) setProcedures(snap.data().procedures || []);
+    })();
+  }, [user.uid]);
 
   const categories = [
     'Estética Facial',
@@ -513,7 +587,15 @@ function AddTransactionModal({ user, onClose }: any) {
     setSaving(true);
     const numericAmount = parseFloat(amount.replace(',', '.'));
     try {
-      if (type === 'expense' && isRecurring) {
+      if (editingTransaction) {
+        await updateDoc(doc(db, 'transactions', editingTransaction.id), {
+          type,
+          amount: numericAmount,
+          description,
+          category,
+        });
+        showToast('Lançamento atualizado');
+      } else if (type === 'expense' && isRecurring) {
         // Gera um lançamento por mês (o app não tem backend com agendador, então cria todos de uma vez)
         const seriesId = `series-${Date.now()}`;
         const baseDate = new Date();
@@ -558,7 +640,7 @@ function AddTransactionModal({ user, onClose }: any) {
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
         className="bg-white w-full max-w-lg rounded-[40px] p-10 shadow-2xl"
       >
-        <h2 className="serif text-2xl text-[#4A433D] mb-8">Novo Lançamento</h2>
+        <h2 className="serif text-2xl text-[#4A433D] mb-8">{editingTransaction ? 'Editar Lançamento' : 'Novo Lançamento'}</h2>
         
         <div className="flex gap-4 mb-8 bg-[#FDFBF9] p-2 rounded-2xl">
           <button 
@@ -589,13 +671,29 @@ function AddTransactionModal({ user, onClose }: any) {
           </div>
           <div>
             <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Descrição</label>
-            <input 
-              required
-              className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all font-light"
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-              placeholder="Ex: Pagamento Consulta, Compra Insumos..."
-            />
+            {type === 'income' ? (
+              <select
+                required
+                className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all font-light"
+                value={description}
+                onChange={e => setDescription(e.target.value)}
+              >
+                <option value="">Selecione...</option>
+                <option value="Consulta">Consulta</option>
+                <option value="Consulta + Procedimento">Consulta + Procedimento</option>
+                {procedures.map(proc => (
+                  <option key={proc.id} value={proc.name}>{proc.name}</option>
+                ))}
+              </select>
+            ) : (
+              <input 
+                required
+                className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all font-light"
+                value={description}
+                onChange={e => setDescription(e.target.value)}
+                placeholder="Ex: Compra de Insumos, Aluguel..."
+              />
+            )}
           </div>
           <div>
             <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Categoria</label>

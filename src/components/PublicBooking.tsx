@@ -5,7 +5,7 @@ import { slotId, checkinLink, cancelLink, generateTimeSlots, phoneIndexKey, cpfI
 import { buildReminderMessage, whatsappLink } from '../lib/reminders';
 import { PRIVACY_POLICY_TEXT } from '../lib/privacyPolicy';
 import { motion, AnimatePresence } from 'motion/react';
-import { Calendar, Phone, User as UserIcon, Mail, IdCard, ChevronLeft, ChevronRight, CheckCircle2, MessageSquare, X } from 'lucide-react';
+import { Phone, User as UserIcon, Mail, IdCard, ChevronLeft, ChevronRight, CheckCircle2, MessageSquare, X } from 'lucide-react';
 import type { PublicBookingConfig, BusySlot } from '../types';
 
 const PROCEDURE_OPTIONS = [
@@ -289,6 +289,18 @@ export default function PublicBooking() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting || !config || !selectedTime) return;
+    if (!name.trim()) {
+      showError('Preencha seu nome completo.');
+      return;
+    }
+    if (!sex) {
+      showError('Selecione o sexo pra continuar.');
+      return;
+    }
+    if (!email.trim()) {
+      showError('Preencha seu e-mail.');
+      return;
+    }
     if (!acceptedPrivacy) {
       showError('É preciso aceitar a Política de Privacidade pra confirmar o agendamento.');
       return;
@@ -517,13 +529,8 @@ export default function PublicBooking() {
         className="w-full max-w-md bg-white p-10 rounded-[32px] shadow-sm border border-[#F5F2F0]"
       >
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-[#EADFD4]/10 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Calendar className="text-[#EADFD4] w-8 h-8" />
-          </div>
-          <h1 className="text-2xl font-light text-[#4A433D] serif">{config.clinicName}</h1>
-          {config.professionalName && (
-            <p className="text-[#EADFD4] font-medium text-sm mt-1">{config.professionalName}</p>
-          )}
+          <img src="/logo/logo-full-v2.png" alt={config.professionalName || config.clinicName} className="h-16 w-auto mx-auto mb-6 object-contain" />
+          <h1 className="text-2xl font-bold text-[#4A433D] serif">{config.professionalName || config.clinicName}</h1>
           <p className="text-[#9CA3AF] mt-2 font-light">Agende seu horário</p>
         </div>
 
@@ -697,6 +704,38 @@ export default function PublicBooking() {
                     />
                   </div>
                 </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Sexo</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {(['F', 'M'] as const).map(opt => (
+                      <button
+                        key={opt}
+                        type="button"
+                        onClick={() => setSex(sex === opt ? '' : opt)}
+                        className={`py-4 rounded-2xl border text-sm font-medium transition-all ${
+                          sex === opt
+                            ? 'bg-[#EADFD4] text-white border-[#EADFD4]'
+                            : 'bg-[#FDFBF9] text-[#9CA3AF] border-[#F5F2F0] hover:border-[#EADFD4]/40'
+                        }`}
+                      >
+                        {opt === 'F' ? 'Feminino' : 'Masculino'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">E-mail</label>
+                  <div className="relative">
+                    <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
+                    <input
+                      required
+                      type="email"
+                      className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 pl-12 outline-none focus:border-[#EADFD4]/30 transition-all font-light text-sm"
+                      value={email}
+                      onChange={e => setEmail(e.target.value)}
+                    />
+                  </div>
+                </div>
                 <ProcedurePicker
                   value={procedureInterest}
                   onChange={setProcedureInterest}
@@ -776,7 +815,7 @@ export default function PublicBooking() {
 
                 <div>
                   <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">
-                    Sexo <span className="normal-case font-normal">(opcional — usado só pra referência no prontuário)</span>
+                    Sexo
                   </label>
                   <div className="grid grid-cols-2 gap-3">
                     {(['F', 'M'] as const).map(opt => (

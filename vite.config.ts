@@ -129,6 +129,9 @@ export default defineConfig(() => {
               // pacote geral sem querer. Junto ele e as duas dependências dele aqui.
               if (id.includes('jspdf') || id.includes('html2canvas') || id.includes('css-line-break') || id.includes('utrie')) return 'vendor-jspdf';
               if (id.includes('jszip')) return 'vendor-jszip';
+              // exceljs só é usado ao exportar o relatório financeiro — pesado o
+              // suficiente pra valer a pena isolar, mesmo padrão do jspdf/jszip acima
+              if (id.includes('exceljs')) return 'vendor-exceljs';
               return 'vendor';
             }
           },

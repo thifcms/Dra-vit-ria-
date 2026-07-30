@@ -23,6 +23,7 @@ import {
   Microscope,
   Stamp,
   MessageCircle,
+  Eye,
   Bone,
   MapPin,
   Lock,
@@ -486,7 +487,10 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
       },
       fitzpatrickType: '',
       skinEvaluation: a?.skinEvaluation || '',
-      faceEvaluation: a?.faceEvaluation || ''
+      faceEvaluation: a?.faceEvaluation || '',
+      conduct: a?.conduct || '',
+      plannedProcedures: a?.plannedProcedures || [],
+      plannedSubstances: a?.plannedSubstances || {},
     };
 
     return { ...defaultAnamnesis, ...a, 
@@ -496,6 +500,19 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
   };
 
   const [anamnesis, setAnamnesis] = useState(normalizeAnamnesis(patient.anamnesis));
+  const [procedures, setProcedures] = useState<{ id: string; name: string; price: number }[]>([]);
+  const [substances, setSubstances] = useState<{ id: string; name: string; unit: string; pricePerUnit: number; procedureIds: string[] }[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      const ownerId = await getClinicOwnerId(db).catch(() => user.uid);
+      const snap = await getDoc(doc(db, 'settings', ownerId));
+      if (snap.exists()) {
+        setProcedures(snap.data().procedures || []);
+        setSubstances(snap.data().substances || []);
+      }
+    })();
+  }, [user.uid]);
   const [savingAnamnesis, setSavingAnamnesis] = useState(false);
 
   // Re-normaliza se o paciente mudar (sync em tempo real)
@@ -924,9 +941,9 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
         <span>Voltar para lista</span>
       </button>
 
-      <div className="bg-white rounded-[40px] border border-[#F5F2F0] shadow-sm min-h-[600px] flex flex-col lg:flex-row">
+      <div className="bg-white rounded-[40px] border border-[#F5F2F0] shadow-sm min-h-[600px] lg:h-[80vh] flex flex-col lg:flex-row lg:overflow-hidden">
         {/* Patient Detail Sidebar */}
-        <div className="w-full lg:w-80 bg-[#FDFBF9] border-r border-[#F5F2F0] p-8 flex flex-col rounded-t-[40px] lg:rounded-l-[40px] lg:rounded-tr-none">
+        <div className="w-full lg:w-80 bg-[#FDFBF9] border-r border-[#F5F2F0] p-8 flex flex-col rounded-t-[40px] lg:rounded-l-[40px] lg:rounded-tr-none lg:overflow-y-auto">
           <div className="text-center mb-10">
             <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center text-[#EADFD4] mx-auto mb-6 border-4 border-white shadow-md overflow-hidden relative group">
               <UserIcon size={48} />
@@ -1190,7 +1207,76 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
                     </h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       <FormField label="Avaliação da Pele" value={anamnesis.skinEvaluation} onChange={v => setAnamnesis({...anamnesis, skinEvaluation: v})} textarea />
-                      <FormField label="Avaliação Facial / Corporal" value={anamnesis.faceEvaluation} onChange={v => setAnamnesis({...anamnesis, faceEvaluation: v})} textarea />
+                      <FormField label="Avaliação Facial" value={anamnesis.faceEvaluation} onChange={v => setAnamnesis({...anamnesis, faceEvaluation: v})} textarea />
+                    </div>
+                  </section>
+
+                  <section>
+                    <h4 className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#EADFD4]" /> Conduta
+                    </h4>
+                    <div className="p-8 bg-[#FDFBF9] rounded-[32px] border border-[#F5F2F0] space-y-6">
+                      <FormField label="Conduta / Plano de Tratamento" value={anamnesis.conduct || ''} onChange={v => setAnamnesis({...anamnesis, conduct: v})} textarea />
+                      {procedures.length > 0 && (
+                        <div>
+                          <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-3 ml-1">Procedimentos planejados</p>
+                          <div className="flex flex-wrap gap-2">
+                            {procedures.map(proc => {
+                              const active = (anamnesis.plannedProcedures || []).includes(proc.name);
+                              return (
+                                <button
+                                  key={proc.id}
+                                  onClick={() => {
+                                    const current = anamnesis.plannedProcedures || [];
+                                    if (active) {
+                                      // Desmarcando — também limpa a escolha de substância guardada pra esse procedimento
+                                      const nextSubs = { ...(anamnesis.plannedSubstances || {}) };
+                                      delete nextSubs[proc.name];
+                                      setAnamnesis({ ...anamnesis, plannedProcedures: current.filter(n => n !== proc.name), plannedSubstances: nextSubs });
+                                      return;
+                                    }
+                                    // Marcando — se esse procedimento tiver mais de uma substância vinculada,
+                                    // pergunta qual foi usada nesse paciente antes de marcar
+                                    const linkedSubstances = substances.filter(s => s.procedureIds.includes(proc.id));
+                                    if (linkedSubstances.length > 1) {
+                                      const options = linkedSubstances.map((s, i) => `${i + 1}. ${s.name}`).join('\n');
+                                      const choice = window.prompt(`Qual substância foi usada em "${proc.name}"?\n${options}\n\nDigite o número:`);
+                                      const idx = parseInt(choice || '', 10) - 1;
+                                      if (idx < 0 || idx >= linkedSubstances.length || isNaN(idx)) return; // cancelou ou digitou errado — não marca
+                                      setAnamnesis({
+                                        ...anamnesis,
+                                        plannedProcedures: [...current, proc.name],
+                                        plannedSubstances: { ...(anamnesis.plannedSubstances || {}), [proc.name]: linkedSubstances[idx].name },
+                                      });
+                                      return;
+                                    }
+                                    if (linkedSubstances.length === 1) {
+                                      setAnamnesis({
+                                        ...anamnesis,
+                                        plannedProcedures: [...current, proc.name],
+                                        plannedSubstances: { ...(anamnesis.plannedSubstances || {}), [proc.name]: linkedSubstances[0].name },
+                                      });
+                                      return;
+                                    }
+                                    setAnamnesis({ ...anamnesis, plannedProcedures: [...current, proc.name] });
+                                  }}
+                                  className={`text-xs px-4 py-2 rounded-xl border transition-all ${active ? 'bg-[#8BA888] border-[#8BA888] text-white' : 'bg-white border-[#F5F2F0] text-[#9CA3AF] hover:border-[#8BA888]/30'}`}
+                                >
+                                  {proc.name}
+                                  {active && anamnesis.plannedSubstances?.[proc.name] && (
+                                    <span className="opacity-80"> — {anamnesis.plannedSubstances[proc.name]}</span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                      {procedures.length === 0 && (
+                        <p className="text-xs text-[#9CA3AF] italic">
+                          Nenhum procedimento cadastrado ainda — cadastre em Configurações → Procedimentos pra poder marcar aqui.
+                        </p>
+                      )}
                     </div>
                   </section>
                 </div>
@@ -1722,7 +1808,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
   );
 }
 
-type AtestadoDocType = 'atestado' | 'atestado_cid' | 'atestado_menor' | 'declaracao_comparecimento' | 'declaracao_acompanhamento';
+type AtestadoDocType = 'atestado' | 'atestado_cid' | 'atestado_menor' | 'declaracao_comparecimento' | 'declaracao_acompanhamento' | 'livre';
 
 const ATESTADO_DOC_LABELS: Record<AtestadoDocType, string> = {
   atestado: 'Atestado (sem CID)',
@@ -1730,12 +1816,12 @@ const ATESTADO_DOC_LABELS: Record<AtestadoDocType, string> = {
   atestado_menor: 'Atestado — Paciente Menor',
   declaracao_comparecimento: 'Declaração de Comparecimento',
   declaracao_acompanhamento: 'Declaração de Acompanhamento',
+  livre: 'Texto Livre (personalizado)',
 };
 
 function AtestadoModule({ user, patient }: { user: User, patient: Patient }) {
   const [clinicSettings, setClinicSettings] = useState<ClinicSettings | null>(null);
   const [docType, setDocType] = useState<AtestadoDocType>('atestado');
-  const [purpose, setPurpose] = useState('');
   const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split('T')[0]);
   const currentTimeStr = new Date().toTimeString().slice(0, 5); // "HH:MM"
   const [timeFrom, setTimeFrom] = useState(currentTimeStr);
@@ -1749,6 +1835,7 @@ function AtestadoModule({ user, patient }: { user: User, patient: Patient }) {
   const [guardianDoc, setGuardianDoc] = useState('');
   const [companionName, setCompanionName] = useState('');
   const [companionDoc, setCompanionDoc] = useState('');
+  const [freeText, setFreeText] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -1762,20 +1849,21 @@ function AtestadoModule({ user, patient }: { user: User, patient: Patient }) {
   const dateLabel = attendanceDate ? new Date(attendanceDate + 'T00:00:00').toLocaleDateString('pt-BR') : '____/____/____';
   const timeRangeLabel = timeFrom && timeTo ? `das ${timeFrom} às ${timeTo} horas` : timeFrom ? `a partir das ${timeFrom}` : '____:____ às ____:____';
   const restLabel = `${restAmount || '____'} (${restUnit})`;
-  const purposeLabel = purpose || '_______________________';
 
   const bodyText = (() => {
     switch (docType) {
       case 'atestado':
-        return `Atesto, para fins ${purposeLabel} e a pedido do(a) interessado(a), que o(a) paciente ${patient.name}, ${patientDocLabel}, esteve sob meus cuidados profissionais em ${dateLabel}, no horário ${timeRangeLabel}, necessitando de ${restLabel} de afastamento de suas atividades a partir desta data.`;
+        return `Atesto, para os devidos fins e a pedido do(a) interessado(a), que o(a) paciente ${patient.name}, ${patientDocLabel}, esteve sob meus cuidados profissionais em ${dateLabel}, no horário ${timeRangeLabel}, necessitando de ${restLabel} de afastamento de suas atividades a partir desta data.`;
       case 'atestado_cid':
-        return `Atesto, para fins ${purposeLabel} e a pedido do(a) interessado(a), inclusive com menção de Código CID por este(a) solicitado, que o(a) paciente ${patient.name}, ${patientDocLabel}, esteve sob os meus cuidados profissionais em virtude de CID nº ${cid || '________'}, tendo sido submetido(a) a tratamento odontológico em ${dateLabel}, no período ${timeRangeLabel}, sendo-lhe recomendado repouso por ${restLabel}, além da necessidade de seguir as orientações e tomar os medicamentos que lhe foram prescritos.`;
+        return `Atesto, para os devidos fins e a pedido do(a) interessado(a), inclusive com menção de Código CID por este(a) solicitado, que o(a) paciente ${patient.name}, ${patientDocLabel}, esteve sob os meus cuidados profissionais em virtude de CID nº ${cid || '________'}, tendo sido submetido(a) a tratamento odontológico em ${dateLabel}, no período ${timeRangeLabel}, sendo-lhe recomendado repouso por ${restLabel}, além da necessidade de seguir as orientações e tomar os medicamentos que lhe foram prescritos.`;
       case 'atestado_menor':
-        return `Atesto, para fins ${purposeLabel} e a pedido do(a) Responsável Legal ${guardianName || '_______________________'}, ${guardianDoc || '________________'}, que o(a) menor ${patient.name}, ${patientDocLabel}, esteve sob os meus cuidados profissionais em ${dateLabel}, no período ${timeRangeLabel}, sendo-lhe recomendado repouso por ${restLabel}, além da necessidade de seguir as orientações e retornar conforme agendado.`;
+        return `Atesto, para os devidos fins e a pedido do(a) Responsável Legal ${guardianName || '_______________________'}, ${guardianDoc || '________________'}, que o(a) menor ${patient.name}, ${patientDocLabel}, esteve sob os meus cuidados profissionais em ${dateLabel}, no período ${timeRangeLabel}, sendo-lhe recomendado repouso por ${restLabel}, além da necessidade de seguir as orientações e retornar conforme agendado.`;
       case 'declaracao_comparecimento':
-        return `Declaro, para fins ${purposeLabel} e a pedido do(a) interessado(a), que o(a) Sr(a). ${companionName || '_______________________'}, ${companionDoc || '________________'}, compareceu no consultório odontológico ${clinicSettings?.clinicName || clinicSettings?.professionalName || ''}, acompanhando o(a) paciente ${patient.name}, ${patientDocLabel}, o(a) qual esteve sob os meus cuidados profissionais para tratamento odontológico em ${dateLabel}, no período ${timeRangeLabel}.`;
+        return `Declaro, para os devidos fins e a pedido do(a) interessado(a), que o(a) Sr(a). ${companionName || '_______________________'}, ${companionDoc || '________________'}, compareceu no consultório odontológico ${clinicSettings?.clinicName || clinicSettings?.professionalName || ''}, acompanhando o(a) paciente ${patient.name}, ${patientDocLabel}, o(a) qual esteve sob os meus cuidados profissionais para tratamento odontológico em ${dateLabel}, no período ${timeRangeLabel}.`;
       case 'declaracao_acompanhamento':
-        return `Declaro, para fins ${purposeLabel} e a pedido do(a) interessado(a), que o(a) Sr(a). ${guardianName || '_______________________'}, ${guardianDoc || '________________'}, Responsável Legal pelo(a) menor ${patient.name}, ${patientDocLabel}, acompanhou o(a) filho(a) durante tratamento odontológico por mim realizado em ${dateLabel}, no período ${timeRangeLabel}.`;
+        return `Declaro, para os devidos fins e a pedido do(a) interessado(a), que o(a) Sr(a). ${guardianName || '_______________________'}, ${guardianDoc || '________________'}, Responsável Legal pelo(a) menor ${patient.name}, ${patientDocLabel}, acompanhou o(a) filho(a) durante tratamento odontológico por mim realizado em ${dateLabel}, no período ${timeRangeLabel}.`;
+      case 'livre':
+        return freeText;
     }
   })();
 
@@ -1783,12 +1871,17 @@ function AtestadoModule({ user, patient }: { user: User, patient: Patient }) {
   const showCidField = docType === 'atestado_cid';
   const showGuardianFields = docType === 'atestado_menor' || docType === 'declaracao_acompanhamento';
   const showCompanionFields = docType === 'declaracao_comparecimento';
-  const documentTitle = docType.startsWith('declaracao') ? (docType === 'declaracao_comparecimento' ? 'Declaração de Comparecimento' : 'Declaração de Acompanhamento') : 'Atestado Odontológico';
+  const showFreeText = docType === 'livre';
+  const documentTitle = docType === 'livre'
+    ? 'Documento'
+    : docType.startsWith('declaracao') ? (docType === 'declaracao_comparecimento' ? 'Declaração de Comparecimento' : 'Declaração de Acompanhamento') : 'Atestado Odontológico';
 
   const handlePrint = () => {
     const clinicName = clinicSettings?.clinicName || clinicSettings?.professionalName || 'Clínica';
     const professionalName = clinicSettings?.professionalName || '';
-    const today = new Date().toLocaleDateString('pt-BR');
+    const now = new Date();
+    const todayLabel = now.toLocaleDateString('pt-BR');
+    const nowTimeLabel = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     const html = `
       <!DOCTYPE html>
       <html lang="pt-BR">
@@ -1797,24 +1890,27 @@ function AtestadoModule({ user, patient }: { user: User, patient: Patient }) {
         <title>${documentTitle} — ${patient.name}</title>
         <style>
           body { font-family: Georgia, serif; max-width: 700px; margin: 60px auto; padding: 0 40px; color: #222; line-height: 1.8; }
+          .logo { display: block; max-width: 220px; margin: 0 auto 20px; }
+          .patient-name { text-align: center; font-size: 15px; font-weight: bold; color: #333; margin-bottom: 40px; }
           h1 { font-size: 15px; text-transform: uppercase; letter-spacing: 0.15em; text-align: center; margin-bottom: 50px; }
-          .clinic { text-align: center; font-size: 13px; color: #555; margin-bottom: 60px; }
           p { font-size: 14px; text-align: justify; }
           .sign-area { margin-top: 100px; text-align: center; }
           .sign-line { border-top: 1px solid #333; width: 320px; margin: 0 auto; padding-top: 8px; font-size: 12px; }
+          .footer { margin-top: 60px; text-align: center; font-size: 12px; color: #666; }
           @media print { body { margin: 20px auto; } }
         </style>
       </head>
       <body>
-        <div class="clinic">${clinicName}</div>
+        <img class="logo" src="/logo/logo-full-v2.png" alt="${clinicName}" />
+        <p class="patient-name">${patient.name}</p>
         <h1>${documentTitle}</h1>
         <p>${bodyText}</p>
-        <p style="margin-top: 60px;">Local e data: ${today}</p>
         <div class="sign-area">
           <div class="sign-line">
             ${professionalName ? `${professionalName}<br/>` : ''}Cirurgião(ã)-Dentista
           </div>
         </div>
+        <p class="footer">${todayLabel} às ${nowTimeLabel}</p>
       </body>
       </html>
     `;
@@ -1856,61 +1952,75 @@ function AtestadoModule({ user, patient }: { user: User, patient: Patient }) {
         <p><strong className="text-[#4A433D]">CPF:</strong> {patient.cpf || 'não cadastrado — preencha o RG abaixo'}</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <FormField label="Finalidade (ex: trabalhistas, escolares)" value={purpose} onChange={setPurpose} />
-        {!patient.cpf && <FormField label="RG do Paciente" value={rg} onChange={setRg} />}
+      {!showFreeText && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {!patient.cpf && <FormField label="RG do Paciente" value={rg} onChange={setRg} />}
 
-        {showGuardianFields && (
-          <>
-            <FormField label="Nome do Responsável Legal" value={guardianName} onChange={setGuardianName} />
-            <FormField label="RG/CPF do Responsável Legal" value={guardianDoc} onChange={setGuardianDoc} />
-          </>
-        )}
-        {showCompanionFields && (
-          <>
-            <FormField label="Nome do Acompanhante" value={companionName} onChange={setCompanionName} />
-            <FormField label="RG/CPF do Acompanhante" value={companionDoc} onChange={setCompanionDoc} />
-          </>
-        )}
+          {showGuardianFields && (
+            <>
+              <FormField label="Nome do Responsável Legal" value={guardianName} onChange={setGuardianName} />
+              <FormField label="RG/CPF do Responsável Legal" value={guardianDoc} onChange={setGuardianDoc} />
+            </>
+          )}
+          {showCompanionFields && (
+            <>
+              <FormField label="Nome do Acompanhante" value={companionName} onChange={setCompanionName} />
+              <FormField label="RG/CPF do Acompanhante" value={companionDoc} onChange={setCompanionDoc} />
+            </>
+          )}
 
-        <div>
-          <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Data do Atendimento</label>
-          <input
-            type="date"
-            value={attendanceDate}
-            onChange={e => setAttendanceDate(e.target.value)}
-            className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
-          />
-        </div>
-        <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Horário Início</label>
-            <input type="time" value={timeFrom} onChange={e => setTimeFrom(e.target.value)} className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm" />
+            <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Data do Atendimento</label>
+            <input
+              type="date"
+              value={attendanceDate}
+              onChange={e => setAttendanceDate(e.target.value)}
+              className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
+            />
           </div>
-          <div>
-            <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Horário Fim</label>
-            <input type="time" value={timeTo} onChange={e => setTimeTo(e.target.value)} className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm" />
-          </div>
-        </div>
-
-        {showRestFields && (
           <div className="grid grid-cols-2 gap-3">
-            <FormField label="Tempo de Afastamento" value={restAmount} onChange={setRestAmount} />
             <div>
-              <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Unidade</label>
-              <select
-                value={restUnit}
-                onChange={e => setRestUnit(e.target.value as 'horas' | 'dias')}
-                className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
-              >
-                <option value="horas">Horas</option>
-                <option value="dias">Dias</option>
-              </select>
+              <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Horário Início</label>
+              <input type="time" value={timeFrom} onChange={e => setTimeFrom(e.target.value)} className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm" />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Horário Fim</label>
+              <input type="time" value={timeTo} onChange={e => setTimeTo(e.target.value)} className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm" />
             </div>
           </div>
-        )}
-        {showCidField && <FormField label="Código CID" value={cid} onChange={setCid} />}
-      </div>
+
+          {showRestFields && (
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Tempo de Afastamento" value={restAmount} onChange={setRestAmount} />
+              <div>
+                <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Unidade</label>
+                <select
+                  value={restUnit}
+                  onChange={e => setRestUnit(e.target.value as 'horas' | 'dias')}
+                  className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
+                >
+                  <option value="horas">Horas</option>
+                  <option value="dias">Dias</option>
+                </select>
+              </div>
+            </div>
+          )}
+          {showCidField && <FormField label="Código CID" value={cid} onChange={setCid} />}
+        </div>
+      )}
+
+      {showFreeText && (
+        <div>
+          <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Texto do Documento</label>
+          <textarea
+            value={freeText}
+            onChange={e => setFreeText(e.target.value)}
+            rows={12}
+            placeholder={`Escreva aqui o texto completo do documento pra ${patient.name}...`}
+            className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-[28px] p-6 text-sm text-[#4A433D] leading-relaxed outline-none focus:border-[#EADFD4]/50 transition-all font-light"
+          />
+        </div>
+      )}
 
       <div>
         <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-3 ml-1">Pré-visualização</p>
@@ -2048,8 +2158,12 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
       setEditableContent('');
       setIsSigning(false);
       showToast('Documento salvo e link gerado — confirme o envio no WhatsApp');
-    } catch (err) {
-      showToast('Erro ao salvar e gerar o link de assinatura', 'error');
+    } catch (err: any) {
+      console.error('Erro ao salvar/enviar termo:', err);
+      const detail = err?.code === 'permission-denied'
+        ? 'Sem permissão — as regras do Firestore podem precisar ser republicadas.'
+        : (err?.message || 'Erro desconhecido');
+      showToast(`Erro ao salvar o link: ${detail}`, 'error');
     }
     setSendingWhatsApp(false);
   };
@@ -2308,7 +2422,7 @@ function HabitToggle({ label, active, onClick }: { label: string, active: boolea
       onClick={onClick}
       className={`flex items-center gap-4 px-8 py-4 rounded-2xl transition-all border font-bold text-[10px] uppercase tracking-widest shadow-sm ${
         active 
-          ? 'bg-[#EADFD4] border-[#EADFD4] text-white' 
+          ? 'bg-[#8BA888] border-[#8BA888] text-white' 
           : 'bg-white border-[#F5F2F0] text-[#9CA3AF] opacity-60 hover:opacity-100'
       }`}
     >
@@ -2343,7 +2457,15 @@ function PrescriptionModule({ user, patient }: { user: User, patient: Patient })
   const [medicines, setMedicines] = useState<{ name: string, dosage: string, instructions: string }[]>([{ name: '', dosage: '', instructions: '' }]);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
-  const [externalModal, setExternalModal] = useState<{ title: string, url: string } | null>(null);
+  const [clinicSettings, setClinicSettings] = useState<ClinicSettings | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const ownerId = await getClinicOwnerId(db).catch(() => user.uid);
+      const snap = await getDoc(doc(db, 'settings', ownerId));
+      if (snap.exists()) setClinicSettings(snap.data() as ClinicSettings);
+    })();
+  }, [user.uid]);
 
   const addMedicine = () => setMedicines([...medicines, { name: '', dosage: '', instructions: '' }]);
   const updateMedicine = (index: number, field: string, value: string) => {
@@ -2406,19 +2528,74 @@ function PrescriptionModule({ user, patient }: { user: User, patient: Patient })
     URL.revokeObjectURL(url);
   };
 
+  const handleViewPrescription = (prescription: any) => {
+    const clinicName = clinicSettings?.clinicName || clinicSettings?.professionalName || 'Clínica';
+    const professionalName = clinicSettings?.professionalName || '';
+    const medicinesHtml = prescription.medicines.map((m: any, i: number) =>
+      `<p style="margin-bottom: 14px;"><strong>${i + 1}. ${m.name}</strong> — ${m.dosage}<br/><span style="color:#555; font-size:13px;">${m.instructions || ''}</span></p>`
+    ).join('');
+    const html = `
+      <!DOCTYPE html>
+      <html lang="pt-BR">
+      <head>
+        <meta charset="UTF-8" />
+        <title>Receituário — ${patient.name}</title>
+        <style>
+          body { font-family: Georgia, serif; max-width: 700px; margin: 60px auto; padding: 0 40px; color: #222; line-height: 1.7; }
+          .logo { display: block; max-width: 200px; margin: 0 auto 30px; }
+          h1 { font-size: 15px; text-transform: uppercase; letter-spacing: 0.15em; text-align: center; margin-bottom: 40px; }
+          .patient { text-align: center; font-size: 14px; margin-bottom: 40px; color: #444; }
+          .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.15em; color: #888; margin: 30px 0 12px; }
+          .sign-area { margin-top: 100px; text-align: center; }
+          .sign-line { border-top: 1px solid #333; width: 320px; margin: 0 auto; padding-top: 8px; font-size: 12px; }
+          .print-btn { display: block; margin: 0 auto 40px; padding: 12px 28px; background: #4A433D; color: white; border: none; border-radius: 10px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; cursor: pointer; }
+          @media print { .print-btn { display: none; } body { margin: 20px auto; } }
+        </style>
+      </head>
+      <body>
+        <button class="print-btn" onclick="window.print()">Imprimir</button>
+        <img class="logo" src="/logo/logo-full-v2.png" alt="${clinicName}" />
+        <h1>Receituário</h1>
+        <p class="patient"><strong>${patient.name}</strong><br/>${new Date(prescription.date).toLocaleDateString('pt-BR')}</p>
+        <div class="section-title">Medicamentos</div>
+        ${medicinesHtml}
+        ${prescription.content ? `<div class="section-title">Orientações Gerais</div><p>${prescription.content}</p>` : ''}
+        <div class="sign-area">
+          <div class="sign-line">
+            ${professionalName ? `${professionalName}<br/>` : ''}Assinatura e Carimbo Profissional
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(html);
+      printWindow.document.close();
+    }
+  };
+
+  const openCenteredWindow = (url: string, title: string) => {
+    const width = 480;
+    const height = 720;
+    const left = window.screenX + (window.outerWidth - width) / 2;
+    const top = window.screenY + (window.outerHeight - height) / 2;
+    window.open(url, title, `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`);
+  };
+
   return (
     <div className="space-y-10">
       <div className="flex items-center justify-between pb-6 border-b border-[#F5F2F0]">
         <h3 className="serif text-2xl text-[#4A433D]">Receituários & Prescrições</h3>
         <div className="flex items-center gap-3">
           <button 
-            onClick={() => setExternalModal({ title: 'Mevo Prescrição Digital', url: 'https://receita.mevosaude.com.br/' })}
+            onClick={() => openCenteredWindow('https://receita.mevosaude.com.br/', 'Mevo Prescrição Digital')}
             className="bg-white text-[#EADFD4] border border-[#F5F2F0] px-6 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 hover:bg-[#FDFBF9] transition-all shadow-sm"
           >
             <ExternalLink size={18} /> Mevo Prescrição Digital
           </button>
           <button 
-            onClick={() => setExternalModal({ title: 'Memed Prescrição Digital', url: 'https://memed.com.br/login' })}
+            onClick={() => openCenteredWindow('https://memed.com.br/login', 'Memed Prescrição Digital')}
             className="bg-white text-[#EADFD4] border border-[#F5F2F0] px-6 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 hover:bg-[#FDFBF9] transition-all shadow-sm"
           >
             <ExternalLink size={18} /> Memed Prescrição Digital
@@ -2521,6 +2698,12 @@ function PrescriptionModule({ user, patient }: { user: User, patient: Patient })
             
             <div className="flex items-center gap-3 md:border-l border-[#F5F2F0] md:pl-8">
               <button 
+                onClick={() => handleViewPrescription(p)}
+                className="flex items-center gap-2 px-6 py-4 bg-[#FDFBF9] text-[#9CA3AF] rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-[#8BA888] hover:text-white transition-all shadow-sm"
+              >
+                <Eye size={18} /> Visualizar
+              </button>
+              <button 
                 onClick={() => handleExport(p)}
                 className="flex items-center gap-2 px-6 py-4 bg-[#FDFBF9] text-[#9CA3AF] rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-[#EADFD4] hover:text-white transition-all shadow-sm"
               >
@@ -2535,37 +2718,6 @@ function PrescriptionModule({ user, patient }: { user: User, patient: Patient })
           </div>
         )}
       </div>
-
-      {externalModal && (
-        <div className="fixed inset-0 bg-[#4A433D]/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full h-full md:h-[90vh] md:max-w-4xl rounded-none md:rounded-[32px] shadow-2xl flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between p-5 border-b border-[#F5F2F0] shrink-0">
-              <div>
-                <h3 className="serif text-lg text-[#4A433D]">{externalModal.title}</h3>
-                <a
-                  href={externalModal.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-[10px] text-[#9CA3AF] hover:text-[#B8846E] underline"
-                >
-                  Não carregou certo? Abrir em uma aba separada
-                </a>
-              </div>
-              <button
-                onClick={() => setExternalModal(null)}
-                className="p-2 text-[#9CA3AF] hover:text-[#4A433D] transition-all"
-              >
-                <X size={22} />
-              </button>
-            </div>
-            <iframe
-              src={externalModal.url}
-              title={externalModal.title}
-              className="flex-1 w-full border-0"
-            />
-          </div>
-        </div>
-      )}
     </div>
   );
 }

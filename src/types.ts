@@ -77,6 +77,14 @@ export interface Patient {
     fitzpatrickType: 'I' | 'II' | 'III' | 'IV' | 'V' | 'VI' | '';
     skinEvaluation: string;
     faceEvaluation: string;
+
+    // Conduta — o que foi decidido fazer, e quais procedimentos do catálogo estão
+    // planejados (usado depois pra puxar sozinho no lançamento financeiro)
+    conduct?: string;
+    plannedProcedures?: string[];
+    // Quando um procedimento tem mais de uma substância vinculada, guarda aqui qual foi
+    // escolhida pra esse paciente especificamente (nome do procedimento -> nome da substância)
+    plannedSubstances?: Record<string, string>;
   };
   // Uma anamnese "liberada" trava pra sempre — nem administrador consegue mais editar
   // depois disso. Enquanto não for liberada, é só um rascunho, editável à vontade.
@@ -226,14 +234,21 @@ export interface ClinicSettings {
   workingHoursEnd?: string; // "18:00"
   appointmentInterval?: number; // minutos entre um horário e outro: 15, 20, 30, 45, 60
   agendaBlocked?: boolean; // fecha a agenda inteira temporariamente, sem precisar mexer em cada dia
-  blockedDates?: string[]; // datas específicas bloqueadas (AAAA-MM-DD) — feriado, viagem, etc.
-  // Catálogo de preços — usado pro Orçamento (BudgetGenerator) sugerir descrição e valor
-  // automaticamente ao adicionar um item, em vez de digitar tudo na mão toda vez.
-  priceCatalog?: {
+  blockedDates?: string[]; // datas específicas bloqueadas (AAAA-MM-DD) — feriado, viagem, período de férias, etc.
+  // Procedimentos e substâncias, separados — um procedimento pode ser feito com mais de
+  // uma substância possível (ex: "Preenchimento Labial" pode usar diferentes marcas de
+  // ácido hialurônico, cada uma com preço próprio por ml).
+  procedures?: {
     id: string;
     name: string;
-    unit: 'procedimento' | 'ml' | 'unidade';
-    price: number; // valor por procedimento inteiro, ou por ml/unidade, conforme "unit"
+    price: number; // valor cobrado do procedimento em si
+  }[];
+  substances?: {
+    id: string;
+    name: string;
+    unit: 'ml' | 'unidade';
+    pricePerUnit: number;
+    procedureIds: string[]; // a quais procedimentos essa substância pode ser aplicada
   }[];
 }
 

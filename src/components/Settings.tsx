@@ -53,7 +53,9 @@ export default function Settings({ user }: { user: User }) {
   const [saving, setSaving] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<ConsentTemplate | null>(null);
   const [isAddingTemplate, setIsAddingTemplate] = useState(false);
-  const [newPriceItem, setNewPriceItem] = useState<{ name: string; unit: 'procedimento' | 'ml' | 'unidade'; price: string }>({ name: '', unit: 'procedimento', price: '' });
+  const [newProcedureName, setNewProcedureName] = useState('');
+  const [newProcedurePrice, setNewProcedurePrice] = useState('');
+  const [newSubstance, setNewSubstance] = useState<{ name: string; unit: 'ml' | 'unidade'; pricePerUnit: string; procedureIds: string[] }>({ name: '', unit: 'ml', pricePerUnit: '', procedureIds: [] });
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -124,16 +126,32 @@ export default function Settings({ user }: { user: User }) {
     showToast('Modelo removido');
   };
 
-  const handleAddPriceCatalogItem = (item: { name: string; unit: 'procedimento' | 'ml' | 'unidade'; price: number }) => {
-    const next = [...(settings.priceCatalog || []), { ...item, id: crypto.randomUUID() }];
-    persist({ ...settings, priceCatalog: next });
-    showToast('Item adicionado ao catálogo');
+  const handleAddProcedure = (item: { name: string; price: number }) => {
+    const next = [...(settings.procedures || []), { ...item, id: crypto.randomUUID() }];
+    persist({ ...settings, procedures: next });
+    showToast('Procedimento adicionado');
   };
 
-  const handleDeletePriceCatalogItem = (id: string) => {
-    if (!window.confirm('Excluir este item do catálogo?')) return;
-    persist({ ...settings, priceCatalog: (settings.priceCatalog || []).filter(i => i.id !== id) });
-    showToast('Item removido');
+  const handleDeleteProcedure = (id: string) => {
+    if (!window.confirm('Excluir este procedimento? As substâncias vinculadas a ele deixam de referenciá-lo.')) return;
+    persist({
+      ...settings,
+      procedures: (settings.procedures || []).filter(p => p.id !== id),
+      substances: (settings.substances || []).map(s => ({ ...s, procedureIds: s.procedureIds.filter(pid => pid !== id) })),
+    });
+    showToast('Procedimento removido');
+  };
+
+  const handleAddSubstance = (item: { name: string; unit: 'ml' | 'unidade'; pricePerUnit: number; procedureIds: string[] }) => {
+    const next = [...(settings.substances || []), { ...item, id: crypto.randomUUID() }];
+    persist({ ...settings, substances: next });
+    showToast('Substância adicionada');
+  };
+
+  const handleDeleteSubstance = (id: string) => {
+    if (!window.confirm('Excluir esta substância?')) return;
+    persist({ ...settings, substances: (settings.substances || []).filter(s => s.id !== id) });
+    showToast('Substância removida');
   };
 
 
@@ -381,6 +399,15 @@ export default function Settings({ user }: { user: User }) {
             </div>
           </section>
 
+          <button
+            onClick={handleSaveAll}
+            disabled={saving}
+            className="w-full py-4 bg-[#4A433D] text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest shadow-md hover:bg-[#5C544E] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            <Save size={16} />
+            {saving ? 'Salvando...' : 'Salvar Nome do Profissional e da Clínica'}
+          </button>
+
           {/* Horário de Atendimento */}
           <section className="bg-white rounded-[40px] p-10 border border-[#F5F2F0] shadow-sm">
             <div className="flex items-center gap-4 mb-8">
@@ -513,6 +540,56 @@ export default function Settings({ user }: { user: User }) {
                   </div>
                 )}
               </div>
+
+              <div className="pt-6 border-t border-[#F5F2F0]">
+                <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-3 ml-1">
+                  Bloquear um período (ex: férias — de tal dia a tal dia)
+                </label>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <input
+                    type="date"
+                    id="blockRangeStart"
+                    className="flex-1 bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all font-light"
+                  />
+                  <input
+                    type="date"
+                    id="blockRangeEnd"
+                    className="flex-1 bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all font-light"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const startInput = document.getElementById('blockRangeStart') as HTMLInputElement;
+                      const endInput = document.getElementById('blockRangeEnd') as HTMLInputElement;
+                      if (!startInput.value || !endInput.value) {
+                        showToast('Preencha as duas datas do período', 'error');
+                        return;
+                      }
+                      if (endInput.value < startInput.value) {
+                        showToast('A data final precisa ser depois da inicial', 'error');
+                        return;
+                      }
+                      const current = new Set(settings.blockedDates || []);
+                      let d = new Date(startInput.value + 'T00:00:00');
+                      const end = new Date(endInput.value + 'T00:00:00');
+                      while (d <= end) {
+                        current.add(d.toISOString().split('T')[0]);
+                        d.setDate(d.getDate() + 1);
+                      }
+                      setSettings({ ...settings, blockedDates: Array.from(current).sort() });
+                      startInput.value = '';
+                      endInput.value = '';
+                      showToast('Período bloqueado');
+                    }}
+                    className="px-6 bg-[#EADFD4] text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest hover:bg-[#DFCFBF] transition-all whitespace-nowrap"
+                  >
+                    Bloquear Período
+                  </button>
+                </div>
+                <p className="text-[10px] text-[#9CA3AF] font-light mt-2 ml-1">
+                  Cada dia do período aparece na lista acima — pode remover dias individuais dali se precisar reabrir algum no meio do período.
+                </p>
+              </div>
             </div>
           </section>
 
@@ -630,44 +707,36 @@ export default function Settings({ user }: { user: User }) {
       </div>
 
       <div className="mt-8 bg-white rounded-[40px] border border-[#F5F2F0] p-10">
-        <h3 className="serif text-2xl text-[#4A433D] mb-2">Catálogo de Preços</h3>
+        <h3 className="serif text-2xl text-[#4A433D] mb-2">Procedimentos</h3>
         <p className="text-xs text-[#9CA3AF] font-light mb-8">
-          Cadastre aqui os procedimentos e substâncias com seus valores — ao montar um Orçamento
-          no prontuário do paciente, você escolhe da lista em vez de digitar tudo na mão.
+          Cadastre aqui os procedimentos oferecidos, com o valor cobrado por cada um. Depois, vincule
+          substâncias a cada procedimento na seção abaixo.
         </p>
 
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto_auto] gap-3 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-3 mb-8">
           <input
-            value={newPriceItem.name}
-            onChange={e => setNewPriceItem({ ...newPriceItem, name: e.target.value })}
-            placeholder="Nome (ex: Toxina Botulínica, Ácido Hialurônico...)"
+            value={newProcedureName}
+            onChange={e => setNewProcedureName(e.target.value)}
+            placeholder="Nome do procedimento (ex: Preenchimento Labial)"
             className="bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
           />
-          <select
-            value={newPriceItem.unit}
-            onChange={e => setNewPriceItem({ ...newPriceItem, unit: e.target.value as any })}
-            className="bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
-          >
-            <option value="procedimento">Por procedimento</option>
-            <option value="ml">Por ml</option>
-            <option value="unidade">Por unidade</option>
-          </select>
           <input
-            value={newPriceItem.price}
-            onChange={e => setNewPriceItem({ ...newPriceItem, price: e.target.value })}
+            value={newProcedurePrice}
+            onChange={e => setNewProcedurePrice(e.target.value)}
             placeholder="R$"
             inputMode="decimal"
             className="bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm w-full md:w-28"
           />
           <button
             onClick={() => {
-              const price = parseFloat(newPriceItem.price.replace(',', '.'));
-              if (!newPriceItem.name.trim() || !price || price <= 0) {
+              const price = parseFloat(newProcedurePrice.replace(',', '.'));
+              if (!newProcedureName.trim() || !price || price <= 0) {
                 showToast('Preencha nome e um valor válido', 'error');
                 return;
               }
-              handleAddPriceCatalogItem({ name: newPriceItem.name.trim(), unit: newPriceItem.unit, price });
-              setNewPriceItem({ name: '', unit: 'procedimento', price: '' });
+              handleAddProcedure({ name: newProcedureName.trim(), price });
+              setNewProcedureName('');
+              setNewProcedurePrice('');
             }}
             className="bg-[#EADFD4] text-white rounded-2xl px-6 py-4 text-[10px] font-bold uppercase tracking-widest hover:bg-[#DFCFBF] transition-all flex items-center justify-center gap-2"
           >
@@ -676,23 +745,127 @@ export default function Settings({ user }: { user: User }) {
         </div>
 
         <div className="space-y-2">
-          {(settings.priceCatalog || []).map(item => (
-            <div key={item.id} className="flex items-center justify-between p-4 bg-[#FDFBF9] rounded-2xl">
+          {(settings.procedures || []).map(proc => (
+            <div key={proc.id} className="flex items-center justify-between p-4 bg-[#FDFBF9] rounded-2xl">
               <div>
-                <p className="text-sm text-[#4A433D] font-medium">{item.name}</p>
+                <p className="text-sm text-[#4A433D] font-medium">{proc.name}</p>
                 <p className="text-[10px] text-[#9CA3AF] uppercase tracking-widest">
-                  R$ {item.price.toFixed(2).replace('.', ',')} {item.unit === 'procedimento' ? '(procedimento)' : `por ${item.unit}`}
+                  R$ {proc.price.toFixed(2).replace('.', ',')}
+                  {' · '}
+                  {(settings.substances || []).filter(s => s.procedureIds.includes(proc.id)).length} substância(s) vinculada(s)
                 </p>
               </div>
-              <button onClick={() => handleDeletePriceCatalogItem(item.id)} className="p-2 text-[#9CA3AF] hover:text-red-400">
+              <button onClick={() => handleDeleteProcedure(proc.id)} className="p-2 text-[#9CA3AF] hover:text-red-400">
                 <Trash2 size={16} />
               </button>
             </div>
           ))}
-          {(!settings.priceCatalog || settings.priceCatalog.length === 0) && (
-            <p className="text-xs text-[#9CA3AF] italic text-center py-6">Nenhum item cadastrado ainda.</p>
+          {(!settings.procedures || settings.procedures.length === 0) && (
+            <p className="text-xs text-[#9CA3AF] italic text-center py-6">Nenhum procedimento cadastrado ainda.</p>
           )}
         </div>
+      </div>
+
+      <div className="mt-8 bg-white rounded-[40px] border border-[#F5F2F0] p-10">
+        <h3 className="serif text-2xl text-[#4A433D] mb-2">Substâncias</h3>
+        <p className="text-xs text-[#9CA3AF] font-light mb-8">
+          Cadastre as substâncias (marcas, produtos) e vincule a quais procedimentos cada uma se aplica.
+          Se um procedimento tiver mais de uma substância vinculada, o sistema pergunta qual foi usada
+          na hora de marcar na anamnese do paciente.
+        </p>
+
+        {(settings.procedures || []).length === 0 ? (
+          <p className="text-xs text-[#9CA3AF] italic text-center py-6">Cadastre ao menos um procedimento acima antes de adicionar substâncias.</p>
+        ) : (
+          <>
+            <div className="space-y-3 mb-8 p-6 bg-[#FDFBF9] rounded-[28px]">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <input
+                  value={newSubstance.name}
+                  onChange={e => setNewSubstance({ ...newSubstance, name: e.target.value })}
+                  placeholder="Nome da substância (ex: Restylane, Juvederm...)"
+                  className="bg-white border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
+                />
+                <select
+                  value={newSubstance.unit}
+                  onChange={e => setNewSubstance({ ...newSubstance, unit: e.target.value as any })}
+                  className="bg-white border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
+                >
+                  <option value="ml">Por ml</option>
+                  <option value="unidade">Por unidade</option>
+                </select>
+                <input
+                  value={newSubstance.pricePerUnit}
+                  onChange={e => setNewSubstance({ ...newSubstance, pricePerUnit: e.target.value })}
+                  placeholder="R$ por ml/unidade"
+                  inputMode="decimal"
+                  className="bg-white border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
+                />
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Vincular a quais procedimentos</p>
+                <div className="flex flex-wrap gap-2">
+                  {(settings.procedures || []).map(proc => {
+                    const active = newSubstance.procedureIds.includes(proc.id);
+                    return (
+                      <button
+                        key={proc.id}
+                        onClick={() => {
+                          const next = active
+                            ? newSubstance.procedureIds.filter(id => id !== proc.id)
+                            : [...newSubstance.procedureIds, proc.id];
+                          setNewSubstance({ ...newSubstance, procedureIds: next });
+                        }}
+                        className={`text-xs px-4 py-2 rounded-xl border transition-all ${active ? 'bg-[#8BA888] border-[#8BA888] text-white' : 'bg-white border-[#F5F2F0] text-[#9CA3AF]'}`}
+                      >
+                        {proc.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  const price = parseFloat(newSubstance.pricePerUnit.replace(',', '.'));
+                  if (!newSubstance.name.trim() || !price || price <= 0) {
+                    showToast('Preencha nome e um valor válido', 'error');
+                    return;
+                  }
+                  if (newSubstance.procedureIds.length === 0) {
+                    showToast('Vincule a substância a ao menos um procedimento', 'error');
+                    return;
+                  }
+                  handleAddSubstance({ name: newSubstance.name.trim(), unit: newSubstance.unit, pricePerUnit: price, procedureIds: newSubstance.procedureIds });
+                  setNewSubstance({ name: '', unit: 'ml', pricePerUnit: '', procedureIds: [] });
+                }}
+                className="w-full bg-[#EADFD4] text-white rounded-2xl px-6 py-4 text-[10px] font-bold uppercase tracking-widest hover:bg-[#DFCFBF] transition-all flex items-center justify-center gap-2"
+              >
+                <Plus size={16} /> Adicionar Substância
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {(settings.substances || []).map(sub => (
+                <div key={sub.id} className="flex items-center justify-between p-4 bg-[#FDFBF9] rounded-2xl">
+                  <div>
+                    <p className="text-sm text-[#4A433D] font-medium">{sub.name}</p>
+                    <p className="text-[10px] text-[#9CA3AF] uppercase tracking-widest">
+                      R$ {sub.pricePerUnit.toFixed(2).replace('.', ',')} por {sub.unit}
+                      {' · '}
+                      {sub.procedureIds.map(pid => (settings.procedures || []).find(p => p.id === pid)?.name).filter(Boolean).join(', ') || 'sem vínculo'}
+                    </p>
+                  </div>
+                  <button onClick={() => handleDeleteSubstance(sub.id)} className="p-2 text-[#9CA3AF] hover:text-red-400">
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              ))}
+              {(!settings.substances || settings.substances.length === 0) && (
+                <p className="text-xs text-[#9CA3AF] italic text-center py-6">Nenhuma substância cadastrada ainda.</p>
+              )}
+            </div>
+          </>
+        )}
       </div>
 
       <div className="mt-8">
