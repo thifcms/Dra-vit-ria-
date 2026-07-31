@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, setDoc, doc, getDoc, where, orderBy } from 'firebase/firestore';
+import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, setDoc, doc, getDoc, getDocs, where, orderBy } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Appointment, Patient, ClinicSettings } from '../types';
 import { slotId, checkinLink, cancelLink, CLINIC_HOURS, EMAIL_SERVICE_URL, localDateStr, todayLocalStr, getClinicOwnerId } from '../lib/slots';
@@ -32,6 +32,19 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [loading, setLoading] = useState(true);
   const [ownerId, setOwnerId] = useState<string | null>(null);
+  const [isAdminUser, setIsAdminUser] = useState(false);
+  const [professionals, setProfessionals] = useState<{ id: string; name: string }[]>([]);
+  const [professionalFilter, setProfessionalFilter] = useState<string | null>(null); // null = todos
+
+  useEffect(() => {
+    getDoc(doc(db, 'system', 'authorized_admins')).then(snap => {
+      const emails: string[] = snap.exists() ? (snap.data().emails || []) : [];
+      setIsAdminUser(!!user.email && emails.includes(user.email));
+    }).catch(() => {});
+    getDocs(collection(db, 'professionals')).then(snap => {
+      setProfessionals(snap.docs.map(d => ({ id: d.id, name: d.data().name })));
+    });
+  }, [user.email]);
 
   useEffect(() => {
     // Nome/endereço da clínica, usados na mensagem de lembrete — sempre lidos do UID fixo
@@ -81,8 +94,8 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
 
   const dateStr = localDateStr(selectedDate);
   const dayAppointments = useMemo(
-    () => appointments.filter(a => a.date === dateStr),
-    [appointments, dateStr]
+    () => appointments.filter(a => a.date === dateStr && (!professionalFilter || a.professionalId === professionalFilter)),
+    [appointments, dateStr, professionalFilter]
   );
 
   const waitingQueue = useMemo(
@@ -131,7 +144,7 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
 
       // Cancelar libera o horário na fila pública de disponibilidade
       if (status === 'cancelled' && appt) {
-        await deleteDoc(doc(db, 'busySlots', slotId(ownerId || user.uid, appt.date, appt.time))).catch(() => {});
+        await deleteDoc(doc(db, 'busySlots', slotId(ownerId || user.uid, appt.professionalId || 'default', appt.date, appt.time))).catch(() => {});
       }
 
       // Ao concluir uma consulta com valor definido, gera o lançamento financeiro automaticamente
@@ -246,7 +259,7 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
       await deleteDoc(doc(db, 'appointments', id));
       // Libera o horário correspondente na fila pública de disponibilidade
       if (appt) {
-        await deleteDoc(doc(db, 'busySlots', slotId(ownerId || user.uid, appt.date, appt.time))).catch(() => {});
+        await deleteDoc(doc(db, 'busySlots', slotId(ownerId || user.uid, appt.professionalId || 'default', appt.date, appt.time))).catch(() => {});
       }
       showToast('Agendamento excluído');
     } catch (err) {
@@ -276,6 +289,30 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
           <span>Novo Agendamento</span>
         </button>
       </div>
+
+      {isAdminUser && professionals.length > 1 && (
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setProfessionalFilter(null)}
+            className={`px-5 py-3 rounded-2xl text-sm font-medium transition-all ${
+              professionalFilter === null ? 'bg-[#4A433D] text-white' : 'bg-white text-[#9CA3AF] border border-[#F5F2F0] hover:border-[#EADFD4]/40'
+            }`}
+          >
+            Todos os profissionais
+          </button>
+          {professionals.map(prof => (
+            <button
+              key={prof.id}
+              onClick={() => setProfessionalFilter(prof.id)}
+              className={`px-5 py-3 rounded-2xl text-sm font-medium transition-all ${
+                professionalFilter === prof.id ? 'bg-[#4A433D] text-white' : 'bg-white text-[#9CA3AF] border border-[#F5F2F0] hover:border-[#EADFD4]/40'
+              }`}
+            >
+              {prof.name}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="flex flex-col lg:flex-row gap-8">
         {/* Calendar Sidebar */}
@@ -601,6 +638,17 @@ function AddAppointmentModal({ user, ownerId, onClose, patients, appointments, i
   const [recurrence, setRecurrence] = useState<'none' | 'weekly' | 'biweekly' | 'monthly'>('none');
   const [occurrences, setOccurrences] = useState(4);
   const [saving, setSaving] = useState(false);
+  const [professionals, setProfessionals] = useState<{ id: string; name: string }[]>([]);
+  const [professionalId, setProfessionalId] = useState(appointment?.professionalId || '');
+
+  useEffect(() => {
+    getDocs(collection(db, 'professionals')).then(snap => {
+      const list = snap.docs.map(d => ({ id: d.id, name: d.data().name }));
+      setProfessionals(list);
+      if (!professionalId && list.length > 0) setProfessionalId(list[0].id);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const addInterval = (base: Date, freq: string, n: number) => {
     const d = new Date(base);
@@ -626,6 +674,7 @@ function AddAppointmentModal({ user, ownerId, onClose, patients, appointments, i
     setSaving(true);
     const patient = patients.find((p: any) => p.id === patientId);
     const numericValue = value ? parseFloat(value) : undefined;
+    const professionalName = professionals.find(p => p.id === professionalId)?.name || '';
     try {
       if (appointment?.id) {
         await updateDoc(doc(db, 'appointments', appointment.id), {
@@ -635,11 +684,13 @@ function AddAppointmentModal({ user, ownerId, onClose, patients, appointments, i
           time,
           notes,
           value: numericValue,
+          professionalId,
+          professionalName,
         });
         // Se a data/hora mudou, libera o horário antigo e ocupa o novo na fila pública
         if (appointment.date !== date || appointment.time !== time) {
-          await deleteDoc(doc(db, 'busySlots', slotId(ownerId || user.uid, appointment.date, appointment.time))).catch(() => {});
-          await setDoc(doc(db, 'busySlots', slotId(ownerId || user.uid, date, time)), { clinicId: ownerId || user.uid, date, time, apt: appointment.id }).catch(() => {});
+          await deleteDoc(doc(db, 'busySlots', slotId(ownerId || user.uid, appointment.professionalId || 'default', appointment.date, appointment.time))).catch(() => {});
+          await setDoc(doc(db, 'busySlots', slotId(ownerId || user.uid, professionalId || 'default', date, time)), { clinicId: ownerId || user.uid, professionalId, date, time, apt: appointment.id }).catch(() => {});
         }
         showToast('Agendamento atualizado');
       } else if (recurrence === 'none') {
@@ -653,9 +704,11 @@ function AddAppointmentModal({ user, ownerId, onClose, patients, appointments, i
           value: numericValue,
           status: 'scheduled',
           checkinToken: crypto.randomUUID(),
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
+          professionalId,
+          professionalName,
         });
-        await setDoc(doc(db, 'busySlots', slotId(ownerId || user.uid, date, time)), { clinicId: ownerId || user.uid, date, time, apt: ref.id }).catch(() => {});
+        await setDoc(doc(db, 'busySlots', slotId(ownerId || user.uid, professionalId || 'default', date, time)), { clinicId: ownerId || user.uid, professionalId, date, time, apt: ref.id }).catch(() => {});
         if (patient?.email) {
           fetch(`${EMAIL_SERVICE_URL}/api/send-confirmation-email`, {
             method: 'POST',
@@ -689,9 +742,11 @@ function AddAppointmentModal({ user, ownerId, onClose, patients, appointments, i
             status: 'scheduled',
             seriesId,
             checkinToken: crypto.randomUUID(),
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
+            professionalId,
+            professionalName,
           });
-          await setDoc(doc(db, 'busySlots', slotId(ownerId || user.uid, occDateStr, time)), { clinicId: ownerId || user.uid, date: occDateStr, time, apt: ref.id }).catch(() => {});
+          await setDoc(doc(db, 'busySlots', slotId(ownerId || user.uid, professionalId || 'default', occDateStr, time)), { clinicId: ownerId || user.uid, professionalId, date: occDateStr, time, apt: ref.id }).catch(() => {});
           created++;
         }
         showToast(skipped > 0 ? `${created} agendamentos criados, ${skipped} pulados por conflito` : `${created} agendamentos criados`);

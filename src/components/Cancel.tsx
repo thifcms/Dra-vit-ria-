@@ -17,6 +17,7 @@ export default function Cancel() {
   const date = params.get('date');
   const time = params.get('time');
   const clinic = params.get('clinic');
+  const professionalId = params.get('prof') || 'default'; // links antigos não têm esse parâmetro
 
   const [status, setStatus] = useState<'idle' | 'submitting' | 'done' | 'error'>('idle');
 
@@ -30,7 +31,7 @@ export default function Cancel() {
       });
       // Libera o horário na agenda pública (só funciona depois do passo acima, por segurança)
       if (clinic && date && time) {
-        await deleteDoc(doc(db, 'busySlots', slotId(clinic, date, time))).catch(() => {});
+        await deleteDoc(doc(db, 'busySlots', slotId(clinic, professionalId, date, time))).catch(() => {});
       }
       setStatus('done');
     } catch (err) {

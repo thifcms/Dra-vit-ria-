@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { slotId, checkinLink, cancelLink, generateTimeSlots, phoneIndexKey, cpfIndexKey, normalizeCpf, isValidCpfFormat, EMAIL_SERVICE_URL, localDateStr, todayLocalStr } from '../lib/slots';
 import { buildReminderMessage, whatsappLink } from '../lib/reminders';
 import { PRIVACY_POLICY_TEXT } from '../lib/privacyPolicy';
 import { motion, AnimatePresence } from 'motion/react';
 import { Phone, User as UserIcon, Mail, IdCard, ChevronLeft, ChevronRight, CheckCircle2, MessageSquare, X } from 'lucide-react';
-import type { PublicBookingConfig, BusySlot } from '../types';
+import type { PublicBookingConfig, BusySlot, Professional } from '../types';
 
 const PROCEDURE_OPTIONS = [
   'Botox',
@@ -148,7 +148,9 @@ export default function PublicBooking() {
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
 
   const [step, setStep] = useState<Step>('professional');
-  const [selectedProfessionalName, setSelectedProfessionalName] = useState<string>('');
+  const [professionals, setProfessionals] = useState<Professional[]>([]);
+  const [selectedProfessional, setSelectedProfessional] = useState<Professional | null>(null);
+  const selectedProfessionalName = selectedProfessional?.name || '';
   const [phone, setPhone] = useState('');
   const [checkingPhone, setCheckingPhone] = useState(false);
   const [existingPatientId, setExistingPatientId] = useState<string | null>(null);
@@ -177,52 +179,64 @@ export default function PublicBooking() {
       })
       .catch(() => setConfigError(true))
       .finally(() => setLoadingConfig(false));
+    getDocs(collection(db, 'professionals')).then(snap => {
+      setProfessionals(snap.docs.map(d => ({ id: d.id, ...d.data() } as Professional)));
+    });
   }, []);
 
-  // Só mostra a etapa de escolha de profissional quando há mais de 1 disponível — com
-  // só a profissional padrão, pula direto pro calendário, sem passo extra desnecessário.
+  // Só mostra a etapa de escolha de profissional quando há mais de 1 disponível — com só
+  // um profissional cadastrado, pula direto pro calendário, sem passo extra desnecessário.
+  // Sem nenhum profissional cadastrado ainda (clínica não migrou pra esse recurso), usa a
+  // configuração antiga (única, pra toda a clínica) como se fosse um profissional só.
   useEffect(() => {
-    if (!config) return;
-    if (!config.testProfessionals || config.testProfessionals.length === 0) {
-      setSelectedProfessionalName(config.professionalName);
+    if (!config || professionals.length === 0) {
+      if (config && professionals.length === 0) {
+        setSelectedProfessional({ id: 'default', name: config.professionalName, workingDays: config.workingDays, workingHoursStart: config.workingHoursStart, workingHoursEnd: config.workingHoursEnd, appointmentInterval: config.appointmentInterval, agendaBlocked: config.agendaBlocked, blockedDates: config.blockedDates });
+        setStep('calendar');
+      }
+      return;
+    }
+    if (professionals.length === 1) {
+      setSelectedProfessional(professionals[0]);
       setStep('calendar');
     }
-  }, [config]);
+  }, [config, professionals]);
 
   useEffect(() => {
-    if (!config) return;
+    if (!config || !selectedProfessional) return;
     const q = query(
       collection(db, 'busySlots'),
       where('clinicId', '==', config.ownerId),
+      where('professionalId', '==', selectedProfessional.id),
       where('date', '==', selectedDate)
     );
     const unsub = onSnapshot(q, snap => {
       setBusySlotsToday(new Set(snap.docs.map(d => (d.data() as BusySlot).time)));
     });
     return unsub;
-  }, [config, selectedDate]);
+  }, [config, selectedProfessional, selectedDate]);
 
   const isToday = selectedDate === todayLocalStr();
   const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
 
   const isWorkingDay = useMemo(() => {
-    if (!config) return true;
-    const days = config.workingDays ?? [1, 2, 3, 4, 5];
+    if (!selectedProfessional) return true;
+    const days = selectedProfessional.workingDays ?? [1, 2, 3, 4, 5];
     const dow = new Date(selectedDate + 'T00:00:00').getDay();
     return days.includes(dow);
-  }, [config, selectedDate]);
+  }, [selectedProfessional, selectedDate]);
 
   const isDateBlocked = useMemo(() => {
-    if (!config) return false;
-    return !!config.agendaBlocked || (config.blockedDates || []).includes(selectedDate);
-  }, [config, selectedDate]);
+    if (!selectedProfessional) return false;
+    return !!selectedProfessional.agendaBlocked || (selectedProfessional.blockedDates || []).includes(selectedDate);
+  }, [selectedProfessional, selectedDate]);
 
   const availableTimes = useMemo(() => {
-    if (!config || isDateBlocked || !isWorkingDay) return [];
+    if (!selectedProfessional || isDateBlocked || !isWorkingDay) return [];
     const hours = generateTimeSlots(
-      config.workingHoursStart || '08:00',
-      config.workingHoursEnd || '18:00',
-      config.appointmentInterval || 60
+      selectedProfessional.workingHoursStart || '08:00',
+      selectedProfessional.workingHoursEnd || '18:00',
+      selectedProfessional.appointmentInterval || 60
     );
     return hours.filter(t => {
       if (busySlotsToday.has(t)) return false;
@@ -232,7 +246,7 @@ export default function PublicBooking() {
       }
       return true;
     });
-  }, [config, busySlotsToday, isToday, nowMinutes, isWorkingDay, isDateBlocked]);
+  }, [selectedProfessional, busySlotsToday, isToday, nowMinutes, isWorkingDay, isDateBlocked]);
 
   const showError = (msg: string) => {
     setErrorMsg(msg);
@@ -322,10 +336,11 @@ export default function PublicBooking() {
     // ocupado (busySlot) a ele — é isso que permite liberar o horário com segurança quando
     // o paciente cancela pelo link, sem precisar de login.
     const apptRef = doc(collection(db, 'appointments'));
-    const slotDocId = slotId(config.ownerId, selectedDate, selectedTime);
+    const slotDocId = slotId(config.ownerId, selectedProfessional?.id || 'default', selectedDate, selectedTime);
     try {
       await setDoc(doc(db, 'busySlots', slotDocId), {
         clinicId: config.ownerId,
+        professionalId: selectedProfessional?.id || 'default',
         date: selectedDate,
         time: selectedTime,
         apt: apptRef.id,
@@ -402,9 +417,10 @@ export default function PublicBooking() {
       };
       if (procedureInterest) payload.notes = procedureInterest;
       if (selectedProfessionalName) payload.professionalName = selectedProfessionalName;
+      if (selectedProfessional?.id) payload.professionalId = selectedProfessional.id;
       await setDoc(apptRef, payload);
       setCheckinUrl(checkinLink(apptRef.id, token, selectedDate, selectedTime));
-      setCancelUrl(cancelLink(apptRef.id, token, selectedDate, selectedTime, config.ownerId));
+      setCancelUrl(cancelLink(apptRef.id, token, selectedDate, selectedTime, config.ownerId, selectedProfessional?.id));
       setSubmitted(true);
 
       // Dispara o e-mail de confirmação automático (serviço independente do app principal).
@@ -557,19 +573,11 @@ export default function PublicBooking() {
             <motion.div key="professional" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <p className="text-xs text-[#9CA3AF] font-light mb-6 text-center">Com quem você gostaria de agendar?</p>
               <div className="space-y-3">
-                <button
-                  type="button"
-                  onClick={() => { setSelectedProfessionalName(config.professionalName); setStep('calendar'); }}
-                  className="w-full p-5 bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl text-left hover:border-[#EADFD4] transition-all flex items-center justify-between"
-                >
-                  <span className="font-medium text-[#4A433D]">{config.professionalName}</span>
-                  <ChevronRight size={18} className="text-[#9CA3AF]" />
-                </button>
-                {(config.testProfessionals || []).map(prof => (
+                {professionals.map(prof => (
                   <button
-                    key={prof.email}
+                    key={prof.id}
                     type="button"
-                    onClick={() => { setSelectedProfessionalName(prof.name); setStep('calendar'); }}
+                    onClick={() => { setSelectedProfessional(prof); setStep('calendar'); }}
                     className="w-full p-5 bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl text-left hover:border-[#EADFD4] transition-all flex items-center justify-between"
                   >
                     <span className="font-medium text-[#4A433D]">{prof.name}</span>

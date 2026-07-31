@@ -367,6 +367,15 @@ service cloud.firestore {
       allow write: if isAdmin(); // Só administrador altera a configuração pública da clínica
     }
 
+    // Cada profissional tem agenda própria (horários, dias, bloqueios). Leitura pública —
+    // a página de agendamento (#agendar) precisa ler sem login pra saber os horários
+    // disponíveis de cada um. Escrita só por administrador, mesmo pra bloquear a agenda
+    // de outro profissional que não seja ele mesmo — decisão explícita do dono da clínica.
+    match /professionals/{professionalId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // Índice público telefone → paciente (ver isValidPhoneIndexEntry acima)
     match /patientPhoneIndex/{phoneKey} {
       allow read: if true;

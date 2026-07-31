@@ -27,8 +27,8 @@ export function generateTimeSlots(start: string, end: string, intervalMinutes: n
 // ID determinístico do documento em busySlots — usado pra "reservar" um horário de forma
 // atômica: se o slot já existir, a escrita cai na regra de update (sempre negada), então
 // duas pessoas nunca conseguem ocupar o mesmo horário ao mesmo tempo.
-export function slotId(clinicId: string, date: string, time: string): string {
-  return `${clinicId}_${date}_${time.replace(':', '')}`;
+export function slotId(clinicId: string, professionalId: string, date: string, time: string): string {
+  return `${clinicId}_${professionalId}_${date}_${time.replace(':', '')}`;
 }
 
 // Link de check-in do próprio paciente. O token é o "segredo": só quem tem o link
@@ -43,9 +43,9 @@ export function checkinLink(appointmentId: string, token: string, date: string, 
 // Link de cancelamento do próprio paciente — mesma lógica de segurança do check-in
 // (token secreto), mas também carrega o clinicId, necessário pra liberar o horário
 // (busySlot) correspondente depois de cancelar.
-export function cancelLink(appointmentId: string, token: string, date: string, time: string, clinicId: string): string {
+export function cancelLink(appointmentId: string, token: string, date: string, time: string, clinicId: string, professionalId?: string): string {
   const base = window.location.href.split('#')[0];
-  return `${base}#cancelar?apt=${appointmentId}&token=${token}&date=${date}&time=${time}&clinic=${clinicId}`;
+  return `${base}#cancelar?apt=${appointmentId}&token=${token}&date=${date}&time=${time}&clinic=${clinicId}${professionalId ? `&prof=${professionalId}` : ''}`;
 }
 
 // Link de assinatura remota de termo, pelo próprio paciente, sem login — o token (que é

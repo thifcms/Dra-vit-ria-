@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { doc, getDoc, setDoc, updateDoc, deleteField } from 'firebase/firestore';
+import { doc, getDoc, getDocs, collection, addDoc, deleteDoc, setDoc, updateDoc, deleteField } from 'firebase/firestore';
 import { db, googleProvider } from '../lib/firebase';
 import { reauthenticateWithPopup } from 'firebase/auth';
 import { User } from 'firebase/auth';
@@ -13,7 +13,7 @@ const SESSION_KEY = 'adminPanelUnlocked';
 
 export default function AdminPanel({ user }: { user: User }) {
   const [isAdminUser, setIsAdminUser] = useState<boolean | null>(null); // null = ainda checando
-  const [testProfessionals, setTestProfessionals] = useState<{ email: string; name: string }[]>([]);
+  const [linkedProfessionals, setLinkedProfessionals] = useState<{ id: string; email: string; name: string }[]>([]);
   const [security, setSecurity] = useState<AdminSecurity | null>(null);
   const [loading, setLoading] = useState(true);
   const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem(SESSION_KEY) === 'true');
@@ -58,8 +58,11 @@ export default function AdminPanel({ user }: { user: User }) {
     getDoc(doc(db, 'system', 'authorized_staff')).then(snap => {
       setStaffEmails(snap.exists() ? (snap.data().emails || []) : []);
     });
-    getDoc(doc(db, 'publicConfig', 'booking')).then(snap => {
-      setTestProfessionals(snap.exists() ? (snap.data().testProfessionals || []) : []);
+    getDocs(collection(db, 'professionals')).then(snap => {
+      const list = snap.docs
+        .map(d => ({ id: d.id, email: d.data().email || '', name: d.data().name || '' }))
+        .filter(p => p.email); // só os que têm e-mail vinculado a um login do sistema
+      setLinkedProfessionals(list);
     });
   }, [unlocked]);
 
@@ -217,22 +220,32 @@ export default function AdminPanel({ user }: { user: User }) {
     showToast('Acesso removido');
   };
 
-  // Marca/desmarca um e-mail como "profissional de teste" — aparece como opção de
-  // escolha na tela pública de agendamento (só quando houver mais de 1 profissional
-  // disponível; com só a Dra. Vitória, a etapa de escolha nem aparece).
-  const handleToggleTestProfessional = async (email: string) => {
-    const isCurrentlyOn = testProfessionals.some(p => p.email === email);
-    let next: { email: string; name: string }[];
-    if (isCurrentlyOn) {
-      next = testProfessionals.filter(p => p.email !== email);
-    } else {
-      const defaultName = window.prompt('Qual nome deve aparecer na tela de agendamento pra esse e-mail?', email.split('@')[0]);
-      if (!defaultName) return; // cancelou
-      next = [...testProfessionals, { email, name: defaultName }];
+  // Marca/desmarca um e-mail como profissional com agenda própria — cria (ou remove) um
+  // registro na coleção "professionals", que é o que a tela pública de agendamento e a
+  // Agenda interna usam de verdade pra saber horários e disponibilidade de cada um.
+  const handleToggleProfessional = async (email: string) => {
+    const existing = linkedProfessionals.find(p => p.email === email);
+    if (existing) {
+      if (!window.confirm(`Remover ${existing.name} da lista de profissionais? A agenda dele será apagada.`)) return;
+      await deleteDoc(doc(db, 'professionals', existing.id));
+      setLinkedProfessionals(prev => prev.filter(p => p.email !== email));
+      showToast('Removido da lista de profissionais');
+      return;
     }
-    await setDoc(doc(db, 'publicConfig', 'booking'), { testProfessionals: next }, { merge: true });
-    setTestProfessionals(next);
-    showToast(isCurrentlyOn ? 'Removido da tela de agendamento' : 'Agora aparece na tela de agendamento');
+    const defaultName = window.prompt('Qual nome deve aparecer na tela de agendamento pra esse e-mail?', email.split('@')[0]);
+    if (!defaultName) return; // cancelou
+    const docRef = await addDoc(collection(db, 'professionals'), {
+      name: defaultName,
+      email,
+      workingDays: [1, 2, 3, 4, 5],
+      workingHoursStart: '08:00',
+      workingHoursEnd: '18:00',
+      appointmentInterval: 60,
+      agendaBlocked: false,
+      blockedDates: [],
+    });
+    setLinkedProfessionals(prev => [...prev, { id: docRef.id, email, name: defaultName }]);
+    showToast('Profissional criado — configure os horários dele em Configurações');
   };
 
   if (isAdminUser === null) return null; // ainda checando
@@ -377,11 +390,11 @@ export default function AdminPanel({ user }: { user: User }) {
                 <label className="flex items-center gap-2 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={testProfessionals.some(p => p.email === email)}
-                    onChange={() => handleToggleTestProfessional(email)}
+                    checked={linkedProfessionals.some(p => p.email === email)}
+                    onChange={() => handleToggleProfessional(email)}
                     className="accent-[#EADFD4] w-4 h-4"
                   />
-                  Teste
+                  Profissional
                 </label>
                 {email !== user.email && (
                   <button onClick={() => handleRemoveEmail(email, 'admin')} className="text-[#9CA3AF] hover:text-red-400">

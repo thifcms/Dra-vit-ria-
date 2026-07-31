@@ -29,9 +29,18 @@ import { hashPin, isValidPinFormat } from '../lib/pin';
 import { getClinicOwnerId } from '../lib/slots';
 import { isPlatformAuthenticatorAvailable, registerBiometric } from '../lib/webauthn';
 import AdminPanel from './AdminPanel';
+import ProfessionalScheduleManager from './ProfessionalScheduleManager';
 import PatientBackup from './PatientBackup';
 
 export default function Settings({ user }: { user: User }) {
+  const [isAdminUser, setIsAdminUser] = useState<boolean | null>(null);
+  useEffect(() => {
+    getDoc(doc(db, 'system', 'authorized_admins')).then(snap => {
+      const emails: string[] = snap.exists() ? (snap.data().emails || []) : [];
+      setIsAdminUser(!!user.email && emails.includes(user.email));
+    }).catch(() => setIsAdminUser(false));
+  }, [user.email]);
+
   const [settings, setSettings] = useState<ClinicSettings>({
     professionalName: user.displayName || 'Minha Conta',
     registrationNumber: '',
@@ -408,190 +417,7 @@ export default function Settings({ user }: { user: User }) {
             {saving ? 'Salvando...' : 'Salvar Nome do Profissional e da Clínica'}
           </button>
 
-          {/* Horário de Atendimento */}
-          <section className="bg-white rounded-[40px] p-10 border border-[#F5F2F0] shadow-sm">
-            <div className="flex items-center gap-4 mb-8">
-              <div className="w-12 h-12 bg-[#FDFBF9] rounded-2xl flex items-center justify-center text-[#EADFD4]">
-                <Clock size={20} />
-              </div>
-              <div>
-                <h2 className="text-lg font-medium text-[#4A433D] serif">Horário de Atendimento</h2>
-                <p className="text-xs text-[#9CA3AF] font-light">Controla o que aparece disponível na página de agendamento online</p>
-              </div>
-            </div>
-
-            <div className="space-y-8">
-              <div>
-                <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-3 ml-1">Dias de Atendimento</label>
-                <div className="flex flex-wrap gap-2">
-                  {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((label, i) => {
-                    const active = (settings.workingDays || []).includes(i);
-                    return (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() => {
-                          const current = settings.workingDays || [];
-                          const next = active ? current.filter(d => d !== i) : [...current, i].sort();
-                          setSettings({ ...settings, workingDays: next });
-                        }}
-                        className={`w-14 h-14 rounded-2xl border text-xs font-bold transition-all ${
-                          active
-                            ? 'bg-[#EADFD4] text-white border-[#EADFD4]'
-                            : 'bg-[#FDFBF9] text-[#9CA3AF] border-[#F5F2F0] hover:border-[#EADFD4]/40'
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div>
-                  <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Início</label>
-                  <input
-                    type="time"
-                    value={settings.workingHoursStart || '08:00'}
-                    onChange={e => setSettings({ ...settings, workingHoursStart: e.target.value })}
-                    className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all font-light"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Fim</label>
-                  <input
-                    type="time"
-                    value={settings.workingHoursEnd || '18:00'}
-                    onChange={e => setSettings({ ...settings, workingHoursEnd: e.target.value })}
-                    className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all font-light"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Duração de cada consulta</label>
-                  <select
-                    value={settings.appointmentInterval || 60}
-                    onChange={e => setSettings({ ...settings, appointmentInterval: Number(e.target.value) })}
-                    className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all font-light appearance-none"
-                  >
-                    <option value={15}>15 minutos</option>
-                    <option value={20}>20 minutos</option>
-                    <option value={30}>30 minutos</option>
-                    <option value={45}>45 minutos</option>
-                    <option value={60}>60 minutos</option>
-                    <option value={90}>90 minutos</option>
-                    <option value={120}>120 minutos</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="pt-6 border-t border-[#F5F2F0]">
-                <ToggleButton
-                  active={settings.agendaBlocked}
-                  onClick={() => setSettings({ ...settings, agendaBlocked: !settings.agendaBlocked })}
-                  label="Bloquear agenda inteira (fecha pra novos agendamentos online)"
-                  icon={<Lock size={18} />}
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-3 ml-1">
-                  Bloquear dias específicos (feriado, viagem, etc.)
-                </label>
-                <div className="flex gap-3 mb-4">
-                  <input
-                    type="date"
-                    id="blockDateInput"
-                    className="flex-1 bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all font-light"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const input = document.getElementById('blockDateInput') as HTMLInputElement;
-                      if (!input.value) return;
-                      const current = settings.blockedDates || [];
-                      if (!current.includes(input.value)) {
-                        setSettings({ ...settings, blockedDates: [...current, input.value].sort() });
-                      }
-                      input.value = '';
-                    }}
-                    className="px-6 bg-[#EADFD4] text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest hover:bg-[#DFCFBF] transition-all"
-                  >
-                    Bloquear
-                  </button>
-                </div>
-                {(settings.blockedDates || []).length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {(settings.blockedDates || []).map(date => (
-                      <span
-                        key={date}
-                        className="flex items-center gap-2 px-4 py-2 bg-[#FDFBF9] border border-[#F5F2F0] rounded-xl text-xs text-[#4A433D]"
-                      >
-                        {new Date(date + 'T00:00:00').toLocaleDateString('pt-BR')}
-                        <button
-                          type="button"
-                          onClick={() => setSettings({ ...settings, blockedDates: (settings.blockedDates || []).filter(d => d !== date) })}
-                          className="text-[#9CA3AF] hover:text-red-400"
-                        >
-                          <X size={14} />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="pt-6 border-t border-[#F5F2F0]">
-                <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-3 ml-1">
-                  Bloquear um período (ex: férias — de tal dia a tal dia)
-                </label>
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <input
-                    type="date"
-                    id="blockRangeStart"
-                    className="flex-1 bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all font-light"
-                  />
-                  <input
-                    type="date"
-                    id="blockRangeEnd"
-                    className="flex-1 bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all font-light"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const startInput = document.getElementById('blockRangeStart') as HTMLInputElement;
-                      const endInput = document.getElementById('blockRangeEnd') as HTMLInputElement;
-                      if (!startInput.value || !endInput.value) {
-                        showToast('Preencha as duas datas do período', 'error');
-                        return;
-                      }
-                      if (endInput.value < startInput.value) {
-                        showToast('A data final precisa ser depois da inicial', 'error');
-                        return;
-                      }
-                      const current = new Set(settings.blockedDates || []);
-                      let d = new Date(startInput.value + 'T00:00:00');
-                      const end = new Date(endInput.value + 'T00:00:00');
-                      while (d <= end) {
-                        current.add(d.toISOString().split('T')[0]);
-                        d.setDate(d.getDate() + 1);
-                      }
-                      setSettings({ ...settings, blockedDates: Array.from(current).sort() });
-                      startInput.value = '';
-                      endInput.value = '';
-                      showToast('Período bloqueado');
-                    }}
-                    className="px-6 bg-[#EADFD4] text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest hover:bg-[#DFCFBF] transition-all whitespace-nowrap"
-                  >
-                    Bloquear Período
-                  </button>
-                </div>
-                <p className="text-[10px] text-[#9CA3AF] font-light mt-2 ml-1">
-                  Cada dia do período aparece na lista acima — pode remover dias individuais dali se precisar reabrir algum no meio do período.
-                </p>
-              </div>
-            </div>
-          </section>
+          <ProfessionalScheduleManager user={user} isAdminUser={!!isAdminUser} />
 
 
           <section className="bg-white rounded-[40px] p-10 border border-[#F5F2F0] shadow-sm">

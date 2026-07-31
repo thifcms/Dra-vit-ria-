@@ -169,6 +169,8 @@ export interface Appointment {
   checkedInAt?: string; // horário de chegada na recepção (fila de espera)
   checkinToken?: string; // token secreto usado no link de check-in do próprio paciente
   bookedOnline?: boolean; // true quando o próprio paciente agendou pela página pública
+  professionalId?: string; // com qual profissional é esse agendamento — cada um tem agenda própria
+  professionalName?: string; // nome guardado junto, pra continuar legível mesmo se o profissional for renomeado/removido depois
   createdAt?: string;
 }
 
@@ -268,15 +270,29 @@ export interface PublicBookingConfig {
   appointmentInterval?: number;
   agendaBlocked?: boolean;
   blockedDates?: string[];
-  // Profissionais extras (além da profissionalName padrão) que aparecem como opção de
-  // escolha na tela de agendamento — recurso de teste, gerenciado no Painel de Admin.
-  testProfessionals?: { email: string; name: string }[];
+}
+
+// Cada profissional tem agenda própria — horários de atendimento, dias da semana e
+// bloqueios independentes dos demais. Só administrador consegue criar/editar isso (nas
+// regras do Firestore), inclusive a agenda de outros profissionais que não sejam ele
+// mesmo — é assim que "só administrador bloqueia, mas bloqueia de qualquer um" funciona.
+export interface Professional {
+  id?: string;
+  name: string;
+  email?: string; // opcional — só usado quando o profissional também é um login do sistema
+  workingDays?: number[]; // 0=domingo, 1=segunda ... 6=sábado
+  workingHoursStart?: string; // "08:00"
+  workingHoursEnd?: string; // "18:00"
+  appointmentInterval?: number; // minutos entre um horário e outro
+  agendaBlocked?: boolean; // fecha a agenda desse profissional inteira, temporariamente
+  blockedDates?: string[]; // datas específicas bloqueadas (AAAA-MM-DD) — dias avulsos ou período
 }
 
 // Marca um horário como ocupado — coleção pública (só data/hora, sem nenhum dado do paciente),
 // usada pela página de agendamento pra saber quais horários mostrar como disponíveis.
 export interface BusySlot {
   clinicId: string;
+  professionalId?: string; // cada profissional tem disponibilidade independente
   date: string;
   time: string;
 }
