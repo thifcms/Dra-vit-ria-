@@ -2621,31 +2621,27 @@ function PrescriptionModule({ user, patient }: { user: User, patient: Patient })
     }
   };
 
-  const openCenteredWindow = (url: string, title: string) => {
-    const width = 480;
-    const height = 720;
-    const left = window.screenX + (window.outerWidth - width) / 2;
-    const top = window.screenY + (window.outerHeight - height) / 2;
-    window.open(url, title, `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`);
-  };
-
   return (
     <div className="space-y-10">
       <div className="flex items-center justify-between pb-6 border-b border-[#F5F2F0]">
         <h3 className="serif text-2xl text-[#4A433D]">Receituários & Prescrições</h3>
         <div className="flex items-center gap-3">
-          <button 
-            onClick={() => openCenteredWindow('https://receita.mevosaude.com.br/', 'Mevo Prescrição Digital')}
+          <a
+            href="https://receita.mevosaude.com.br/"
+            target="_blank"
+            rel="noopener noreferrer"
             className="bg-white text-[#EADFD4] border border-[#F5F2F0] px-6 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 hover:bg-[#FDFBF9] transition-all shadow-sm"
           >
             <ExternalLink size={18} /> Mevo Prescrição Digital
-          </button>
-          <button 
-            onClick={() => openCenteredWindow('https://memed.com.br/login', 'Memed Prescrição Digital')}
+          </a>
+          <a
+            href="https://memed.com.br/login"
+            target="_blank"
+            rel="noopener noreferrer"
             className="bg-white text-[#EADFD4] border border-[#F5F2F0] px-6 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 hover:bg-[#FDFBF9] transition-all shadow-sm"
           >
             <ExternalLink size={18} /> Memed Prescrição Digital
-          </button>
+          </a>
           <button 
             onClick={() => setIsAdding(true)}
             className="bg-[#EADFD4] text-white px-8 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest shadow-md hover:bg-[#DFCFBF] transition-all flex items-center gap-2"
