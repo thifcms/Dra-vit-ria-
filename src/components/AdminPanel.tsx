@@ -58,11 +58,29 @@ export default function AdminPanel({ user }: { user: User }) {
     getDoc(doc(db, 'system', 'authorized_staff')).then(snap => {
       setStaffEmails(snap.exists() ? (snap.data().emails || []) : []);
     });
-    getDocs(collection(db, 'professionals')).then(snap => {
+    getDocs(collection(db, 'professionals')).then(async snap => {
       const list = snap.docs
         .map(d => ({ id: d.id, email: d.data().email || '', name: d.data().name || '' }))
         .filter(p => p.email); // só os que têm e-mail vinculado a um login do sistema
       setLinkedProfessionals(list);
+
+      // A Dra. Vitória sempre é a profissional de atendimento — nunca depende de alguém
+      // marcar uma caixinha. Se por algum motivo ela não tiver um registro ainda
+      // (primeira vez usando esse recurso, ou foi removida sem querer), cria de novo,
+      // silenciosamente, sem precisar de ação manual.
+      const hasVitoria = snap.docs.some(d => d.data().email === 'contato.dravitoriaoliveira@gmail.com');
+      if (!hasVitoria) {
+        await addDoc(collection(db, 'professionals'), {
+          name: 'Dra. Vitória Oliveira',
+          email: 'contato.dravitoriaoliveira@gmail.com',
+          workingDays: [1, 2, 3, 4, 5],
+          workingHoursStart: '08:00',
+          workingHoursEnd: '18:00',
+          appointmentInterval: 60,
+          agendaBlocked: false,
+          blockedDates: [],
+        }).catch(() => {}); // se não for admin ainda (checagem em andamento), tenta de novo no próximo carregamento
+      }
     });
   }, [unlocked]);
 
@@ -383,27 +401,34 @@ export default function AdminPanel({ user }: { user: User }) {
           Administradores — acesso a todos os prontuários
         </p>
         <div className="space-y-2">
-          {adminEmails.map(email => (
-            <div key={email} className="flex items-center justify-between p-4 bg-[#FDFBF9] rounded-2xl gap-3">
-              <span className="text-sm text-[#5C544E] truncate">{email}</span>
-              <div className="flex items-center gap-3 shrink-0">
-                <label className="flex items-center gap-2 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={linkedProfessionals.some(p => p.email === email)}
-                    onChange={() => handleToggleProfessional(email)}
-                    className="accent-[#EADFD4] w-4 h-4"
-                  />
-                  Profissional
-                </label>
-                {email !== user.email && (
-                  <button onClick={() => handleRemoveEmail(email, 'admin')} className="text-[#9CA3AF] hover:text-red-400">
-                    <Trash2 size={16} />
-                  </button>
-                )}
+          {adminEmails.map(email => {
+            const isPermanentProfessional = email === 'contato.dravitoriaoliveira@gmail.com';
+            return (
+              <div key={email} className="flex items-center justify-between p-4 bg-[#FDFBF9] rounded-2xl gap-3">
+                <span className="text-sm text-[#5C544E] truncate">{email}</span>
+                <div className="flex items-center gap-3 shrink-0">
+                  {isPermanentProfessional ? (
+                    <span className="text-[10px] font-bold text-[#8BA888] uppercase tracking-wider">Profissional de Atendimento</span>
+                  ) : (
+                    <label className="flex items-center gap-2 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={linkedProfessionals.some(p => p.email === email)}
+                        onChange={() => handleToggleProfessional(email)}
+                        className="accent-[#EADFD4] w-4 h-4"
+                      />
+                      Profissional
+                    </label>
+                  )}
+                  {email !== user.email && (
+                    <button onClick={() => handleRemoveEmail(email, 'admin')} className="text-[#9CA3AF] hover:text-red-400">
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 

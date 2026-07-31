@@ -77,6 +77,11 @@ export default function ProfessionalScheduleManager({ user, isAdminUser }: { use
   };
 
   const handleDeleteProfessional = async (id: string) => {
+    const target = professionals.find(p => p.id === id);
+    if (target?.email === 'contato.dravitoriaoliveira@gmail.com') {
+      showToast('A Dra. Vitória é sempre a profissional de atendimento — não pode ser removida', 'error');
+      return;
+    }
     if (professionals.length <= 1) {
       showToast('Precisa deixar pelo menos um profissional', 'error');
       return;
@@ -151,7 +156,7 @@ export default function ProfessionalScheduleManager({ user, isAdminUser }: { use
 
       {selected && (
         <div className="space-y-8">
-          {isAdminUser && (
+          {isAdminUser && selected.email !== 'contato.dravitoriaoliveira@gmail.com' && (
             <div className="flex justify-end -mt-2">
               <button onClick={() => handleDeleteProfessional(selected.id!)} className="text-[10px] text-red-300 hover:text-red-500 flex items-center gap-1 font-bold uppercase tracking-widest">
                 <Trash2 size={12} /> Excluir {selected.name}
