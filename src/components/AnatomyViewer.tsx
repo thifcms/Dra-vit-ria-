@@ -73,85 +73,6 @@ function groupFor(key: string): string {
   return g ? g.label : 'Outros';
 }
 
-// Olho construído inteiramente por código (formas geométricas + textura desenhada num
-// canvas) — sem depender de nenhum arquivo/imagem externa, evita qualquer questão de
-// direitos autorais e qualquer problema de exportação de material procedural.
-function createProceduralEye(radius: number): THREE.Group {
-  const group = new THREE.Group();
-
-  // Esclera (parte branca) — tom levemente creme, não branco puro, e fosco (evita o
-  // efeito "olhar vítreo assustador" que já tínhamos identificado antes)
-  const scleraGeo = new THREE.SphereGeometry(radius, 32, 32);
-  const scleraMat = new THREE.MeshStandardMaterial({ color: 0xf0e9df, roughness: 0.85, metalness: 0 });
-  const sclera = new THREE.Mesh(scleraGeo, scleraMat);
-  sclera.renderOrder = 0;
-  group.add(sclera);
-
-  // Textura da íris desenhada por código (gradiente radial + linhas simulando o estroma)
-  const canvas = document.createElement('canvas');
-  canvas.width = 256;
-  canvas.height = 256;
-  const ctx = canvas.getContext('2d')!;
-  const grad = ctx.createRadialGradient(128, 128, 20, 128, 128, 128);
-  grad.addColorStop(0, '#2a1c12');
-  grad.addColorStop(0.45, '#4a3220');
-  grad.addColorStop(0.8, '#5c4530');
-  grad.addColorStop(1, '#2e2318');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, 256, 256);
-  ctx.strokeStyle = 'rgba(0,0,0,0.15)';
-  for (let i = 0; i < 180; i += 3) {
-    ctx.beginPath();
-    ctx.moveTo(128, 128);
-    const angle = (i * Math.PI) / 90;
-    ctx.lineTo(128 + Math.cos(angle) * 128, 128 + Math.sin(angle) * 128);
-    ctx.stroke();
-  }
-  const irisTexture = new THREE.CanvasTexture(canvas);
-
-  // Íris e pupila precisam ficar visivelmente na FRENTE da esclera, não quase coladas na
-  // superfície dela — muito perto causava um efeito de "cintilação"/distorção (duas
-  // superfícies quase no mesmo lugar, disputando qual aparece por cima), que era
-  // exatamente o que dava aquele aspecto de "olho de zumbi". Empurrado bem mais pra
-  // frente agora, e com renderOrder explícito garantindo a ordem certa mesmo assim.
-  const irisRadius = radius * 0.42;
-  const irisGeo = new THREE.CircleGeometry(irisRadius, 32);
-  const irisMat = new THREE.MeshStandardMaterial({ map: irisTexture, roughness: 0.55, depthTest: true });
-  const iris = new THREE.Mesh(irisGeo, irisMat);
-  iris.position.z = radius * 1.08;
-  iris.renderOrder = 2;
-  group.add(iris);
-
-  // Pupila
-  const pupilGeo = new THREE.CircleGeometry(irisRadius * 0.4, 24);
-  const pupilMat = new THREE.MeshBasicMaterial({ color: 0x0a0805, depthTest: true });
-  const pupil = new THREE.Mesh(pupilGeo, pupilMat);
-  pupil.position.z = radius * 1.09;
-  pupil.renderOrder = 3;
-  group.add(pupil);
-
-  // Córnea — camada transparente com um pouco de brilho, sem usar "transmission" (mais
-  // pesado de processar, arriscado em celular) — um simples material transparente já dá
-  // o efeito de umidade sem custo de performance
-  const corneaGeo = new THREE.SphereGeometry(radius * 0.55, 24, 24, 0, Math.PI * 2, 0, Math.PI * 0.5);
-  const corneaMat = new THREE.MeshPhysicalMaterial({
-    color: 0xffffff,
-    transparent: true,
-    opacity: 0.15,
-    roughness: 0.1,
-    clearcoat: 1,
-    clearcoatRoughness: 0.1,
-    depthWrite: false,
-  });
-  const cornea = new THREE.Mesh(corneaGeo, corneaMat);
-  cornea.rotation.x = -Math.PI / 2;
-  cornea.position.z = radius * 0.55;
-  cornea.renderOrder = 4;
-  group.add(cornea);
-
-  return group;
-}
-
 export default function AnatomyViewer({ onClose }: { onClose: () => void }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const layerObjectsRef = useRef<Record<string, THREE.Object3D>>({});
@@ -225,17 +146,8 @@ export default function AnatomyViewer({ onClose }: { onClose: () => void }) {
 
         const objs: Record<string, THREE.Object3D> = {};
         const vis: Record<string, boolean> = {};
-        const oldEyeMeshes: THREE.Object3D[] = [];
         model.traverse((obj) => {
           if ((obj as THREE.Mesh).isMesh) {
-            const isEye = obj.name.startsWith('eye.');
-            if (isEye) {
-              // Os olhos do modelo original saem — substituídos por olhos construídos por
-              // código logo abaixo (formas geométricas + textura desenhada, sem depender
-              // de nenhum arquivo/textura externa)
-              oldEyeMeshes.push(obj);
-              return;
-            }
             objs[obj.name] = obj;
             vis[obj.name] = true;
             const mesh = obj as THREE.Mesh;
@@ -246,26 +158,28 @@ export default function AnatomyViewer({ onClose }: { onClose: () => void }) {
               mat.roughness = obj.name === 'head_skin_full' ? 0.55 : 0.5;
               mat.metalness = 0.02;
             });
+
+            // Sphere/Sphere001 (esclera, parte branca do olho) e Sphere_1/Sphere001_1
+            // (íris/pupila, por cima) ficam coincidentes ou quase coincidentes no
+            // espaço — sem esse ajuste, brigam pela profundidade (z-fighting), o que
+            // pisca/distorce e dá esse aspecto de "olho de zumbi". renderOrder garante
+            // a ordem de desenho certa, e polygonOffset empurra a camada de cima um
+            // pouquinho mais perto da câmera no buffer de profundidade (sem mudar a
+            // geometria de verdade), pra vencer a disputa de forma consistente.
+            if (obj.name === 'Sphere' || obj.name === 'Sphere001') {
+              mesh.renderOrder = 0;
+            }
+            if (obj.name === 'Sphere_1' || obj.name === 'Sphere001_1') {
+              mesh.renderOrder = 1;
+              materials.forEach((m) => {
+                const mat = m as THREE.Material;
+                if (!mat) return;
+                mat.polygonOffset = true;
+                mat.polygonOffsetFactor = -4;
+                mat.polygonOffsetUnits = -4;
+              });
+            }
           }
-        });
-
-        // Captura a posição/tamanho reais dos olhos originais (já com a recentralização
-        // do modelo aplicada) antes de escondê-los, pra encaixar os novos exatamente no
-        // mesmo lugar
-        const eyeSlots = oldEyeMeshes.map((obj) => {
-          const box = new THREE.Box3().setFromObject(obj);
-          const c = box.getCenter(new THREE.Vector3());
-          const s = box.getSize(new THREE.Vector3());
-          obj.visible = false;
-          return { center: c, radius: Math.max(s.x, s.y, s.z) / 2, name: obj.name };
-        });
-
-        eyeSlots.forEach(({ center, radius, name }) => {
-          const eyeGroup = createProceduralEye(radius);
-          eyeGroup.position.copy(center);
-          scene.add(eyeGroup);
-          objs[name] = eyeGroup;
-          vis[name] = true;
         });
 
         layerObjectsRef.current = objs;

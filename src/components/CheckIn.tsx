@@ -17,6 +17,8 @@ export default function CheckIn() {
 
   const [status, setStatus] = useState<'idle' | 'submitting' | 'done' | 'error'>('idle');
 
+  const [errorDetail, setErrorDetail] = useState('');
+
   const handleCheckIn = async () => {
     if (!apt || !token) return;
     setStatus('submitting');
@@ -26,7 +28,9 @@ export default function CheckIn() {
         checkedInAt: new Date().toISOString(),
       });
       setStatus('done');
-    } catch (err) {
+    } catch (err: any) {
+      console.error('Erro no check-in:', err);
+      setErrorDetail(err?.code || err?.message || 'desconhecido');
       setStatus('error');
     }
   };
@@ -61,6 +65,7 @@ export default function CheckIn() {
             </div>
             <h1 className="text-2xl font-light text-[#4A433D] mb-3 serif">Link inválido ou expirado</h1>
             <p className="text-[#9CA3AF] font-light">Peça um novo link à recepção.</p>
+            {errorDetail && <p className="text-[10px] text-[#D6C7B8] mt-4">({errorDetail})</p>}
           </>
         ) : (
           <>
