@@ -338,7 +338,7 @@ export default function Settings({ user }: { user: User }) {
   );
 
   return (
-    <div className="max-w-5xl mx-auto space-y-10">
+    <div className="max-w-[1800px] mx-auto space-y-10">
       <div className="flex items-center gap-6">
         <div className="p-4 bg-[#FDFBF9] rounded-3xl text-[#EADFD4] border border-[#F5F2F0]">
           <SettingsIcon className="w-8 h-8" />

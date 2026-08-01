@@ -240,7 +240,7 @@ export default function Finance({ user }: { user: User }) {
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-10">
+    <div className="max-w-[1800px] mx-auto space-y-10">
       {/* Header & Balance Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <BalanceCard 

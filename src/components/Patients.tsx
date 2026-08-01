@@ -145,7 +145,7 @@ export default function Patients({ user, initialPatientId }: { user: User, initi
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8">
+    <div className="max-w-[1800px] mx-auto space-y-8">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="serif text-3xl text-[#4A433D]">Base de Pacientes</h1>
@@ -964,7 +964,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-[1800px] mx-auto space-y-6">
       <button onClick={onBack} className="flex items-center gap-2 text-[#9CA3AF] hover:text-[#4A433D] transition-all group font-medium">
         <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
         <span>Voltar para lista</span>
