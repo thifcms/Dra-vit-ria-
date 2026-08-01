@@ -170,8 +170,16 @@ export default function AnatomyViewer({ onClose }: { onClose: () => void }) {
             // a ordem de desenho certa, e polygonOffset empurra a camada de cima um
             // pouquinho mais perto da câmera no buffer de profundidade (sem mudar a
             // geometria de verdade), pra vencer a disputa de forma consistente.
+            //
+            // Além disso, translateZ move o olho inteiro (as duas camadas juntas, na
+            // mesma quantidade) pra frente de verdade — não é só um truque de
+            // profundidade, desloca a posição real. Como as duas camadas recebem
+            // exatamente o mesmo valor, a posição relativa entre esclera e íris/pupila
+            // (o ajuste fino de polygonOffset feito antes) continua igual.
+            const EYE_FORWARD_PUSH = 0.003;
             if (obj.name === 'Sphere' || obj.name === 'Sphere001') {
               mesh.renderOrder = 0;
+              mesh.translateZ(EYE_FORWARD_PUSH);
               materials.forEach((m) => {
                 const mat = m as THREE.Material;
                 if (!mat) return;
@@ -182,6 +190,7 @@ export default function AnatomyViewer({ onClose }: { onClose: () => void }) {
             }
             if (obj.name === 'Sphere_1' || obj.name === 'Sphere001_1') {
               mesh.renderOrder = 1;
+              mesh.translateZ(EYE_FORWARD_PUSH);
               materials.forEach((m) => {
                 const mat = m as THREE.Material;
                 if (!mat) return;
