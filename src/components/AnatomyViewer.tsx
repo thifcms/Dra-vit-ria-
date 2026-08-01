@@ -176,8 +176,8 @@ export default function AnatomyViewer({ onClose }: { onClose: () => void }) {
                 const mat = m as THREE.Material;
                 if (!mat) return;
                 mat.polygonOffset = true;
-                mat.polygonOffsetFactor = 144;
-                mat.polygonOffsetUnits = 144;
+                mat.polygonOffsetFactor = 96;
+                mat.polygonOffsetUnits = 96;
               });
             }
             if (obj.name === 'Sphere_1' || obj.name === 'Sphere001_1') {
