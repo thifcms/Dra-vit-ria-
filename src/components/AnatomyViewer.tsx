@@ -170,13 +170,13 @@ export default function AnatomyViewer({ onClose }: { onClose: () => void }) {
             }
             if (obj.name === 'Sphere' || obj.name === 'Sphere001') {
               mesh.renderOrder = 1;
-              mesh.scale.multiplyScalar(1.18);
+              mesh.scale.multiplyScalar(1.36);
               materials.forEach((m) => {
                 const mat = m as THREE.Material;
                 if (!mat) return;
                 mat.polygonOffset = true;
-                mat.polygonOffsetFactor = -50;
-                mat.polygonOffsetUnits = -50;
+                mat.polygonOffsetFactor = -108;
+                mat.polygonOffsetUnits = -108;
               });
             }
           }
