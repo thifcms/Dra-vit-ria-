@@ -168,6 +168,13 @@ export default function AnatomyViewer({ onClose }: { onClose: () => void }) {
             // geometria de verdade), pra vencer a disputa de forma consistente.
             if (obj.name === 'Sphere' || obj.name === 'Sphere001') {
               mesh.renderOrder = 0;
+              materials.forEach((m) => {
+                const mat = m as THREE.Material;
+                if (!mat) return;
+                mat.polygonOffset = true;
+                mat.polygonOffsetFactor = 12;
+                mat.polygonOffsetUnits = 12;
+              });
             }
             if (obj.name === 'Sphere_1' || obj.name === 'Sphere001_1') {
               mesh.renderOrder = 1;
