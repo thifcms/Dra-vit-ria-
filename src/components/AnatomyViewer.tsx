@@ -163,20 +163,23 @@ export default function AnatomyViewer({ onClose }: { onClose: () => void }) {
             // (íris/pupila, por cima) ficam coincidentes ou quase coincidentes no
             // espaço — sem esse ajuste, brigam pela profundidade (z-fighting), o que
             // pisca/distorce e dá esse aspecto de "olho de zumbi". renderOrder garante
-            // a ordem de desenho certa, e polygonOffset empurra a camada de cima um
-            // pouquinho mais perto da câmera no buffer de profundidade (sem mudar a
-            // geometria de verdade), pra vencer a disputa de forma consistente.
+            // a ordem de desenho certa, polygonOffset empurra a camada de cima mais
+            // perto da câmera no buffer de profundidade, e um pequeno aumento de escala
+            // (a partir do próprio centro da malha) empurra a superfície visivelmente
+            // mais pra frente em todas as direções — sem precisar saber qual eixo local
+            // é "a frente" desse olho especificamente.
             if (obj.name === 'Sphere' || obj.name === 'Sphere001') {
               mesh.renderOrder = 0;
             }
             if (obj.name === 'Sphere_1' || obj.name === 'Sphere001_1') {
               mesh.renderOrder = 1;
+              mesh.scale.multiplyScalar(1.04);
               materials.forEach((m) => {
                 const mat = m as THREE.Material;
                 if (!mat) return;
                 mat.polygonOffset = true;
-                mat.polygonOffsetFactor = -4;
-                mat.polygonOffsetUnits = -4;
+                mat.polygonOffsetFactor = -12;
+                mat.polygonOffsetUnits = -12;
               });
             }
           }
