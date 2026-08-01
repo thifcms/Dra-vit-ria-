@@ -176,7 +176,7 @@ export default function AnatomyViewer({ onClose }: { onClose: () => void }) {
             // profundidade, desloca a posição real. Como as duas camadas recebem
             // exatamente o mesmo valor, a posição relativa entre esclera e íris/pupila
             // (o ajuste fino de polygonOffset feito antes) continua igual.
-            const EYE_FORWARD_PUSH = 0.003;
+            const EYE_FORWARD_PUSH = 0.006;
             if (obj.name === 'Sphere' || obj.name === 'Sphere001') {
               mesh.renderOrder = 0;
               mesh.translateZ(EYE_FORWARD_PUSH);
