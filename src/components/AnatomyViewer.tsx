@@ -159,27 +159,24 @@ export default function AnatomyViewer({ onClose }: { onClose: () => void }) {
               mat.metalness = 0.02;
             });
 
-            // Sphere/Sphere001 (esclera, parte branca do olho) e Sphere_1/Sphere001_1
-            // (íris/pupila, por cima) ficam coincidentes ou quase coincidentes no
-            // espaço — sem esse ajuste, brigam pela profundidade (z-fighting), o que
-            // pisca/distorce e dá esse aspecto de "olho de zumbi". renderOrder garante
-            // a ordem de desenho certa, polygonOffset empurra a camada de cima mais
-            // perto da câmera no buffer de profundidade, e um pequeno aumento de escala
-            // (a partir do próprio centro da malha) empurra a superfície visivelmente
-            // mais pra frente em todas as direções — sem precisar saber qual eixo local
-            // é "a frente" desse olho especificamente.
-            if (obj.name === 'Sphere' || obj.name === 'Sphere001') {
+            // Sphere/Sphere001 e Sphere_1/Sphere001_1 ficam coincidentes ou quase
+            // coincidentes no espaço — sem esse ajuste, brigam pela profundidade
+            // (z-fighting), o que pisca/distorce e dá esse aspecto de "olho de zumbi".
+            // Invertido pra trazer Sphere/Sphere001 pra frente (era o contrário antes,
+            // e o resultado ficou igual ao problema original — sinal de que a camada
+            // errada estava sendo priorizada), com o deslocamento 3x maior.
+            if (obj.name === 'Sphere_1' || obj.name === 'Sphere001_1') {
               mesh.renderOrder = 0;
             }
-            if (obj.name === 'Sphere_1' || obj.name === 'Sphere001_1') {
+            if (obj.name === 'Sphere' || obj.name === 'Sphere001') {
               mesh.renderOrder = 1;
-              mesh.scale.multiplyScalar(1.04);
+              mesh.scale.multiplyScalar(1.12);
               materials.forEach((m) => {
                 const mat = m as THREE.Material;
                 if (!mat) return;
                 mat.polygonOffset = true;
-                mat.polygonOffsetFactor = -12;
-                mat.polygonOffsetUnits = -12;
+                mat.polygonOffsetFactor = -36;
+                mat.polygonOffsetUnits = -36;
               });
             }
           }
