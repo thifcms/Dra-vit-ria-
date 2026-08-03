@@ -10,9 +10,18 @@ import { getClinicOwnerId } from '../lib/slots';
 interface BudgetItem {
   description: string;
   value: string;
+  fromAnamnesis?: boolean; // marca item que veio automaticamente da Conduta da anamnese —
+                            // diferencia de item adicionado manualmente, pra saber o que
+                            // pode remover/atualizar sozinho sem mexer no que a pessoa
+                            // digitou à mão
 }
 
-export default function BudgetGenerator({ patient, user }: { patient: Patient; user: User }) {
+export default function BudgetGenerator({ patient, user, liveAnamnesis, availableProcedures }: {
+  patient: Patient;
+  user: User;
+  liveAnamnesis?: { plannedProcedures?: string[]; plannedSubstances?: Record<string, string> };
+  availableProcedures?: { id: string; name: string; price: number }[];
+}) {
   const [settings, setSettings] = useState<ClinicSettings | null>(null);
   const [items, setItems] = useState<BudgetItem[]>([{ description: '', value: '' }]);
   const [validityDays, setValidityDays] = useState('15');
@@ -24,6 +33,36 @@ export default function BudgetGenerator({ patient, user }: { patient: Patient; u
       if (snap.exists()) setSettings(snap.data() as ClinicSettings);
     }).catch(() => {});
   }, [user.uid]);
+
+  // Sincroniza automaticamente com o que está marcado na Conduta da anamnese — mesmo sem
+  // salvar/liberar nada, já que lê direto do estado ao vivo da tela de anamnese (que fica
+  // no componente pai). Só mexe nos itens marcados como "fromAnamnesis": adiciona quando
+  // um procedimento é marcado lá, remove se for desmarcado, sem tocar em nada que a
+  // pessoa tenha digitado manualmente aqui no orçamento.
+  useEffect(() => {
+    if (!liveAnamnesis || !availableProcedures) return;
+    const plannedNames = liveAnamnesis.plannedProcedures || [];
+    setItems(prev => {
+      // Remove itens automáticos de procedimentos que não estão mais marcados
+      let next = prev.filter(it => !it.fromAnamnesis || plannedNames.includes(it.description.split(' — ')[0]));
+      // Adiciona os que estão marcados na anamnese mas ainda não têm item automático aqui
+      const alreadyPresent = new Set(next.filter(it => it.fromAnamnesis).map(it => it.description.split(' — ')[0]));
+      plannedNames.forEach(name => {
+        if (alreadyPresent.has(name)) return;
+        const proc = availableProcedures.find(p => p.name === name);
+        if (!proc) return;
+        const substanceName = liveAnamnesis.plannedSubstances?.[name];
+        next.push({
+          description: substanceName ? `${name} — ${substanceName}` : name,
+          value: proc.price.toFixed(2).replace('.', ','),
+          fromAnamnesis: true,
+        });
+      });
+      // Se ficou só o item em branco inicial junto com itens automáticos, remove o em branco
+      if (next.length > 1) next = next.filter(it => it.fromAnamnesis || it.description.trim() || it.value.trim());
+      return next;
+    });
+  }, [liveAnamnesis?.plannedProcedures, liveAnamnesis?.plannedSubstances, availableProcedures]);
 
   const addItem = () => setItems(prev => [...prev, { description: '', value: '' }]);
   const addFromCatalog = (item: { name: string; price: number }) => {
@@ -158,12 +197,19 @@ export default function BudgetGenerator({ patient, user }: { patient: Patient; u
       <div className="space-y-3">
         {items.map((item, idx) => (
           <div key={idx} className="flex items-center gap-3">
-            <input
-              value={item.description}
-              onChange={e => updateItem(idx, 'description', e.target.value)}
-              placeholder="Ex: Toxina Botulínica — Terço Superior"
-              className="flex-1 bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all font-light text-sm"
-            />
+            <div className="flex-1 relative">
+              <input
+                value={item.description}
+                onChange={e => updateItem(idx, 'description', e.target.value)}
+                placeholder="Ex: Toxina Botulínica — Terço Superior"
+                className={`w-full bg-[#FDFBF9] border rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all font-light text-sm ${item.fromAnamnesis ? 'border-[#8BA888]/40 pr-28' : 'border-[#F5F2F0]'}`}
+              />
+              {item.fromAnamnesis && (
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[9px] font-bold text-[#8BA888] uppercase tracking-widest bg-[#F0F7F0] px-2 py-1 rounded-lg">
+                  Da anamnese
+                </span>
+              )}
+            </div>
             <div className="relative w-36 shrink-0">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9CA3AF] text-sm">R$</span>
               <input

@@ -1113,7 +1113,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
             )}
             {activeTab === 'budget' && (
               <motion.div key="budget" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                <BudgetGenerator patient={patient} user={user} />
+                <BudgetGenerator patient={patient} user={user} liveAnamnesis={anamnesis} availableProcedures={procedures} />
               </motion.div>
             )}
             {activeTab === 'anamnesis' && (
