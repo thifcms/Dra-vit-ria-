@@ -649,6 +649,21 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
       showToast('Anamnese liberada — trancada no histórico do paciente');
       triggerAutoBackup({ ...patient, ...updatedFields });
       markTodaysAppointmentCompleted();
+
+      // Se algum procedimento marcado na Conduta tem substância vinculada, é sinal de
+      // aplicação por pontos (toxina, preenchedor, bioestimulador) — antes de ir pro
+      // Orçamento, precisa passar pelo Mapa de Aplicação pra calcular quanto de
+      // substância será usado de verdade nesse paciente.
+      const plannedNames = anamnesis.plannedProcedures || [];
+      const needsFaceMap = plannedNames.some(name => {
+        const proc = procedures.find(p => p.name === name);
+        if (!proc) return false;
+        return substances.some(s => s.procedureIds.includes(proc.id));
+      });
+      if (needsFaceMap) {
+        setActiveTab('facemap');
+        showToast('Procedimento marcado usa substância por pontos — calcule a quantidade no Mapa de Aplicação antes do orçamento', 'info');
+      }
     } catch (err) {
       showToast('Erro ao liberar', 'error');
     }
