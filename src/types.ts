@@ -1,3 +1,55 @@
+// Ficha Clínica preenchida pelo paciente após o check-in, sem login — o token do próprio
+// check-in autoriza esse envio (mesma pessoa que confirmou a chegada). Fica pendente até
+// o profissional abrir o prontuário desse paciente, quando é mesclada automaticamente:
+// dados de cadastro e questionário de saúde vão pra anamnese, as duas autorizações vão
+// pra aba de Termos, exatamente como pedido.
+export interface IntakeSubmission {
+  id?: string; // igual ao ID do agendamento (appointmentId) — 1 ficha por check-in
+  patientId: string;
+  patientName: string;
+  ownerId: string;
+  submittedAt: string;
+  mergedIntoRecord?: boolean;
+
+  // Dados de cadastro complementares
+  birthDate?: string;
+  rg?: string;
+  address?: string;
+  email?: string;
+  profession?: string;
+  maritalStatus?: string;
+  howHeardAboutClinic?: string;
+
+  // Questionário de saúde
+  usedToxinBefore: boolean;
+  lastToxinDate: string;
+  toxinTimes: string;
+  hasFoodAllergy: boolean;
+  hadFillerBefore: boolean;
+  fillerProduct: string;
+  isPregnant: boolean;
+  isBreastfeeding: boolean;
+  hasCoagulationDisease: boolean;
+  hasAutoimmuneDisease: boolean;
+  bleedsEasily: boolean;
+  hadHemorrhageOrHerpes: boolean;
+  hasDiabetes: boolean;
+  hasAnemia: boolean;
+  hasMedicationAllergy: boolean;
+  medicationAllergyDetail: string;
+  usesContinuousMedication: boolean;
+  continuousMedicationDetail: string;
+
+  mainComplaint: string;
+
+  // As duas autorizações — texto fixo (mesmo da ficha impressa) guardado junto pra
+  // manter o registro completo do que foi assinado, mesmo se o texto padrão mudar depois
+  photoDocumentationConsent: boolean;
+  imageDisclosureConsent: boolean;
+
+  signatureUrl: string; // base64, mesmo padrão já usado no link de assinatura remota
+}
+
 export interface SignRequest {
   id?: string;
   userId: string;
@@ -26,6 +78,10 @@ export interface Patient {
   birthDate?: string;
   address?: string;
   cpf?: string;
+  rg?: string;
+  profession?: string;
+  maritalStatus?: string;
+  howHeardAboutClinic?: string;
   sex?: 'F' | 'M'; // usado pra mostrar o diagrama/rosto genérico correto na Anamnese
   faceMarkings?: FaceMarkingSession[]; // histórico de mapas de pontos de aplicação
 
@@ -88,6 +144,25 @@ export interface Patient {
     // Controla quais procedimentos já geraram lançamento no financeiro — evita duplicar
     // se o botão "Lançar no Financeiro" for clicado de novo por engano
     launchedProcedures?: string[];
+
+    // Questionário de saúde específico da Ficha Clínica de Harmonização Facial —
+    // preenchido pelo próprio paciente após o check-in. Campos que não têm equivalente
+    // nas condições fixas acima (diabetes, autoimune, gravidez, amamentação já são
+    // reaproveitados dali).
+    intakeQuestionnaire?: {
+      usedToxinBefore: boolean;
+      lastToxinDate: string;
+      toxinTimes: string;
+      hasFoodAllergy: boolean;
+      hadFillerBefore: boolean;
+      fillerProduct: string;
+      hasCoagulationDisease: boolean;
+      bleedsEasily: boolean;
+      hadHemorrhageOrHerpes: boolean;
+      hasAnemia: boolean;
+      howHeardAboutClinic?: string;
+      submittedAt?: string; // quando o paciente enviou esse questionário
+    };
   };
   // Uma anamnese "liberada" trava pra sempre — nem administrador consegue mais editar
   // depois disso. Enquanto não for liberada, é só um rascunho, editável à vontade.

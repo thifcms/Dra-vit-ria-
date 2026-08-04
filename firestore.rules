@@ -264,6 +264,11 @@ service cloud.firestore {
     // Rules for Appointments
     match /appointments/{appointmentId} {
       allow read: if isSharedAccess() || isOwnDataAccess();
+      // Leitura pública, só de um documento específico por ID (nunca lista) — usada
+      // depois do check-in pra saber qual paciente é, e mostrar a ficha clínica de
+      // harmonização facial. Segura pelo mesmo motivo que signRequests: o ID é gerado
+      // aleatoriamente pelo Firestore, ninguém adivinha o de outra pessoa.
+      allow get: if true;
       allow create: if isValidAppointmentShape(incoming()) && isValidId(appointmentId)
         && (isSharedAccess() || isOwnDataCreate() || isPublicAppointmentCreate(incoming()));
       allow update: if ((isSharedAccess() || isOwnDataAccess()) && isValidAppointmentShape(incoming()))
@@ -300,6 +305,27 @@ service cloud.firestore {
       allow create: if (isSharedAccess() || isOwnDataCreate()) && isValidSignRequest(incoming());
       allow update: if ((isSharedAccess() || isOwnDataAccess()) && isValidSignRequest(incoming()))
         || isPublicSign(incoming());
+      allow delete: if isSharedAccess() || isOwnDataAccess();
+    }
+
+    // Ficha clínica preenchida pelo próprio paciente após o check-in, sem login — envio
+    // público (o ID do documento é o próprio ID do agendamento, que só quem passou pelo
+    // check-in daquele agendamento específico conhece). Uma vez enviada, só a clínica
+    // consegue ler/apagar — o paciente nunca lê de volta o que enviou, e ninguém
+    // consegue sobrescrever um envio já feito (create falha se o ID já existe).
+    function isValidIntakeSubmission(data) {
+      return data.patientId is string
+        && data.patientName is string
+        && data.ownerId is string
+        && data.submittedAt is string
+        && data.signatureUrl is string
+        && data.mainComplaint is string;
+    }
+
+    match /intakeSubmissions/{submissionId} {
+      allow get, list: if isSharedAccess() || isOwnDataAccess();
+      allow create: if isValidIntakeSubmission(incoming()) && isValidId(submissionId);
+      allow update: if (isSharedAccess() || isOwnDataAccess()) && isValidIntakeSubmission(incoming());
       allow delete: if isSharedAccess() || isOwnDataAccess();
     }
 

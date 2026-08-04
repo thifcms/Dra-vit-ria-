@@ -2163,6 +2163,91 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
     })();
   }, [patient.id]);
 
+  // Ficha clínica de harmonização facial, preenchida pelo próprio paciente na sala de
+  // espera (logo após o check-in) — puxa tudo pro prontuário sozinho assim que o
+  // profissional abre essa aba: dados de cadastro, anamnese (questionário de saúde e
+  // queixa principal) e os dois termos de autorização, com a assinatura do paciente.
+  useEffect(() => {
+    (async () => {
+      try {
+        const q = query(
+          collection(db, 'intakeSubmissions'),
+          where('patientId', '==', patient.id)
+        );
+        const snap = await getDocs(q);
+        const toMerge = snap.docs.filter(d => !d.data().mergedIntoRecord);
+        if (toMerge.length === 0) return;
+
+        // Só existe 1 ficha por check-in — se por acaso houver mais de uma pendente,
+        // usa a mais recente
+        const sorted = toMerge.sort((a, b) => (b.data().submittedAt || '').localeCompare(a.data().submittedAt || ''));
+        const s = sorted[0].data();
+
+        const currentAnamnesis = patient.anamnesis || ({} as any);
+        const patientUpdate: any = {
+          // Só preenche o que ainda não existia — nunca sobrescreve o que já estava
+          // certo no cadastro
+          birthDate: patient.birthDate || s.birthDate || '',
+          rg: patient.rg || s.rg || '',
+          address: patient.address || s.address || '',
+          email: patient.email || s.email || '',
+          profession: patient.profession || s.profession || '',
+          maritalStatus: patient.maritalStatus || s.maritalStatus || '',
+          howHeardAboutClinic: patient.howHeardAboutClinic || s.howHeardAboutClinic || '',
+          consentTerms: [
+            ...(patient.consentTerms || []),
+            {
+              templateId: 'intake-photo-consent',
+              templateTitle: 'Autorização de Documentação Fotográfica (Ficha Clínica)',
+              signedAt: s.submittedAt,
+              signatureUrl: s.signatureUrl,
+            },
+            {
+              templateId: 'intake-image-disclosure',
+              templateTitle: 'Autorização de Divulgação de Imagens (Ficha Clínica)',
+              signedAt: s.submittedAt,
+              signatureUrl: s.signatureUrl,
+            },
+          ],
+          anamnesis: {
+            ...currentAnamnesis,
+            mainComplaint: currentAnamnesis.mainComplaint || s.mainComplaint || '',
+            conditions: {
+              ...(currentAnamnesis.conditions || {}),
+              diabetes: currentAnamnesis.conditions?.diabetes || !!s.hasDiabetes,
+              autoimmune: currentAnamnesis.conditions?.autoimmune || !!s.hasAutoimmuneDisease,
+              pregnant: currentAnamnesis.conditions?.pregnant || !!s.isPregnant,
+              breastfeeding: currentAnamnesis.conditions?.breastfeeding || !!s.isBreastfeeding,
+            },
+            hasAllergies: currentAnamnesis.hasAllergies || !!s.hasMedicationAllergy,
+            allergiesDetails: currentAnamnesis.allergiesDetails || s.medicationAllergyDetail || '',
+            hasContinuousMedication: currentAnamnesis.hasContinuousMedication || !!s.usesContinuousMedication,
+            medicationsDetails: currentAnamnesis.medicationsDetails || s.continuousMedicationDetail || '',
+            intakeQuestionnaire: {
+              usedToxinBefore: !!s.usedToxinBefore,
+              lastToxinDate: s.lastToxinDate || '',
+              toxinTimes: s.toxinTimes || '',
+              hasFoodAllergy: !!s.hasFoodAllergy,
+              hadFillerBefore: !!s.hadFillerBefore,
+              fillerProduct: s.fillerProduct || '',
+              hasCoagulationDisease: !!s.hasCoagulationDisease,
+              bleedsEasily: !!s.bleedsEasily,
+              hadHemorrhageOrHerpes: !!s.hadHemorrhageOrHerpes,
+              hasAnemia: !!s.hasAnemia,
+              howHeardAboutClinic: s.howHeardAboutClinic || '',
+              submittedAt: s.submittedAt,
+            },
+          },
+        };
+        await updateDoc(doc(db, 'patients', patient.id!), patientUpdate);
+        await Promise.all(toMerge.map(d => updateDoc(doc(db, 'intakeSubmissions', d.id), { mergedIntoRecord: true })));
+        showToast('Ficha clínica preenchida pelo paciente recebida e mesclada no prontuário');
+      } catch (err) {
+        // Melhor esforço — não impede o resto da tela de funcionar
+      }
+    })();
+  }, [patient.id]);
+
   const openWhatsAppPreparation = (template: { id: string, title: string, content: string }) => {
     if (!patient.phone) {
       showToast('Cadastre um telefone pro paciente antes de enviar por WhatsApp', 'error');

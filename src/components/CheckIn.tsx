@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { motion } from 'motion/react';
 import { CheckCircle2, XCircle, Clock } from 'lucide-react';
+import IntakeQuestionnaire from './IntakeQuestionnaire';
 
 // Página de check-in do próprio paciente — acessada por um link único (com token secreto)
-// que a clínica entrega no momento do agendamento. Não lê nenhum dado do agendamento: só
-// tenta escrever o horário de chegada, provando conhecer o token. Ninguém consegue usar
-// esse link pra ver ou alterar dados de outro paciente.
+// que a clínica entrega no momento do agendamento. Não lê nenhum dado do agendamento pra
+// fazer o check-in em si: só tenta escrever o horário de chegada, provando conhecer o
+// token. Depois de confirmado, SIM lê o agendamento (id do documento não é adivinhável —
+// mesmo princípio já usado em signRequests) só pra saber qual paciente é, e mostrar a
+// ficha clínica de harmonização facial pra preencher na sala de espera.
 export default function CheckIn() {
   const params = new URLSearchParams(window.location.hash.split('?')[1] || '');
   const apt = params.get('apt');
@@ -16,8 +19,9 @@ export default function CheckIn() {
   const time = params.get('time');
 
   const [status, setStatus] = useState<'idle' | 'submitting' | 'done' | 'error'>('idle');
-
   const [errorDetail, setErrorDetail] = useState('');
+  const [showIntake, setShowIntake] = useState(false);
+  const [patientInfo, setPatientInfo] = useState<{ patientId: string; patientName: string; ownerId: string } | null>(null);
 
   const handleCheckIn = async () => {
     if (!apt || !token) return;
@@ -28,12 +32,31 @@ export default function CheckIn() {
         checkedInAt: new Date().toISOString(),
       });
       setStatus('done');
+      // Busca quem é o paciente pra oferecer a ficha clínica logo em seguida
+      const apptSnap = await getDoc(doc(db, 'appointments', apt));
+      if (apptSnap.exists()) {
+        const data = apptSnap.data();
+        if (data.patientId) {
+          setPatientInfo({ patientId: data.patientId, patientName: data.patientName || '', ownerId: data.userId || '' });
+        }
+      }
     } catch (err: any) {
       console.error('Erro no check-in:', err);
       setErrorDetail(err?.code || err?.message || 'desconhecido');
       setStatus('error');
     }
   };
+
+  if (showIntake && patientInfo && apt) {
+    return (
+      <IntakeQuestionnaire
+        appointmentId={apt}
+        patientId={patientInfo.patientId}
+        patientName={patientInfo.patientName}
+        ownerId={patientInfo.ownerId}
+      />
+    );
+  }
 
   if (!apt || !token) {
     return (
@@ -56,7 +79,14 @@ export default function CheckIn() {
               <CheckCircle2 className="text-[#8BA888] w-10 h-10" />
             </div>
             <h1 className="text-2xl font-light text-[#4A433D] mb-3 serif">Chegada confirmada!</h1>
-            <p className="text-[#9CA3AF] font-light">Avise a recepção. Você será chamado(a) em breve.</p>
+            <p className="text-[#9CA3AF] font-light mb-8">Enquanto aguarda, preencha a ficha clínica no seu celular.</p>
+            <button
+              onClick={() => setShowIntake(true)}
+              disabled={!patientInfo}
+              className="w-full py-4 bg-[#EADFD4] text-white rounded-2xl font-medium hover:bg-[#DFCFBF] transition-all shadow-sm active:scale-[0.98] disabled:opacity-50"
+            >
+              {patientInfo ? 'Preencher Ficha Clínica' : 'Carregando...'}
+            </button>
           </>
         ) : status === 'error' ? (
           <>
