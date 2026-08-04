@@ -3,7 +3,7 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { motion } from 'motion/react';
 import SignaturePad from 'react-signature-canvas';
-import { CheckCircle2, XCircle, FileText, RotateCcw } from 'lucide-react';
+import { CheckCircle2, XCircle, RotateCcw } from 'lucide-react';
 import { SignRequest } from '../types';
 
 // Página pública de assinatura de termo — o paciente recebe esse link pelo WhatsApp e
@@ -91,17 +91,18 @@ export default function RemoteSign() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FDFBF9] p-6 flex flex-col items-center" style={{ fontFamily: 'Inter, sans-serif' }}>
-      <div className="w-full max-w-lg pt-8 pb-16">
-        <div className="flex items-center gap-2 text-[#B8846E] mb-6">
-          <FileText size={20} />
-          <p className="text-[10px] font-bold uppercase tracking-widest">Assinatura de Documento</p>
-        </div>
+    <div className="min-h-screen bg-[#FDFBF9]" style={{ fontFamily: 'Inter, sans-serif' }}>
+      <div className="text-center pt-10 pb-6 px-6">
+        <img src="/logo/logo-full-v2.png" alt="" className="h-16 w-auto mx-auto object-contain" />
+      </div>
+      <div className="bg-[#EADFD4] py-3 px-6 text-center mb-8">
+        <p className="text-white text-[10px] font-bold uppercase tracking-[0.2em]">{request.templateTitle}</p>
+      </div>
 
-        <h1 className="serif text-2xl text-[#4A433D] mb-2">{request.templateTitle}</h1>
-        <p className="text-sm text-[#9CA3AF] font-light mb-8">Paciente: {request.patientName}</p>
+      <div className="max-w-lg mx-auto px-6 pb-16">
+        <p className="text-sm text-[#9CA3AF] font-light mb-6 text-center">Paciente: <span className="text-[#4A433D] font-medium">{request.patientName}</span></p>
 
-        <div className="p-6 bg-white border border-[#F5F2F0] rounded-[28px] text-sm text-[#4A433D] leading-relaxed max-h-72 overflow-y-auto shadow-sm space-y-3 mb-8">
+        <div className="p-6 bg-white border border-[#F0EAE3] rounded-[20px] text-sm text-[#4A433D] leading-relaxed max-h-72 overflow-y-auto shadow-sm space-y-3 mb-8">
           {request.templateContent
             .split(/\n{2,}/)
             .flatMap(block => block.split(/(?<=\.)\s+(?=[A-ZÀ-Ú])/).map(s => s.trim()).filter(Boolean))

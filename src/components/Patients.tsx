@@ -5,6 +5,7 @@ import { compressImage } from '../lib/imageCompress';
 import { db, storage } from '../lib/firebase';
 import { Patient, ClinicSettings } from '../types';
 import { phoneIndexKey, cpfIndexKey, getClinicOwnerId, todayLocalStr, remoteSignLink } from '../lib/slots';
+import { buildLetterheadHtml } from '../lib/documentTemplate';
 import { User } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -1928,38 +1929,29 @@ function AtestadoModule({ user, patient }: { user: User, patient: Patient }) {
     const now = new Date();
     const todayLabel = now.toLocaleDateString('pt-BR');
     const nowTimeLabel = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    const html = `
-      <!DOCTYPE html>
-      <html lang="pt-BR">
-      <head>
-        <meta charset="UTF-8" />
-        <title>${documentTitle} — ${patient.name}</title>
-        <style>
-          body { font-family: Georgia, serif; max-width: 700px; margin: 60px auto; padding: 0 40px; color: #222; line-height: 1.8; }
-          .logo { display: block; max-width: 220px; margin: 0 auto 20px; }
-          .patient-name { text-align: center; font-size: 15px; font-weight: bold; color: #333; margin-bottom: 40px; }
-          h1 { font-size: 15px; text-transform: uppercase; letter-spacing: 0.15em; text-align: center; margin-bottom: 50px; }
-          p { font-size: 14px; text-align: justify; }
-          .sign-area { margin-top: 100px; text-align: center; }
-          .sign-line { border-top: 1px solid #333; width: 320px; margin: 0 auto; padding-top: 8px; font-size: 12px; }
-          .footer { margin-top: 60px; text-align: center; font-size: 12px; color: #666; }
-          @media print { body { margin: 20px auto; } }
-        </style>
-      </head>
-      <body>
-        <img class="logo" src="/logo/logo-full-v2.png" alt="${clinicName}" />
-        <p class="patient-name">${patient.name}</p>
-        <h1>${documentTitle}</h1>
+    const bodyHtml = `
+      <div class="box">
+        <div class="box-label">Paciente</div>
+        <p>${patient.name}</p>
+      </div>
+      <div class="box">
         <p>${bodyText}</p>
-        <div class="sign-area">
-          <div class="sign-line">
+      </div>
+      <div class="box" style="text-align: center;">
+        <p style="margin: 40px 0 6px;">
+          <span style="display: inline-block; border-top: 1px solid #4A433D; padding-top: 8px; min-width: 280px;">
             ${professionalName ? `${professionalName}<br/>` : ''}Cirurgião(ã)-Dentista
-          </div>
-        </div>
-        <p class="footer">${todayLabel} às ${nowTimeLabel}</p>
-      </body>
-      </html>
+          </span>
+        </p>
+      </div>
     `;
+    const footerHtml = `
+      <div class="footer-row">
+        <span>${todayLabel} às ${nowTimeLabel}</span>
+        <img class="footer-mark" src="/logo/logo-mark-v2.png" alt="" />
+      </div>
+    `;
+    const html = buildLetterheadHtml({ title: documentTitle, clinicName, bodyHtml, footerHtml, documentLabel: `${documentTitle} — ${patient.name}` });
     const printWindow = window.open('', '_blank');
     if (printWindow) {
       printWindow.document.write(html);
@@ -2663,42 +2655,33 @@ function PrescriptionModule({ user, patient }: { user: User, patient: Patient })
     const clinicName = clinicSettings?.clinicName || clinicSettings?.professionalName || 'Clínica';
     const professionalName = clinicSettings?.professionalName || '';
     const medicinesHtml = prescription.medicines.map((m: any, i: number) =>
-      `<p style="margin-bottom: 14px;"><strong>${i + 1}. ${m.name}</strong> — ${m.dosage}<br/><span style="color:#555; font-size:13px;">${m.instructions || ''}</span></p>`
+      `<p style="margin-bottom: 14px;"><strong>${i + 1}. ${m.name}</strong> — ${m.dosage}<br/><span style="color:#9CA3AF; font-size:13px;">${m.instructions || ''}</span></p>`
     ).join('');
-    const html = `
-      <!DOCTYPE html>
-      <html lang="pt-BR">
-      <head>
-        <meta charset="UTF-8" />
-        <title>Receituário — ${patient.name}</title>
-        <style>
-          body { font-family: Georgia, serif; max-width: 700px; margin: 60px auto; padding: 0 40px; color: #222; line-height: 1.7; }
-          .logo { display: block; max-width: 200px; margin: 0 auto 30px; }
-          h1 { font-size: 15px; text-transform: uppercase; letter-spacing: 0.15em; text-align: center; margin-bottom: 40px; }
-          .patient { text-align: center; font-size: 14px; margin-bottom: 40px; color: #444; }
-          .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.15em; color: #888; margin: 30px 0 12px; }
-          .sign-area { margin-top: 100px; text-align: center; }
-          .sign-line { border-top: 1px solid #333; width: 320px; margin: 0 auto; padding-top: 8px; font-size: 12px; }
-          .print-btn { display: block; margin: 0 auto 40px; padding: 12px 28px; background: #4A433D; color: white; border: none; border-radius: 10px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; cursor: pointer; }
-          @media print { .print-btn { display: none; } body { margin: 20px auto; } }
-        </style>
-      </head>
-      <body>
-        <button class="print-btn" onclick="window.print()">Imprimir</button>
-        <img class="logo" src="/logo/logo-full-v2.png" alt="${clinicName}" />
-        <h1>Receituário</h1>
-        <p class="patient"><strong>${patient.name}</strong><br/>${new Date(prescription.date).toLocaleDateString('pt-BR')}</p>
-        <div class="section-title">Medicamentos</div>
+    const bodyHtml = `
+      <div class="box">
+        <div class="box-label">Paciente</div>
+        <p><strong>${patient.name}</strong> — ${new Date(prescription.date).toLocaleDateString('pt-BR')}</p>
+      </div>
+      <div class="box">
+        <div class="box-label">Medicamentos</div>
         ${medicinesHtml}
-        ${prescription.content ? `<div class="section-title">Orientações Gerais</div><p>${prescription.content}</p>` : ''}
-        <div class="sign-area">
-          <div class="sign-line">
+      </div>
+      ${prescription.content ? `<div class="box"><div class="box-label">Orientações Gerais</div><p>${prescription.content}</p></div>` : ''}
+      <div class="box" style="text-align: center;">
+        <p style="margin: 40px 0 6px;">
+          <span style="display: inline-block; border-top: 1px solid #4A433D; padding-top: 8px; min-width: 280px;">
             ${professionalName ? `${professionalName}<br/>` : ''}Assinatura e Carimbo Profissional
-          </div>
-        </div>
-      </body>
-      </html>
+          </span>
+        </p>
+      </div>
     `;
+    const footerHtml = `
+      <div class="footer-row">
+        <span>${new Date().toLocaleDateString('pt-BR')}</span>
+        <img class="footer-mark" src="/logo/logo-mark-v2.png" alt="" />
+      </div>
+    `;
+    const html = buildLetterheadHtml({ title: 'Receituário', clinicName, bodyHtml, footerHtml, documentLabel: `Receituário — ${patient.name}` });
     const printWindow = window.open('', '_blank');
     if (printWindow) {
       printWindow.document.write(html);
