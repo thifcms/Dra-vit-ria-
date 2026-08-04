@@ -522,14 +522,6 @@ export default function Settings({ user }: { user: User }) {
                 <Fingerprint size={16} className="text-[#EADFD4]" />
                 {settings.pinHash ? 'Alterar PIN' : 'Definir PIN'}
               </button>
-              {isAdminUser && (
-              <ToggleButton 
-                active={settings.cloudBackupEnabled} 
-                onClick={toggleCloudBackup}
-                label="Backup em Nuvem"
-                icon={<Cloud size={18} />}
-              />
-              )}
               {webauthnSupported && (
                 <button
                   onClick={handleToggleBiometric}
@@ -632,6 +624,15 @@ export default function Settings({ user }: { user: User }) {
 
         {/* Sidebar Actions */}
         <div className="space-y-6">
+          <div className="bg-[#4A433D] rounded-[28px] p-4 shadow-sm">
+            <ToggleButton 
+              active={settings.cloudBackupEnabled} 
+              onClick={toggleCloudBackup}
+              label="Backup em Nuvem"
+              icon={<Cloud size={18} />}
+            />
+          </div>
+
           <button 
             onClick={handleFullBackup}
             disabled={backingUp}
