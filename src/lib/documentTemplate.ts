@@ -1,7 +1,7 @@
 // Modelo visual único pra todo documento que o paciente assina ou que é impresso —
 // mesma aparência da Ficha Clínica de Harmonização Facial: logo centralizada no topo,
-// faixa colorida com o título, conteúdo em blocos com bordas arredondadas, marca da
-// clínica no rodapé.
+// faixa colorida de ponta a ponta com o título, conteúdo em blocos com bordas
+// arredondadas, marca da clínica no rodapé.
 export function buildLetterheadHtml({
   title,
   clinicName,
@@ -15,6 +15,14 @@ export function buildLetterheadHtml({
   footerHtml?: string;
   documentLabel?: string; // usado no <title> da aba do navegador
 }): string {
+  // Caminho absoluto pro logo — dentro da janela pop-up de impressão (aberta via
+  // window.open('', '_blank') + document.write), um caminho relativo como
+  // "/logo/..." às vezes não resolve corretamente contra o endereço certo do site
+  // (a janela em branco pode não herdar a origem direito em todo navegador/celular),
+  // o que fazia o logo aparecer quebrado. Caminho absoluto resolve isso de vez.
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const logoUrl = `${origin}/logo/logo-full-v2.png`;
+
   return `
     <!DOCTYPE html>
     <html lang="pt-BR">
@@ -25,25 +33,42 @@ export function buildLetterheadHtml({
         * { box-sizing: border-box; }
         body {
           font-family: 'Georgia', serif;
-          max-width: 720px;
-          margin: 40px auto;
-          padding: 0 24px 60px;
+          margin: 0;
+          padding: 0 0 60px;
           color: #4A433D;
           background: #FDFBF9;
         }
-        .logo { display: block; max-width: 210px; margin: 0 auto 24px; }
+        .print-btn {
+          display: block;
+          margin: 24px auto 0;
+          padding: 12px 28px;
+          background: #4A433D;
+          color: white;
+          border: none;
+          border-radius: 10px;
+          font-size: 12px;
+          font-family: Arial, sans-serif;
+          text-transform: uppercase;
+          letter-spacing: 0.1em;
+          cursor: pointer;
+        }
+        .logo { display: block; max-width: 210px; margin: 24px auto 20px; }
         .title-bar {
           background: #EADFD4;
           color: #FFFFFF;
           text-align: center;
           padding: 12px 20px;
-          border-radius: 12px;
           font-size: 11px;
           font-weight: bold;
           text-transform: uppercase;
           letter-spacing: 0.18em;
-          margin-bottom: 32px;
           font-family: Arial, sans-serif;
+          width: 100%;
+        }
+        .content {
+          max-width: 720px;
+          margin: 32px auto 0;
+          padding: 0 24px;
         }
         .box {
           background: #FFFFFF;
@@ -73,32 +98,19 @@ export function buildLetterheadHtml({
           color: #4A433D;
         }
         .footer-mark { width: 34px; opacity: 0.5; }
-        .print-btn {
-          display: block;
-          margin: 0 auto 28px;
-          padding: 12px 28px;
-          background: #4A433D;
-          color: white;
-          border: none;
-          border-radius: 10px;
-          font-size: 12px;
-          font-family: Arial, sans-serif;
-          text-transform: uppercase;
-          letter-spacing: 0.1em;
-          cursor: pointer;
-        }
         @media print {
           .print-btn { display: none; }
-          body { margin: 10px auto; background: white; }
         }
       </style>
     </head>
     <body>
       <button class="print-btn" onclick="window.print()">Imprimir</button>
-      <img class="logo" src="/logo/logo-full-v2.png" alt="${clinicName}" />
+      <img class="logo" src="${logoUrl}" alt="${clinicName}" />
       <div class="title-bar">${title}</div>
-      ${bodyHtml}
-      ${footerHtml || ''}
+      <div class="content">
+        ${bodyHtml}
+        ${footerHtml || ''}
+      </div>
     </body>
     </html>
   `;
