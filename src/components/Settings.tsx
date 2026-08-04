@@ -34,6 +34,7 @@ import PatientBackup from './PatientBackup';
 
 export default function Settings({ user }: { user: User }) {
   const [isAdminUser, setIsAdminUser] = useState<boolean | null>(null);
+  const [settingsTab, setSettingsTab] = useState<'perfil' | 'gestao'>('perfil');
   useEffect(() => {
     getDoc(doc(db, 'system', 'authorized_admins')).then(snap => {
       const emails: string[] = snap.exists() ? (snap.data().emails || []) : [];
@@ -349,33 +350,70 @@ export default function Settings({ user }: { user: User }) {
         </div>
       </div>
 
+      <div className="flex gap-3">
+        <button
+          onClick={() => setSettingsTab('perfil')}
+          className={`px-6 py-3 rounded-2xl text-sm font-medium transition-all ${
+            settingsTab === 'perfil' ? 'bg-[#4A433D] text-white' : 'bg-white text-[#9CA3AF] border border-[#F5F2F0] hover:border-[#EADFD4]/40'
+          }`}
+        >
+          Perfil
+        </button>
+        {isAdminUser && (
+          <button
+            onClick={() => setSettingsTab('gestao')}
+            className={`px-6 py-3 rounded-2xl text-sm font-medium transition-all ${
+              settingsTab === 'gestao' ? 'bg-[#4A433D] text-white' : 'bg-white text-[#9CA3AF] border border-[#F5F2F0] hover:border-[#EADFD4]/40'
+            }`}
+          >
+            Gestão da Clínica
+          </button>
+        )}
+      </div>
+
+      {settingsTab === 'perfil' && (
+      <div className="max-w-3xl space-y-8">
+        {/* Professional Profile */}
+        <section className="bg-white rounded-[40px] p-10 border border-[#F5F2F0] shadow-sm">
+          <div className="flex items-center gap-4 mb-8">
+            <div className="p-3 bg-[#FDFBF9] rounded-2xl text-[#9CA3AF]">
+              <UserIcon size={24} />
+            </div>
+            <h3 className="text-xl font-light text-[#4A433D] serif">Identificação Profissional</h3>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <SettingField 
+              label="Nome do Profissional" 
+              value={settings.professionalName} 
+              onChange={v => setSettings({...settings, professionalName: v})}
+              icon={<UserIcon size={18} />}
+            />
+            <SettingField 
+              label="CRM / CRO" 
+              value={settings.registrationNumber} 
+              onChange={v => setSettings({...settings, registrationNumber: v})}
+              icon={<Hash size={18} />}
+            />
+          </div>
+        </section>
+
+        <button
+          onClick={handleSaveAll}
+          disabled={saving}
+          className="w-full py-4 bg-[#4A433D] text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest shadow-md hover:bg-[#5C544E] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          <Save size={16} />
+          {saving ? 'Salvando...' : 'Salvar Nome do Profissional'}
+        </button>
+
+        <ProfessionalScheduleManager user={user} isAdminUser={!!isAdminUser} />
+      </div>
+      )}
+
+      {settingsTab === 'gestao' && isAdminUser && (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
-          {/* Professional Profile */}
-          <section className="bg-white rounded-[40px] p-10 border border-[#F5F2F0] shadow-sm">
-            <div className="flex items-center gap-4 mb-8">
-              <div className="p-3 bg-[#FDFBF9] rounded-2xl text-[#9CA3AF]">
-                <UserIcon size={24} />
-              </div>
-              <h3 className="text-xl font-light text-[#4A433D] serif">Identificação Profissional</h3>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <SettingField 
-                label="Nome do Profissional" 
-                value={settings.professionalName} 
-                onChange={v => setSettings({...settings, professionalName: v})}
-                icon={<UserIcon size={18} />}
-              />
-              <SettingField 
-                label="CRM / CRO" 
-                value={settings.registrationNumber} 
-                onChange={v => setSettings({...settings, registrationNumber: v})}
-                icon={<Hash size={18} />}
-              />
-            </div>
-          </section>
-
           {/* Clinic Info */}
           <section className="bg-white rounded-[40px] p-10 border border-[#F5F2F0] shadow-sm">
             <div className="flex items-center gap-4 mb-8">
@@ -414,11 +452,8 @@ export default function Settings({ user }: { user: User }) {
             className="w-full py-4 bg-[#4A433D] text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest shadow-md hover:bg-[#5C544E] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
           >
             <Save size={16} />
-            {saving ? 'Salvando...' : 'Salvar Nome do Profissional e da Clínica'}
+            {saving ? 'Salvando...' : 'Salvar Nome da Clínica'}
           </button>
-
-          <ProfessionalScheduleManager user={user} isAdminUser={!!isAdminUser} />
-
 
           <section className="bg-white rounded-[40px] p-10 border border-[#F5F2F0] shadow-sm">
             <div className="flex items-center justify-between mb-8">
@@ -504,15 +539,6 @@ export default function Settings({ user }: { user: User }) {
           </div>
 
           <button 
-            onClick={handleSaveAll}
-            disabled={saving}
-            className="w-full py-5 bg-[#EADFD4] text-white rounded-[28px] font-medium flex items-center justify-center gap-3 hover:bg-[#DFCFBF] transition-all shadow-lg active:scale-95 disabled:opacity-50"
-          >
-            <Save size={20} />
-            <span>{saving ? 'Gravando...' : 'Salvar Alterações'}</span>
-          </button>
-
-          <button 
             onClick={handleFullBackup}
             disabled={backingUp}
             className="w-full py-5 bg-white border border-[#F5F2F0] text-[#4A433D] rounded-[28px] font-medium flex items-center justify-center gap-3 hover:border-[#EADFD4] transition-all shadow-sm active:scale-95 disabled:opacity-50"
@@ -531,8 +557,9 @@ export default function Settings({ user }: { user: User }) {
           </button>
         </div>
       </div>
+      )}
 
-      {isAdminUser && (
+      {settingsTab === 'gestao' && isAdminUser && (
       <>
       <div className="mt-8 bg-white rounded-[40px] border border-[#F5F2F0] p-10">
         <h3 className="serif text-2xl text-[#4A433D] mb-2">Procedimentos</h3>
@@ -707,14 +734,16 @@ export default function Settings({ user }: { user: User }) {
       </>
       )}
 
+      {settingsTab === 'gestao' && isAdminUser && (
+      <>
       <div className="mt-8">
         <AdminPanel user={user} />
       </div>
 
-      {isAdminUser && (
       <div className="mt-8">
         <PatientBackup user={user} />
       </div>
+      </>
       )}
 
       <AnimatePresence>

@@ -34,10 +34,17 @@ export default function AdminPanel({ user }: { user: User }) {
 
   // Esse painel (e o campo de senha de administrador) só aparece pra quem realmente está
   // na lista de administradores — usuário comum nem vê que isso existe.
+  //
+  // A senha/PIN extra do painel era redundante pra quem já entrou no sistema logado como
+  // administrador (via Google ou e-mail/senha) — o login em si já prova quem é essa
+  // pessoa. Confirmado que o e-mail está na lista de admins, destrava direto, sem pedir
+  // senha de novo.
   useEffect(() => {
     getDoc(doc(db, 'system', 'authorized_admins')).then(snap => {
       const emails: string[] = snap.exists() ? (snap.data().emails || []) : [];
-      setIsAdminUser(!!user.email && emails.includes(user.email));
+      const isAdmin = !!user.email && emails.includes(user.email);
+      setIsAdminUser(isAdmin);
+      if (isAdmin) setUnlocked(true);
     }).catch(() => setIsAdminUser(false));
   }, [user.email]);
 
