@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc, deleteDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { ClinicSettings, ConsentTemplate } from '../types';
+import { APP_VERSION, APP_VERSION_NOTE } from '../version';
 import { User, EmailAuthProvider, reauthenticateWithCredential, updatePassword } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -920,6 +921,11 @@ export default function Settings({ user }: { user: User }) {
           </motion.div>
         </div>
       )}
+
+      <p className="text-center text-[10px] text-[#D6C7B8] font-light pt-8 pb-4">
+        Versão {APP_VERSION}
+        {APP_VERSION_NOTE && <span className="block mt-1 text-[9px]">{APP_VERSION_NOTE}</span>}
+      </p>
     </div>
   );
 }
