@@ -203,17 +203,6 @@ export default function Settings({ user }: { user: User }) {
   };
 
 
-  const handleToggleSecurityPin = () => {
-    if (!settings.biometricEnabled && !settings.pinHash) {
-      showToast('Defina um PIN antes de ativar', 'error');
-      setPinDraft('');
-      setPinConfirm('');
-      setShowPinModal(true);
-      return;
-    }
-    persist({ ...settings, biometricEnabled: !settings.biometricEnabled });
-  };
-
   const [showPinModal, setShowPinModal] = useState(false);
   const [pinDraft, setPinDraft] = useState('');
   const [pinConfirm, setPinConfirm] = useState('');
@@ -264,7 +253,16 @@ export default function Settings({ user }: { user: User }) {
     }
   };
 
-  const toggleCloudBackup = () => persist({ ...settings, cloudBackupEnabled: !settings.cloudBackupEnabled });
+  const toggleCloudBackup = () => {
+    // Desligar precisa de confirmação — é fácil clicar sem querer, e as consequências
+    // (parar de gerar backup automático dos prontuários) são sérias o bastante pra
+    // merecer uma pausa antes de confirmar. Ligar não precisa, já que só passa a fazer
+    // mais uma coisa boa, sem risco.
+    if (settings.cloudBackupEnabled) {
+      if (!window.confirm('Tem certeza que quer desativar o backup em nuvem? Os prontuários deixarão de ser salvos automaticamente.')) return;
+    }
+    persist({ ...settings, cloudBackupEnabled: !settings.cloudBackupEnabled });
+  };
 
   const handleSaveAll = async () => {
     setSaving(true);
@@ -514,12 +512,9 @@ export default function Settings({ user }: { user: User }) {
             </div>
             
             <div className="space-y-4">
-              <ToggleButton 
-                active={settings.biometricEnabled} 
-                onClick={handleToggleSecurityPin}
-                label="PIN de Segurança"
-                icon={<Fingerprint size={18} />}
-              />
+              <p className="text-xs text-white/60 -mt-2 mb-2">
+                PIN ou biometria são obrigatórios pra abrir o app — não é possível desativar, só trocar.
+              </p>
               <button
                 onClick={() => { setPinDraft(''); setPinConfirm(''); setShowPinModal(true); }}
                 className="w-full flex items-center gap-3 px-6 py-4 bg-white/10 rounded-2xl text-white text-xs font-semibold hover:bg-white/15 transition-all"
@@ -527,12 +522,14 @@ export default function Settings({ user }: { user: User }) {
                 <Fingerprint size={16} className="text-[#EADFD4]" />
                 {settings.pinHash ? 'Alterar PIN' : 'Definir PIN'}
               </button>
+              {isAdminUser && (
               <ToggleButton 
                 active={settings.cloudBackupEnabled} 
                 onClick={toggleCloudBackup}
                 label="Backup em Nuvem"
                 icon={<Cloud size={18} />}
               />
+              )}
               {webauthnSupported && (
                 <button
                   onClick={handleToggleBiometric}

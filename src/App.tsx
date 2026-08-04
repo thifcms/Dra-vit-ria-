@@ -261,7 +261,7 @@ function AuthenticatedApp() {
   const [checkingPin, setCheckingPin] = useState(false);
   const [checkingBiometric, setCheckingBiometric] = useState(false);
   const [biometricFailed, setBiometricFailed] = useState(false);
-  const needsPinCheck = !!((clinicSettings?.biometricEnabled && clinicSettings?.pinHash) || clinicSettings?.webauthnCredentialId) && !pinUnlocked;
+  const needsPinCheck = !!(clinicSettings?.pinHash || clinicSettings?.webauthnCredentialId) && !pinUnlocked;
 
   // Re-trava automaticamente sempre que a pessoa sai da tela do app (troca de aba, minimiza,
   // bloqueia o celular) — ao voltar, pede PIN/biometria de novo, em vez de continuar
@@ -317,11 +317,11 @@ function AuthenticatedApp() {
 
   const handleForgotPin = async () => {
     if (!user) return;
-    // Saída de emergência: desativa a exigência de PIN/biometria direto (sem precisar
+    // Saída de emergência: limpa o PIN e a biometria cadastrados direto (sem precisar
     // entrar em Configurações, já que é justamente isso que ficaria trancado). Pra usar
-    // de novo nesse celular, é só reativar em Configurações → Segurança.
+    // de novo nesse celular, é só cadastrar um PIN novo em Configurações → Segurança.
     const ownerId = await getClinicOwnerId(db).catch(() => user.uid);
-    await updateDoc(doc(db, 'settings', ownerId), { biometricEnabled: false, webauthnCredentialId: undefined }).catch(() => {});
+    await updateDoc(doc(db, 'settings', ownerId), { pinHash: undefined, biometricEnabled: false, webauthnCredentialId: undefined }).catch(() => {});
     sessionStorage.setItem('pinUnlocked', 'true');
     setPinUnlocked(true);
   };
