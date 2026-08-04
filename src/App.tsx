@@ -110,6 +110,7 @@ const PAGE_FADE = {
 
 function AuthenticatedApp() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [isAdminUser, setIsAdminUser] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
   const [minSplashElapsed, setMinSplashElapsed] = useState(false);
   const loading = !authChecked || !minSplashElapsed;
@@ -149,6 +150,7 @@ function AuthenticatedApp() {
             setAuthChecked(true);
             return;
           }
+          setIsAdminUser(!!u.email && adminEmails.includes(u.email));
         } catch {
           // Se a checagem falhar por qualquer motivo (ex: lista ainda não existe), nega
           // por segurança em vez de deixar passar
@@ -564,12 +566,14 @@ function AuthenticatedApp() {
                   icon={<Calendar size={20} />}
                   label="Agenda Clínica"
                 />
-                <NavItemExpanded 
-                  active={activeView === 'inventory'} 
-                  onClick={() => { setActiveView('inventory'); setIsSidebarOpen(false); }}
-                  icon={<Package size={20} />}
-                  label="Estoque & Insumos"
-                />
+                {isAdminUser && (
+                  <NavItemExpanded 
+                    active={activeView === 'inventory'} 
+                    onClick={() => { setActiveView('inventory'); setIsSidebarOpen(false); }}
+                    icon={<Package size={20} />}
+                    label="Estoque & Insumos"
+                  />
+                )}
                 {hasFinanceAccess(user?.email) && (
                   <NavItemExpanded 
                     active={activeView === 'finance'} 
@@ -673,7 +677,7 @@ function AuthenticatedApp() {
                     onOpenPatient={(patientId: string) => { setActiveView('patients'); setJumpToPatientId(patientId); }}
                   />
                 )}
-                {activeView === 'inventory' && <Inventory user={user} />}
+                {activeView === 'inventory' && isAdminUser && <Inventory user={user} />}
                 {activeView === 'finance' && hasFinanceAccess(user?.email) && <Finance user={user} />}
                 {activeView === 'settings' && <Settings user={user} />}
               </Suspense>
