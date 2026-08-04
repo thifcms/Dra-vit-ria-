@@ -532,6 +532,8 @@ export default function Settings({ user }: { user: User }) {
         </div>
       </div>
 
+      {isAdminUser && (
+      <>
       <div className="mt-8 bg-white rounded-[40px] border border-[#F5F2F0] p-10">
         <h3 className="serif text-2xl text-[#4A433D] mb-2">Procedimentos</h3>
         <p className="text-xs text-[#9CA3AF] font-light mb-8">
@@ -702,14 +704,18 @@ export default function Settings({ user }: { user: User }) {
           </>
         )}
       </div>
+      </>
+      )}
 
       <div className="mt-8">
         <AdminPanel user={user} />
       </div>
 
+      {isAdminUser && (
       <div className="mt-8">
         <PatientBackup user={user} />
       </div>
+      )}
 
       <AnimatePresence>
         {(isAddingTemplate || editingTemplate) && (
