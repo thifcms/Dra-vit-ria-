@@ -2691,9 +2691,9 @@ function PrescriptionModule({ user, patient }: { user: User, patient: Patient })
 
   return (
     <div className="space-y-10">
-      <div className="flex items-center justify-between pb-6 border-b border-[#F5F2F0]">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-6 border-b border-[#F5F2F0]">
         <h3 className="serif text-2xl text-[#4A433D]">Receituários & Prescrições</h3>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <a
             href="https://receita.mevosaude.com.br/"
             target="_blank"
@@ -2806,7 +2806,7 @@ function PrescriptionModule({ user, patient }: { user: User, patient: Patient })
               </div>
             </div>
             
-            <div className="flex items-center gap-3 md:border-l border-[#F5F2F0] md:pl-8">
+            <div className="flex flex-wrap items-center gap-3 md:border-l border-[#F5F2F0] md:pl-8">
               <button 
                 onClick={() => handleViewPrescription(p)}
                 className="flex items-center gap-2 px-6 py-4 bg-[#FDFBF9] text-[#9CA3AF] rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-[#8BA888] hover:text-white transition-all shadow-sm"
