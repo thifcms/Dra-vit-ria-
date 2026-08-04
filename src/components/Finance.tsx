@@ -339,7 +339,7 @@ export default function Finance({ user }: { user: User }) {
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-[48px] border border-[#F5F2F0] p-10 shadow-sm"
+          className="bg-white rounded-[48px] border border-[#F5F2F0] p-5 md:p-10 shadow-sm"
         >
           <div className="mb-8">
             <h3 className="serif text-2xl text-[#4A433D]">Resumo por Categoria</h3>
@@ -349,13 +349,13 @@ export default function Finance({ user }: { user: User }) {
             {categoryTotals.map(c => {
               const maxTotal = categoryTotals[0].total || 1;
               return (
-                <div key={c.category} className="flex items-center gap-4">
-                  <span className="w-40 shrink-0 text-xs font-semibold text-[#4A433D] truncate">{c.category}</span>
-                  <div className="flex-1 h-3 bg-[#FDFBF9] rounded-full overflow-hidden flex">
+                <div key={c.category} className="flex items-center gap-2 md:gap-4">
+                  <span className="w-20 md:w-40 shrink-0 text-xs font-semibold text-[#4A433D] truncate">{c.category}</span>
+                  <div className="flex-1 min-w-0 h-3 bg-[#FDFBF9] rounded-full overflow-hidden flex">
                     {c.income > 0 && <div className="h-full bg-[#8BA888]" style={{ width: `${(c.income / maxTotal) * 100}%` }} />}
                     {c.expense > 0 && <div className="h-full bg-red-400" style={{ width: `${(c.expense / maxTotal) * 100}%` }} />}
                   </div>
-                  <span className="w-32 shrink-0 text-right text-xs font-bold text-[#9CA3AF]">
+                  <span className="w-20 md:w-32 shrink-0 text-right text-[10px] md:text-xs font-bold text-[#9CA3AF]">
                     R$ {c.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </span>
                 </div>
