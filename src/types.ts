@@ -82,7 +82,7 @@ export interface Patient {
   profession?: string;
   maritalStatus?: string;
   howHeardAboutClinic?: string;
-  sex?: 'F' | 'M'; // usado pra mostrar o diagrama/rosto genérico correto na Anamnese
+  sex?: 'F' | 'M' | 'N'; // N = "prefiro não informar" — usado pra mostrar o diagrama/rosto genérico correto na Anamnese (usa um padrão neutro quando N)
   faceMarkings?: FaceMarkingSession[]; // histórico de mapas de pontos de aplicação
 
   privacyConsentAt?: string; // data/hora em que o paciente aceitou a Política de Privacidade — comprovação exigida pela LGPD
@@ -389,7 +389,7 @@ export interface FaceMarkingPoint {
 export interface FaceMarkingSession {
   id: string;
   date: string;
-  sex: 'F' | 'M';
+  sex: 'F' | 'M' | 'N';
   notes?: string;
   points: FaceMarkingPoint[];
 }

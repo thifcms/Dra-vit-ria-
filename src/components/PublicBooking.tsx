@@ -158,7 +158,7 @@ export default function PublicBooking() {
   const [email, setEmail] = useState('');
   const [cpf, setCpf] = useState('');
   const [birthDate, setBirthDate] = useState('');
-  const [sex, setSex] = useState<'F' | 'M' | ''>('');
+  const [sex, setSex] = useState<'F' | 'M' | 'N' | ''>('');
   const [procedureInterest, setProcedureInterest] = useState('');
   const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
@@ -753,19 +753,19 @@ export default function PublicBooking() {
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Sexo</label>
-                  <div className="grid grid-cols-2 gap-3">
-                    {(['F', 'M'] as const).map(opt => (
+                  <div className="grid grid-cols-3 gap-2">
+                    {(['F', 'M', 'N'] as const).map(opt => (
                       <button
                         key={opt}
                         type="button"
-                        onClick={() => setSex(sex === opt ? '' : opt)}
-                        className={`py-4 rounded-2xl border text-sm font-medium transition-all ${
+                        onClick={() => setSex(opt)}
+                        className={`py-4 rounded-2xl border text-xs font-medium transition-all ${
                           sex === opt
                             ? 'bg-[#EADFD4] text-white border-[#EADFD4]'
                             : 'bg-[#FDFBF9] text-[#9CA3AF] border-[#F5F2F0] hover:border-[#EADFD4]/40'
                         }`}
                       >
-                        {opt === 'F' ? 'Feminino' : 'Masculino'}
+                        {opt === 'F' ? 'Feminino' : opt === 'M' ? 'Masculino' : 'Prefiro não informar'}
                       </button>
                     ))}
                   </div>
@@ -864,19 +864,19 @@ export default function PublicBooking() {
                   <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">
                     Sexo
                   </label>
-                  <div className="grid grid-cols-2 gap-3">
-                    {(['F', 'M'] as const).map(opt => (
+                  <div className="grid grid-cols-3 gap-2">
+                    {(['F', 'M', 'N'] as const).map(opt => (
                       <button
                         key={opt}
                         type="button"
-                        onClick={() => setSex(sex === opt ? '' : opt)}
-                        className={`py-4 rounded-2xl border text-sm font-medium transition-all ${
+                        onClick={() => setSex(opt)}
+                        className={`py-4 rounded-2xl border text-xs font-medium transition-all ${
                           sex === opt
                             ? 'bg-[#EADFD4] text-white border-[#EADFD4]'
                             : 'bg-[#FDFBF9] text-[#9CA3AF] border-[#F5F2F0] hover:border-[#EADFD4]/40'
                         }`}
                       >
-                        {opt === 'F' ? 'Feminino' : 'Masculino'}
+                        {opt === 'F' ? 'Feminino' : opt === 'M' ? 'Masculino' : 'Prefiro não informar'}
                       </button>
                     ))}
                   </div>

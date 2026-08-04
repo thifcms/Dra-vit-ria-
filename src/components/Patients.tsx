@@ -285,12 +285,16 @@ function AddPatientModal({ user, onClose }: { user: User, onClose: () => void })
   const [cpf, setCpf] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [sex, setSex] = useState<'F' | 'M' | ''>('');
+  const [sex, setSex] = useState<'F' | 'M' | 'N' | ''>('');
   const [saving, setSaving] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (saving) return;
+    if (!name.trim() || !cpf.trim() || !email.trim() || !phone.trim() || !sex) {
+      showToast('Preencha todos os campos pra cadastrar o paciente', 'error');
+      return;
+    }
     setSaving(true);
     try {
       const ref = await addDoc(collection(db, 'patients'), {
@@ -369,6 +373,7 @@ function AddPatientModal({ user, onClose }: { user: User, onClose: () => void })
             <div>
               <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">CPF</label>
               <input 
+                required
                 className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all font-light"
                 value={cpf}
                 onChange={e => setCpf(e.target.value)}
@@ -378,6 +383,7 @@ function AddPatientModal({ user, onClose }: { user: User, onClose: () => void })
             <div>
               <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">E-mail</label>
               <input 
+                required
                 type="email"
                 className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all font-light"
                 value={email}
@@ -389,6 +395,7 @@ function AddPatientModal({ user, onClose }: { user: User, onClose: () => void })
           <div>
             <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Telefone / WhatsApp</label>
             <input 
+              required
               className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all font-light"
               value={phone}
               onChange={e => setPhone(e.target.value)}
@@ -396,20 +403,20 @@ function AddPatientModal({ user, onClose }: { user: User, onClose: () => void })
             />
           </div>
           <div>
-            <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Sexo (opcional)</label>
-            <div className="grid grid-cols-2 gap-3">
-              {(['F', 'M'] as const).map(opt => (
+            <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Sexo</label>
+            <div className="grid grid-cols-3 gap-3">
+              {(['F', 'M', 'N'] as const).map(opt => (
                 <button
                   key={opt}
                   type="button"
-                  onClick={() => setSex(sex === opt ? '' : opt)}
-                  className={`py-4 rounded-2xl border text-sm font-medium transition-all ${
+                  onClick={() => setSex(opt)}
+                  className={`py-4 rounded-2xl border text-xs font-medium transition-all ${
                     sex === opt
                       ? 'bg-[#EADFD4] text-white border-[#EADFD4]'
                       : 'bg-[#FDFBF9] text-[#9CA3AF] border-[#F5F2F0] hover:border-[#EADFD4]/40'
                   }`}
                 >
-                  {opt === 'F' ? 'Feminino' : 'Masculino'}
+                  {opt === 'F' ? 'Feminino' : opt === 'M' ? 'Masculino' : 'Prefiro não informar'}
                 </button>
               ))}
             </div>
@@ -994,20 +1001,21 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
               className="mt-2 text-center text-xs text-[#4A433D] bg-transparent border-b border-transparent hover:border-[#F5F2F0] focus:border-[#EADFD4] outline-none transition-all px-2 py-1 w-full"
             />
             <div className="flex justify-center gap-2 mt-3">
-              {(['F', 'M'] as const).map(opt => (
+              {(['F', 'M', 'N'] as const).map(opt => (
                 <button
                   key={opt}
                   onClick={async () => {
                     const next = patient.sex === opt ? undefined : opt;
                     await updateDoc(doc(db, 'patients', patient.id!), { sex: next ?? deleteField() }).catch(() => {});
                   }}
+                  title={opt === 'F' ? 'Feminino' : opt === 'M' ? 'Masculino' : 'Prefiro não informar'}
                   className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all ${
                     patient.sex === opt
                       ? 'bg-[#EADFD4] text-white'
                       : 'bg-white text-[#9CA3AF] border border-[#F5F2F0] hover:border-[#EADFD4]/40'
                   }`}
                 >
-                  {opt === 'F' ? 'Feminino' : 'Masculino'}
+                  {opt}
                 </button>
               ))}
             </div>
@@ -1119,7 +1127,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
             )}
             {activeTab === 'anamnesis' && (
               <motion.div key="anamnesis" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6 md:space-y-10">
-                <div className="flex items-center justify-between pb-6 border-b border-[#F5F2F0]">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-6 border-b border-[#F5F2F0]">
                   <div>
                     <h3 className="serif text-2xl text-[#4A433D]">Ficha de Anamnese</h3>
                     {patient.anamnesisReleased && (
@@ -1128,7 +1136,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
                       </p>
                     )}
                   </div>
-                  <div className="flex gap-3">
+                  <div className="flex flex-wrap gap-3">
                     {(patient.anamnesisHistory?.length || 0) > 0 && (
                       <button
                         onClick={() => setShowAnamnesisHistory(true)}
@@ -1332,7 +1340,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
 
             {activeTab === 'evolution' && (
               <motion.div key="evolution" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-                <div className="flex items-center justify-between pb-6 border-b border-[#F5F2F0]">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-6 border-b border-[#F5F2F0]">
                   <h3 className="serif text-2xl text-[#4A433D]">Evolução de Tratamentos</h3>
                   <button 
                     onClick={() => setIsAddingEvolution(true)}
@@ -1519,9 +1527,9 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
 
             {activeTab === 'photos' && (
               <motion.div key="photos" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-                <div className="flex items-center justify-between pb-6 border-b border-[#F5F2F0]">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-6 border-b border-[#F5F2F0]">
                   <h3 className="serif text-2xl text-[#4A433D]">Galeria Clínica</h3>
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     <button
                       onClick={() => { setCompareMode(!compareMode); setCompareSelection([]); }}
                       className={`px-8 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 border transition-all shadow-sm ${
@@ -1601,7 +1609,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
 
             {activeTab === 'exams' && (
               <motion.div key="exams" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-                <div className="flex items-center justify-between pb-6 border-b border-[#F5F2F0]">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-6 border-b border-[#F5F2F0]">
                   <h3 className="serif text-2xl text-[#4A433D]">Exames</h3>
                   {!isAddingExam && (
                     <button
@@ -1729,7 +1737,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
 
             {activeTab === 'files' && (
               <motion.div key="files" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-                <div className="flex items-center justify-between pb-6 border-b border-[#F5F2F0]">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-6 border-b border-[#F5F2F0]">
                   <h3 className="serif text-2xl text-[#4A433D]">Anexos</h3>
                   <label className="bg-[#F0F7F0] text-[#8BA888] px-8 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 shadow-sm cursor-pointer hover:bg-[#E5EFE5] transition-all">
                     <Paperclip size={18} /> Anexar Arquivo
@@ -1962,7 +1970,7 @@ function AtestadoModule({ user, patient }: { user: User, patient: Patient }) {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between pb-6 border-b border-[#F5F2F0]">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-6 border-b border-[#F5F2F0]">
         <h3 className="serif text-2xl text-[#4A433D]">Atestados & Declarações</h3>
         <button
           onClick={handlePrint}
@@ -2326,7 +2334,7 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
 
   return (
     <div className="space-y-10">
-      <div className="flex items-center justify-between pb-6 border-b border-[#F5F2F0]">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-6 border-b border-[#F5F2F0]">
         <h3 className="serif text-2xl text-[#4A433D]">Termos & Consentimentos</h3>
         <button 
           onClick={() => setIsSigning(true)}
