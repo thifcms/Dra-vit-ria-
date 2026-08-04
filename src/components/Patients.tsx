@@ -1117,7 +1117,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
               </motion.div>
             )}
             {activeTab === 'anamnesis' && (
-              <motion.div key="anamnesis" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-10">
+              <motion.div key="anamnesis" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6 md:space-y-10">
                 <div className="flex items-center justify-between pb-6 border-b border-[#F5F2F0]">
                   <div>
                     <h3 className="serif text-2xl text-[#4A433D]">Ficha de Anamnese</h3>
@@ -1159,9 +1159,9 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
                   </div>
                 </div>
                 
-                <div className={`space-y-12 ${patient.anamnesisReleased ? 'pointer-events-none opacity-60' : ''}`}>
+                <div className={`space-y-8 md:space-y-12 ${patient.anamnesisReleased ? 'pointer-events-none opacity-60' : ''}`}>
                   <section>
-                    <h4 className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+                    <h4 className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-[0.2em] mb-4 md:mb-6 flex items-center gap-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-[#EADFD4]" /> Queixas e Expectativas
                     </h4>
                     <div className="space-y-6">
@@ -1171,11 +1171,11 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
                   </section>
 
                   <section>
-                    <h4 className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+                    <h4 className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-[0.2em] mb-4 md:mb-6 flex items-center gap-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-[#EADFD4]" /> Histórico Clínico
                     </h4>
-                    <div className="bg-[#FDFBF9] p-8 rounded-[32px] border border-[#F5F2F0] mb-8">
-                      <p className="text-[9px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-6">Condições Médicas</p>
+                    <div className="bg-[#FDFBF9] p-5 md:p-8 rounded-[32px] border border-[#F5F2F0] mb-5 md:mb-8">
+                      <p className="text-[9px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-4 md:mb-6">Condições Médicas</p>
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                         <ConditionToggle label="Diabetes" active={anamnesis.conditions.diabetes} onClick={() => setAnamnesis({...anamnesis, conditions: {...anamnesis.conditions, diabetes: !anamnesis.conditions.diabetes}})} />
                         <ConditionToggle label="Hipertensão" active={anamnesis.conditions.hypertension} onClick={() => setAnamnesis({...anamnesis, conditions: {...anamnesis.conditions, hypertension: !anamnesis.conditions.hypertension}})} />
@@ -1195,7 +1195,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
                       </div>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8 mb-5 md:mb-8">
                       <div className="space-y-4">
                         <ConditionToggle label="Possui alergias?" active={anamnesis.hasAllergies} onClick={() => setAnamnesis({...anamnesis, hasAllergies: !anamnesis.hasAllergies})} />
                         {anamnesis.hasAllergies && (
@@ -1210,17 +1210,17 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
                       <FormField label="Outras Condições" value={anamnesis.otherConditions} onChange={v => setAnamnesis({...anamnesis, otherConditions: v})} textarea />
                       <FormField label="Histórico Familiar" value={anamnesis.familyHistory} onChange={v => setAnamnesis({...anamnesis, familyHistory: v})} textarea />
                     </div>
                   </section>
 
                   <section>
-                    <h4 className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+                    <h4 className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-[0.2em] mb-4 md:mb-6 flex items-center gap-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-[#EADFD4]" /> Estilo de Vida
                     </h4>
-                    <div className="flex flex-wrap gap-4 p-8 bg-[#FDFBF9] rounded-3xl border border-[#F5F2F0] mb-6 shadow-sm">
+                    <div className="flex flex-wrap gap-4 p-5 md:p-8 bg-[#FDFBF9] rounded-3xl border border-[#F5F2F0] mb-4 md:mb-6 shadow-sm">
                       <HabitToggle label="Fumante" active={anamnesis.habits.smoking} onClick={() => setAnamnesis({...anamnesis, habits: {...anamnesis.habits, smoking: !anamnesis.habits.smoking}})} />
                       <HabitToggle label="Álcool" active={anamnesis.habits.alcohol} onClick={() => setAnamnesis({...anamnesis, habits: {...anamnesis.habits, alcohol: !anamnesis.habits.alcohol}})} />
                       <HabitToggle label="Exercícios" active={anamnesis.habits.exercise} onClick={() => setAnamnesis({...anamnesis, habits: {...anamnesis.habits, exercise: !anamnesis.habits.exercise}})} />
@@ -1231,20 +1231,20 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
                   </section>
 
                   <section>
-                    <h4 className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+                    <h4 className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-[0.2em] mb-4 md:mb-6 flex items-center gap-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-[#EADFD4]" /> Avaliação Física
                     </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
                       <FormField label="Avaliação da Pele" value={anamnesis.skinEvaluation} onChange={v => setAnamnesis({...anamnesis, skinEvaluation: v})} textarea />
                       <FormField label="Avaliação Facial" value={anamnesis.faceEvaluation} onChange={v => setAnamnesis({...anamnesis, faceEvaluation: v})} textarea />
                     </div>
                   </section>
 
                   <section>
-                    <h4 className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+                    <h4 className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-[0.2em] mb-4 md:mb-6 flex items-center gap-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-[#EADFD4]" /> Conduta
                     </h4>
-                    <div className="p-8 bg-[#FDFBF9] rounded-[32px] border border-[#F5F2F0] space-y-6">
+                    <div className="p-5 md:p-8 bg-[#FDFBF9] rounded-[32px] border border-[#F5F2F0] space-y-6">
                       <FormField label="Conduta / Plano de Tratamento" value={anamnesis.conduct || ''} onChange={v => setAnamnesis({...anamnesis, conduct: v})} textarea />
                       {procedures.length > 0 && (
                         <div>
