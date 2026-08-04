@@ -14,6 +14,7 @@ interface BudgetItem {
                             // diferencia de item adicionado manualmente, pra saber o que
                             // pode remover/atualizar sozinho sem mexer no que a pessoa
                             // digitou à mão
+  fromFaceMarking?: boolean; // marca item vindo do total calculado no mapa de aplicação
 }
 
 export default function BudgetGenerator({ patient, user, liveAnamnesis, availableProcedures }: {
@@ -63,6 +64,32 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
       return next;
     });
   }, [liveAnamnesis?.plannedProcedures, liveAnamnesis?.plannedSubstances, availableProcedures]);
+
+  // Sincroniza com o total calculado na última sessão salva do mapa de aplicação —
+  // quantos ml/UI de cada substância foram usados nos pontos marcados, já convertido em
+  // ampolas e custo. Só olha a sessão mais recente (a corrente); sessões antigas do
+  // histórico não entram aqui de novo.
+  useEffect(() => {
+    const sessions = patient.faceMarkings || [];
+    if (sessions.length === 0) return;
+    const latest = [...sessions].sort((a, b) => (a.date < b.date ? 1 : -1))[0];
+    const usage = latest.substanceUsage || [];
+    setItems(prev => {
+      const usageNames = usage.map(u => u.substanceName);
+      let next = prev.filter(it => !it.fromFaceMarking || usageNames.includes(it.description.split(' (Mapa')[0]));
+      const alreadyPresent = new Set(next.filter(it => it.fromFaceMarking).map(it => it.description.split(' (Mapa')[0]));
+      usage.forEach(u => {
+        if (alreadyPresent.has(u.substanceName)) return;
+        next.push({
+          description: `${u.substanceName} (Mapa: ${u.totalMl.toFixed(2).replace('.', ',')} ml/UI${u.ampoulesNeeded ? `, ${u.ampoulesNeeded} amp.` : ''})`,
+          value: u.totalCost.toFixed(2).replace('.', ','),
+          fromFaceMarking: true,
+        });
+      });
+      if (next.length > 1) next = next.filter(it => it.fromFaceMarking || it.fromAnamnesis || it.description.trim() || it.value.trim());
+      return next;
+    });
+  }, [patient.faceMarkings]);
 
   const addItem = () => setItems(prev => [...prev, { description: '', value: '' }]);
   const addFromCatalog = (item: { name: string; price: number }) => {
@@ -202,11 +229,16 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
                 value={item.description}
                 onChange={e => updateItem(idx, 'description', e.target.value)}
                 placeholder="Ex: Toxina Botulínica — Terço Superior"
-                className={`w-full bg-[#FDFBF9] border rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all font-light text-sm ${item.fromAnamnesis ? 'border-[#8BA888]/40 pr-28' : 'border-[#F5F2F0]'}`}
+                className={`w-full bg-[#FDFBF9] border rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all font-light text-sm ${(item.fromAnamnesis || item.fromFaceMarking) ? 'border-[#8BA888]/40 pr-28' : 'border-[#F5F2F0]'}`}
               />
               {item.fromAnamnesis && (
                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[9px] font-bold text-[#8BA888] uppercase tracking-widest bg-[#F0F7F0] px-2 py-1 rounded-lg">
                   Da anamnese
+                </span>
+              )}
+              {item.fromFaceMarking && (
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[9px] font-bold text-[#5B8DEF] uppercase tracking-widest bg-[#EEF3FD] px-2 py-1 rounded-lg">
+                  Do Mapa
                 </span>
               )}
             </div>

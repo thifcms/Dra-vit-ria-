@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { doc, updateDoc, collection, query, where, onSnapshot, addDoc, increment } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, collection, query, where, onSnapshot, addDoc, increment } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { Patient, FaceMarkingSession, FaceMarkingPoint, InventoryItem } from '../types';
+import { getClinicOwnerId } from '../lib/slots';
+import { Patient, FaceMarkingSession, FaceMarkingPoint, InventoryItem, SubstanceUsageSummary } from '../types';
 import { User } from 'firebase/auth';
-import { Plus, X, Trash2, Calendar, Package } from 'lucide-react';
+import { Plus, X, Trash2, Calendar, Package, DollarSign } from 'lucide-react';
 import GenericFaceDiagram from './GenericFaceDiagram';
 import { showToast } from '../lib/toast';
 
@@ -21,6 +22,7 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
   const [activeColor, setActiveColor] = useState(MARK_COLORS[0].color);
   const [selectedPointIdx, setSelectedPointIdx] = useState<number | null>(null);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+  const [substances, setSubstances] = useState<{ id: string; name: string; unit: string; pricePerUnit: number; ampouleSize?: number }[]>([]);
 
   useEffect(() => {
     const unsub = onSnapshot(
@@ -28,6 +30,12 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
       snap => setInventoryItems(snap.docs.map(d => ({ id: d.id, ...d.data() } as InventoryItem)))
     );
     return unsub;
+  }, [user.uid]);
+
+  useEffect(() => {
+    getClinicOwnerId(db).then(ownerId => getDoc(doc(db, 'settings', ownerId))).then(snap => {
+      if (snap.exists()) setSubstances(snap.data().substances || []);
+    }).catch(() => {});
   }, [user.uid]);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
@@ -72,6 +80,45 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
     } : p)));
   };
 
+  const updatePointSubstance = (idx: number, substanceId: string | undefined, substanceName: string | undefined, ml: number) => {
+    setPoints(prev => prev.map((p, i) => (i === idx ? {
+      ...p,
+      substanceId: substanceId || undefined,
+      substanceName: substanceId ? substanceName : undefined,
+      substanceMlPerPoint: substanceId ? ml : undefined,
+    } : p)));
+  };
+
+  // Soma quanto de cada substância foi usado em todos os pontos marcados até agora —
+  // atualiza sozinho conforme os pontos vão sendo criados/editados, sem precisar salvar
+  // nada antes de ver o total.
+  const substanceUsage: SubstanceUsageSummary[] = (() => {
+    const totals: Record<string, number> = {};
+    points.forEach(p => {
+      if (p.substanceId && p.substanceMlPerPoint) {
+        totals[p.substanceId] = (totals[p.substanceId] || 0) + p.substanceMlPerPoint;
+      }
+    });
+    return Object.entries(totals).map(([substanceId, totalMl]) => {
+      const sub = substances.find(s => s.id === substanceId);
+      const ampoulesNeeded = sub?.ampouleSize ? Math.ceil(totalMl / sub.ampouleSize) : undefined;
+      const unitCost = sub?.pricePerUnit || 0;
+      // Se a substância tem ampola cadastrada, o custo é por ampola inteira aberta
+      // (arredondado pra cima) — é isso que realmente é gasto, mesmo que sobre produto.
+      // Sem ampola cadastrada, cobra pelo total de ml/UI usado mesmo.
+      const totalCost = ampoulesNeeded && sub?.ampouleSize ? ampoulesNeeded * sub.ampouleSize * unitCost : totalMl * unitCost;
+      return {
+        substanceId,
+        substanceName: sub?.name || 'Substância removida',
+        totalMl,
+        ampouleSize: sub?.ampouleSize,
+        ampoulesNeeded,
+        unitCost,
+        totalCost,
+      };
+    });
+  })();
+
   const removePoint = (idx: number) => {
     setPoints(prev => prev.filter((_, i) => i !== idx));
     setSelectedPointIdx(null);
@@ -87,6 +134,7 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
         sex: patient.sex!,
         notes: notes || undefined,
         points,
+        substanceUsage: substanceUsage.length > 0 ? substanceUsage : undefined,
       };
       const next = [...(patient.faceMarkings || []), session];
       await updateDoc(doc(db, 'patients', patient.id!), { faceMarkings: next });
@@ -277,9 +325,54 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
                         )}
                       </div>
                     )}
+                    {substances.length > 0 && (
+                      <div className="flex items-center gap-1.5 pl-8 mt-1.5">
+                        <DollarSign size={12} className="text-[#9CA3AF] shrink-0" />
+                        <select
+                          value={p.substanceId || ''}
+                          onChange={e => {
+                            const sub = substances.find(s => s.id === e.target.value);
+                            updatePointSubstance(i, sub?.id, sub?.name, p.substanceMlPerPoint || 0.1);
+                          }}
+                          className="flex-1 text-[10px] bg-white border border-[#F5F2F0] rounded-lg px-2 py-1 outline-none text-[#4A433D]"
+                        >
+                          <option value="">Sem substância pro orçamento</option>
+                          {substances.map(sub => (
+                            <option key={sub.id} value={sub.id}>{sub.name}</option>
+                          ))}
+                        </select>
+                        {p.substanceId && (
+                          <input
+                            type="number"
+                            min={0}
+                            step="0.1"
+                            value={p.substanceMlPerPoint ?? 0.1}
+                            onChange={e => updatePointSubstance(i, p.substanceId, p.substanceName, parseFloat(e.target.value) || 0)}
+                            className="w-14 text-[10px] bg-white border border-[#F5F2F0] rounded-lg px-2 py-1 outline-none text-[#4A433D]"
+                          />
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
+
+              {substanceUsage.length > 0 && (
+                <div className="mb-4 p-4 bg-[#F0F7F0] rounded-2xl border border-[#E5EFE5] space-y-2">
+                  <p className="text-[10px] font-bold text-[#8BA888] uppercase tracking-widest mb-1">Total do Planejamento</p>
+                  {substanceUsage.map(u => (
+                    <div key={u.substanceId} className="flex items-center justify-between text-xs">
+                      <span className="text-[#4A433D] font-medium">{u.substanceName}</span>
+                      <span className="text-[#4A433D]">
+                        {u.totalMl.toFixed(2).replace('.', ',')} ml/UI
+                        {u.ampoulesNeeded ? ` · ${u.ampoulesNeeded} ampola(s)` : ''}
+                        {' · '}
+                        <strong>R$ {u.totalCost.toFixed(2).replace('.', ',')}</strong>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               <textarea
                 value={notes}

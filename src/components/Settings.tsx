@@ -64,7 +64,7 @@ export default function Settings({ user }: { user: User }) {
   const [isAddingTemplate, setIsAddingTemplate] = useState(false);
   const [newProcedureName, setNewProcedureName] = useState('');
   const [newProcedurePrice, setNewProcedurePrice] = useState('');
-  const [newSubstance, setNewSubstance] = useState<{ name: string; unit: 'ml' | 'unidade'; pricePerUnit: string; procedureIds: string[] }>({ name: '', unit: 'ml', pricePerUnit: '', procedureIds: [] });
+  const [newSubstance, setNewSubstance] = useState<{ name: string; unit: 'ml' | 'unidade'; pricePerUnit: string; ampouleSize: string; procedureIds: string[] }>({ name: '', unit: 'ml', pricePerUnit: '', ampouleSize: '', procedureIds: [] });
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -151,7 +151,7 @@ export default function Settings({ user }: { user: User }) {
     showToast('Procedimento removido');
   };
 
-  const handleAddSubstance = (item: { name: string; unit: 'ml' | 'unidade'; pricePerUnit: number; procedureIds: string[] }) => {
+  const handleAddSubstance = (item: { name: string; unit: 'ml' | 'unidade'; pricePerUnit: number; ampouleSize?: number; procedureIds: string[] }) => {
     const next = [...(settings.substances || []), { ...item, id: crypto.randomUUID() }];
     persist({ ...settings, substances: next });
     showToast('Substância adicionada');
@@ -627,6 +627,13 @@ export default function Settings({ user }: { user: User }) {
                   inputMode="decimal"
                   className="bg-white border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
                 />
+                <input
+                  value={newSubstance.ampouleSize}
+                  onChange={e => setNewSubstance({ ...newSubstance, ampouleSize: e.target.value })}
+                  placeholder="Quantos ml/UI tem a ampola? (opcional)"
+                  inputMode="decimal"
+                  className="bg-white border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
+                />
               </div>
               <div>
                 <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Vincular a quais procedimentos</p>
@@ -661,8 +668,9 @@ export default function Settings({ user }: { user: User }) {
                     showToast('Vincule a substância a ao menos um procedimento', 'error');
                     return;
                   }
-                  handleAddSubstance({ name: newSubstance.name.trim(), unit: newSubstance.unit, pricePerUnit: price, procedureIds: newSubstance.procedureIds });
-                  setNewSubstance({ name: '', unit: 'ml', pricePerUnit: '', procedureIds: [] });
+                  const ampouleSize = newSubstance.ampouleSize ? parseFloat(newSubstance.ampouleSize.replace(',', '.')) : undefined;
+                  handleAddSubstance({ name: newSubstance.name.trim(), unit: newSubstance.unit, pricePerUnit: price, ampouleSize: ampouleSize && ampouleSize > 0 ? ampouleSize : undefined, procedureIds: newSubstance.procedureIds });
+                  setNewSubstance({ name: '', unit: 'ml', pricePerUnit: '', ampouleSize: '', procedureIds: [] });
                 }}
                 className="w-full bg-[#EADFD4] text-white rounded-2xl px-6 py-4 text-[10px] font-bold uppercase tracking-widest hover:bg-[#DFCFBF] transition-all flex items-center justify-center gap-2"
               >
@@ -677,6 +685,7 @@ export default function Settings({ user }: { user: User }) {
                     <p className="text-sm text-[#4A433D] font-medium">{sub.name}</p>
                     <p className="text-[10px] text-[#9CA3AF] uppercase tracking-widest">
                       R$ {sub.pricePerUnit.toFixed(2).replace('.', ',')} por {sub.unit}
+                      {sub.ampouleSize ? ` · ampola com ${sub.ampouleSize} ${sub.unit}` : ''}
                       {' · '}
                       {sub.procedureIds.map(pid => (settings.procedures || []).find(p => p.id === pid)?.name).filter(Boolean).join(', ') || 'sem vínculo'}
                     </p>

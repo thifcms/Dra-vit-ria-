@@ -329,6 +329,11 @@ export interface ClinicSettings {
     unit: 'ml' | 'unidade';
     pricePerUnit: number;
     procedureIds: string[]; // a quais procedimentos essa substância pode ser aplicada
+    // Quantos ml/UI vêm em 1 ampola/frasco — usado pra calcular quantas ampolas de
+    // verdade serão abertas no paciente, a partir da soma do que foi marcado ponto a
+    // ponto no mapa de aplicação (arredondado pra cima, já que não dá pra abrir "meia
+    // ampola")
+    ampouleSize?: number;
   }[];
 }
 
@@ -382,6 +387,24 @@ export interface FaceMarkingPoint {
   inventoryItemId?: string; // se preenchido, dar baixa automática no estoque ao salvar
   inventoryItemName?: string; // guardado junto pra manter o histórico legível mesmo se o item for renomeado/excluído depois
   inventoryQuantity?: number;
+  // Vínculo com o catálogo de Substâncias (Configurações) — diferente do estoque acima,
+  // esse é usado pra calcular o custo/orçamento, não pra dar baixa física
+  substanceId?: string;
+  substanceName?: string;
+  substanceMlPerPoint?: number;
+}
+
+// Resumo de quanto de cada substância foi usado numa sessão de marcação inteira — soma
+// de todos os pontos, já convertido em número de ampolas/frascos necessários e custo
+// total, pronto pra levar direto ao Orçamento.
+export interface SubstanceUsageSummary {
+  substanceId: string;
+  substanceName: string;
+  totalMl: number;
+  ampouleSize?: number;
+  ampoulesNeeded?: number; // undefined se a substância não tem ampouleSize cadastrado
+  unitCost: number; // preço por ml/UI, capturado no momento (não muda se o preço mudar depois)
+  totalCost: number;
 }
 
 // Uma "sessão" de marcação salva no histórico do paciente — guarda o sexo usado no
@@ -392,6 +415,8 @@ export interface FaceMarkingSession {
   sex: 'F' | 'M' | 'N';
   notes?: string;
   points: FaceMarkingPoint[];
+  substanceUsage?: SubstanceUsageSummary[];
+  addedToBudget?: boolean; // evita duplicar no orçamento se a sessão for reaberta
 }
 
 // Senha do painel de administração — uma por administrador (documento admin_security/{uid})
