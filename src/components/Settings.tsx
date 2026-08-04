@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc, deleteDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { ClinicSettings, ConsentTemplate } from '../types';
-import { APP_VERSION, APP_VERSION_NOTE } from '../version';
+import { APP_VERSION } from '../version';
 import { User, EmailAuthProvider, reauthenticateWithCredential, updatePassword } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -505,6 +505,47 @@ export default function Settings({ user }: { user: User }) {
             )}
           </section>
         )}
+
+        <div className="bg-[#4A433D] text-white rounded-[40px] p-10 shadow-xl relative overflow-hidden">
+          <div className="relative z-10">
+            <div className="flex items-center gap-3 mb-8">
+              <Shield size={20} className="text-[#EADFD4]" />
+              <h3 className="text-lg font-light serif">Segurança</h3>
+            </div>
+            
+            <div className="space-y-4">
+              <ToggleButton 
+                active={settings.biometricEnabled} 
+                onClick={handleToggleSecurityPin}
+                label="PIN de Segurança"
+                icon={<Fingerprint size={18} />}
+              />
+              <button
+                onClick={() => { setPinDraft(''); setPinConfirm(''); setShowPinModal(true); }}
+                className="w-full flex items-center gap-3 px-6 py-4 bg-white/10 rounded-2xl text-white text-xs font-semibold hover:bg-white/15 transition-all"
+              >
+                <Fingerprint size={16} className="text-[#EADFD4]" />
+                {settings.pinHash ? 'Alterar PIN' : 'Definir PIN'}
+              </button>
+              <ToggleButton 
+                active={settings.cloudBackupEnabled} 
+                onClick={toggleCloudBackup}
+                label="Backup em Nuvem"
+                icon={<Cloud size={18} />}
+              />
+              {webauthnSupported && (
+                <button
+                  onClick={handleToggleBiometric}
+                  className="w-full flex items-center gap-3 px-6 py-4 bg-white/10 rounded-2xl text-white text-xs font-semibold hover:bg-white/15 transition-all"
+                >
+                  <Fingerprint size={16} className="text-[#EADFD4]" />
+                  {settings.webauthnCredentialId ? 'Desativar Biometria' : 'Ativar Biometria (Face ID / Digital)'}
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="absolute right-0 bottom-0 w-32 h-32 bg-white/5 rounded-full translate-x-1/2 translate-y-1/2" />
+        </div>
       </div>
       )}
 
@@ -594,47 +635,6 @@ export default function Settings({ user }: { user: User }) {
 
         {/* Sidebar Actions */}
         <div className="space-y-6">
-          <div className="bg-[#4A433D] text-white rounded-[40px] p-10 shadow-xl relative overflow-hidden">
-            <div className="relative z-10">
-              <div className="flex items-center gap-3 mb-8">
-                <Shield size={20} className="text-[#EADFD4]" />
-                <h3 className="text-lg font-light serif">Segurança</h3>
-              </div>
-              
-              <div className="space-y-4">
-                <ToggleButton 
-                  active={settings.biometricEnabled} 
-                  onClick={handleToggleSecurityPin}
-                  label="PIN de Segurança"
-                  icon={<Fingerprint size={18} />}
-                />
-                <button
-                  onClick={() => { setPinDraft(''); setPinConfirm(''); setShowPinModal(true); }}
-                  className="w-full flex items-center gap-3 px-6 py-4 bg-white/10 rounded-2xl text-white text-xs font-semibold hover:bg-white/15 transition-all"
-                >
-                  <Fingerprint size={16} className="text-[#EADFD4]" />
-                  {settings.pinHash ? 'Alterar PIN' : 'Definir PIN'}
-                </button>
-                <ToggleButton 
-                  active={settings.cloudBackupEnabled} 
-                  onClick={toggleCloudBackup}
-                  label="Backup em Nuvem"
-                  icon={<Cloud size={18} />}
-                />
-                {webauthnSupported && (
-                  <button
-                    onClick={handleToggleBiometric}
-                    className="w-full flex items-center gap-3 px-6 py-4 bg-white/10 rounded-2xl text-white text-xs font-semibold hover:bg-white/15 transition-all"
-                  >
-                    <Fingerprint size={16} className="text-[#EADFD4]" />
-                    {settings.webauthnCredentialId ? 'Desativar Biometria' : 'Ativar Biometria (Face ID / Digital)'}
-                  </button>
-                )}
-              </div>
-            </div>
-            <div className="absolute right-0 bottom-0 w-32 h-32 bg-white/5 rounded-full translate-x-1/2 translate-y-1/2" />
-          </div>
-
           <button 
             onClick={handleFullBackup}
             disabled={backingUp}
@@ -924,7 +924,6 @@ export default function Settings({ user }: { user: User }) {
 
       <p className="text-center text-[10px] text-[#D6C7B8] font-light pt-8 pb-4">
         Versão {APP_VERSION}
-        {APP_VERSION_NOTE && <span className="block mt-1 text-[9px]">{APP_VERSION_NOTE}</span>}
       </p>
     </div>
   );
