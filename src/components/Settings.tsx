@@ -624,14 +624,18 @@ export default function Settings({ user }: { user: User }) {
 
         {/* Sidebar Actions */}
         <div className="space-y-6">
-          <div className="bg-[#4A433D] rounded-[28px] p-4 shadow-sm">
-            <ToggleButton 
-              active={settings.cloudBackupEnabled} 
-              onClick={toggleCloudBackup}
-              label="Backup em Nuvem"
-              icon={<Cloud size={18} />}
-            />
-          </div>
+          <button
+            onClick={toggleCloudBackup}
+            className="w-full py-5 bg-white border border-[#F5F2F0] rounded-[28px] font-medium flex items-center justify-between px-8 hover:border-[#EADFD4] transition-all shadow-sm active:scale-[0.98]"
+          >
+            <span className="flex items-center gap-3 text-[#4A433D]">
+              <Cloud size={20} />
+              Backup em Nuvem
+            </span>
+            <div className={`w-11 h-6 rounded-full relative transition-colors ${settings.cloudBackupEnabled ? 'bg-[#8BA888]' : 'bg-[#F0EAE3]'}`}>
+              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-sm transition-all ${settings.cloudBackupEnabled ? 'right-1' : 'left-1'}`} />
+            </div>
+          </button>
 
           <button 
             onClick={handleFullBackup}
