@@ -7,30 +7,27 @@ import './index.css';
 import { registerSW } from 'virtual:pwa-register';
 import { LATEST_UPDATE_NOTE } from './changelog';
 
-// Registra o service worker manualmente pra poder controlar exatamente o que acontece
-// quando sai uma versão nova: em vez de pedir pra clicar em "Atualizar", aplica sozinho
-// e recarrega — resolve de vez a confusão de ficar preso numa versão antiga em cache.
+// Registra o service worker manualmente pra poder controlar exatamente quando a
+// atualização é aplicada: detecta em segundo plano o tempo todo, mas só recarrega de
+// verdade quando a pessoa reabre o app (troca de aba, volta do segundo plano) — nunca no
+// meio do uso ativo, pra não arriscar perder algo que não foi salvo ainda (uma anamnese
+// sendo preenchida, por exemplo).
+let pendingUpdate: (() => void) | null = null;
+const appOpenedAt = Date.now();
+
 const updateSW = registerSW({
   immediate: true,
   onNeedRefresh() {
-    // Avisa rapidamente que está atualizando (pra não parecer que a tela travou do nada)
-    // e já aplica a atualização sozinho, sem esperar clique
-    const container = document.createElement('div');
-    container.style.cssText = `
-      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-      background: #4A433D; color: white; padding: 14px 22px; border-radius: 20px;
-      font-family: -apple-system, sans-serif; font-size: 13px; z-index: 99999;
-      display: flex; align-items: center; gap: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.25);
-    `;
-    container.innerHTML = `<span>Atualizando o app...</span>`;
-    document.body.appendChild(container);
-    // Marca que uma atualização está em andamento — o app confere isso assim que carrega
-    // de novo (depois do reload que updateSW(true) provoca) e mostra a confirmação visual
-    // de "app atualizado" com o resumo do que mudou, já que sem isso não sobra nenhum
-    // sinal de que a atualização realmente aconteceu (o reload troca a página inteira,
-    // incluindo esse aviso).
     localStorage.setItem('appJustUpdated', LATEST_UPDATE_NOTE);
-    updateSW(true);
+    const apply = () => updateSW(true);
+    // Detectado nos primeiros segundos = é a própria abertura do app agora, aplica na
+    // hora. Detectado depois disso = pessoa já está usando o app, guarda e só aplica na
+    // próxima vez que reabrir (ou se a aba já estiver em segundo plano nesse instante).
+    if (Date.now() - appOpenedAt < 5000 || document.visibilityState === 'hidden') {
+      apply();
+    } else {
+      pendingUpdate = apply;
+    }
   },
   onRegisteredSW(swUrl, registration) {
     if (!registration) return;
@@ -42,12 +39,17 @@ const updateSW = registerSW({
       registration.update().catch(() => {});
     }, 60 * 1000);
 
-    // Também confere assim que o app volta a ficar visível (troca de aba, volta do
-    // background) — cobre o caso comum de celular: usuário sai do app, volta depois,
-    // encontra a versão mais nova na hora, sem esperar o próximo ciclo de 60s.
+    // Ponto-chave: ao voltar a ficar visível (reabrir o app), primeiro aplica qualquer
+    // atualização que já estava esperando, e também aproveita pra checar se apareceu uma
+    // nova desde a última vez
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
-        registration.update().catch(() => {});
+        if (pendingUpdate) {
+          pendingUpdate();
+          pendingUpdate = null;
+        } else {
+          registration.update().catch(() => {});
+        }
       }
     });
   },
