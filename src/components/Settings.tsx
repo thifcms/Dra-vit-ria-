@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc, deleteDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { ClinicSettings, ConsentTemplate } from '../types';
-import { User } from 'firebase/auth';
+import { User, EmailAuthProvider, reauthenticateWithCredential, updatePassword } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Building2, 
@@ -22,7 +22,8 @@ import {
   Clock,
   Lock,
   CreditCard,
-  Download
+  Download,
+  KeyRound
 } from 'lucide-react';
 import { showToast } from '../lib/toast';
 import { hashPin, isValidPinFormat } from '../lib/pin';
@@ -35,6 +36,42 @@ import PatientBackup from './PatientBackup';
 export default function Settings({ user }: { user: User }) {
   const [isAdminUser, setIsAdminUser] = useState<boolean | null>(null);
   const [settingsTab, setSettingsTab] = useState<'perfil' | 'gestao'>('perfil');
+  const [changingLoginPassword, setChangingLoginPassword] = useState(false);
+  const [oldLoginPassword, setOldLoginPassword] = useState('');
+  const [newLoginPassword, setNewLoginPassword] = useState('');
+  const [confirmLoginPassword, setConfirmLoginPassword] = useState('');
+  const [savingLoginPassword, setSavingLoginPassword] = useState(false);
+  const isEmailPasswordUser = user.providerData.some(p => p.providerId === 'password');
+
+  const handleChangeLoginPassword = async () => {
+    if (newLoginPassword.length < 6) {
+      showToast('A nova senha precisa ter pelo menos 6 caracteres', 'error');
+      return;
+    }
+    if (newLoginPassword !== confirmLoginPassword) {
+      showToast('As senhas novas não coincidem', 'error');
+      return;
+    }
+    setSavingLoginPassword(true);
+    try {
+      const credential = EmailAuthProvider.credential(user.email!, oldLoginPassword);
+      await reauthenticateWithCredential(user, credential);
+      await updatePassword(user, newLoginPassword);
+      setOldLoginPassword('');
+      setNewLoginPassword('');
+      setConfirmLoginPassword('');
+      setChangingLoginPassword(false);
+      showToast('Senha de acesso alterada com sucesso');
+    } catch (err: any) {
+      if (err?.code === 'auth/wrong-password' || err?.code === 'auth/invalid-credential') {
+        showToast('Senha atual incorreta', 'error');
+      } else {
+        showToast('Erro ao trocar a senha. Tente novamente.', 'error');
+      }
+    }
+    setSavingLoginPassword(false);
+  };
+
   useEffect(() => {
     getDoc(doc(db, 'system', 'authorized_admins')).then(snap => {
       const emails: string[] = snap.exists() ? (snap.data().emails || []) : [];
@@ -350,6 +387,7 @@ export default function Settings({ user }: { user: User }) {
         </div>
       </div>
 
+      {isAdminUser && (
       <div className="flex gap-3">
         <button
           onClick={() => setSettingsTab('perfil')}
@@ -359,17 +397,16 @@ export default function Settings({ user }: { user: User }) {
         >
           Perfil
         </button>
-        {isAdminUser && (
-          <button
-            onClick={() => setSettingsTab('gestao')}
-            className={`px-6 py-3 rounded-2xl text-sm font-medium transition-all ${
-              settingsTab === 'gestao' ? 'bg-[#4A433D] text-white' : 'bg-white text-[#9CA3AF] border border-[#F5F2F0] hover:border-[#EADFD4]/40'
-            }`}
-          >
-            Gestão da Clínica
-          </button>
-        )}
+        <button
+          onClick={() => setSettingsTab('gestao')}
+          className={`px-6 py-3 rounded-2xl text-sm font-medium transition-all ${
+            settingsTab === 'gestao' ? 'bg-[#4A433D] text-white' : 'bg-white text-[#9CA3AF] border border-[#F5F2F0] hover:border-[#EADFD4]/40'
+          }`}
+        >
+          Gestão da Clínica
+        </button>
       </div>
+      )}
 
       {settingsTab === 'perfil' && (
       <div className="max-w-3xl space-y-8">
@@ -408,6 +445,65 @@ export default function Settings({ user }: { user: User }) {
         </button>
 
         <ProfessionalScheduleManager user={user} isAdminUser={!!isAdminUser} />
+
+        {isEmailPasswordUser && (
+          <section className="bg-white rounded-[40px] p-10 border border-[#F5F2F0] shadow-sm">
+            <div className="flex items-center gap-4 mb-8">
+              <div className="p-3 bg-[#FDFBF9] rounded-2xl text-[#9CA3AF]">
+                <KeyRound size={24} />
+              </div>
+              <h3 className="text-xl font-light text-[#4A433D] serif">Senha de Acesso</h3>
+            </div>
+
+            {!changingLoginPassword ? (
+              <button
+                onClick={() => setChangingLoginPassword(true)}
+                className="w-full py-4 border border-[#F5F2F0] text-[#5C544E] rounded-2xl font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:border-[#EADFD4]/40 transition-all"
+              >
+                <KeyRound size={16} /> Trocar Senha de Acesso
+              </button>
+            ) : (
+              <div className="space-y-3">
+                <input
+                  type="password"
+                  value={oldLoginPassword}
+                  onChange={e => setOldLoginPassword(e.target.value)}
+                  placeholder="Senha atual"
+                  className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
+                />
+                <input
+                  type="password"
+                  value={newLoginPassword}
+                  onChange={e => setNewLoginPassword(e.target.value)}
+                  placeholder="Nova senha"
+                  className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
+                />
+                <input
+                  type="password"
+                  value={confirmLoginPassword}
+                  onChange={e => setConfirmLoginPassword(e.target.value)}
+                  placeholder="Confirme a nova senha"
+                  className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
+                />
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => { setChangingLoginPassword(false); setOldLoginPassword(''); setNewLoginPassword(''); setConfirmLoginPassword(''); }}
+                    className="flex-1 py-3 text-[#9CA3AF] font-bold text-[10px] uppercase"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleChangeLoginPassword}
+                    disabled={savingLoginPassword}
+                    className="flex-1 py-3 bg-[#EADFD4] text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest hover:bg-[#DFCFBF] transition-all disabled:opacity-50"
+                  >
+                    {savingLoginPassword ? 'Salvando...' : 'Salvar Nova Senha'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
+        )}
       </div>
       )}
 
