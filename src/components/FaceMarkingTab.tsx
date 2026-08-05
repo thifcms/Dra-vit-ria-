@@ -23,18 +23,41 @@ const MARK_COLORS = [
 // o ponto; como é uma estimativa por posição, continua totalmente editável depois (o
 // menu suspenso continua lá pra corrigir se a estimativa não bater certinho).
 function guessRegionFromPosition(x: number, y: number): string {
-  // Faixas recalibradas olhando diretamente as imagens reais usadas no mapa
-  // (/diagrams/face-female.jpg e face-male.jpg) — as sobrancelhas ficam por volta de
-  // 37-43% da altura, os olhos por volta de 43-58%, a boca por volta de 70-85%, o queixo
-  // termina perto de 90-93%. As faixas anteriores estavam bem mais "apertadas" no topo
-  // do que a imagem de verdade, por terem sido feitas sem olhar a imagem ainda.
-  const lateral = x < 30 || x > 70; // fora da faixa central do rosto
-  if (y < 37) return 'Região Frontal';
-  if (y < 43) return lateral ? 'Região Temporal' : (x < 42 || x > 58 ? 'Região Supraorbital' : 'Glabela');
-  if (y < 58) return lateral ? 'Região Temporal' : 'Região Orbital';
-  if (y < 70) return lateral ? 'Região Zigomática' : 'Região Nasal';
-  if (y < 85) return lateral ? 'Região Geniana (bochecha)' : 'Região Oral';
-  if (y < 93) return lateral ? 'Região Submandibular' : 'Região Mentual';
+  // Medido direto na imagem real com uma grade de porcentagem sobreposta (não mais só
+  // "olhando por cima"): sobrancelhas ~35-40%, olhos (pupila) ~45-48% de altura e
+  // ~33%/67% de largura, base do nariz ~62-65%, boca ~73-80%, queixo termina ~88-90%.
+  // O limiar de "lateral" muda por faixa de altura porque o rosto não é um retângulo —
+  // é mais estreito na testa/queixo e mais largo na altura da maçã do rosto; um único
+  // valor fixo pra tudo errava nas bordas dessas faixas.
+  if (y < 34) return 'Região Frontal';
+  if (y < 42) {
+    const lateral = x < 22 || x > 78;
+    if (lateral) return 'Região Temporal';
+    if (x >= 44 && x <= 56) return 'Glabela';
+    return 'Região Supraorbital';
+  }
+  if (y < 58) {
+    const lateral = x < 22 || x > 78;
+    if (lateral) return 'Região Temporal';
+    // O nariz é uma faixa estreita e vertical que já começa nessa altura (entre os
+    // olhos, descendo) — sem isso, um ponto no dorso do nariz caía como "Orbital" só
+    // por ainda estar na mesma faixa de altura dos olhos
+    if (x >= 46 && x <= 54) return 'Região Nasal';
+    return 'Região Orbital';
+  }
+  if (y < 70) {
+    const lateral = x < 20 || x > 80;
+    return lateral ? 'Região Zigomática' : 'Região Nasal';
+  }
+  if (y < 84) {
+    const lateral = x < 26 || x > 74;
+    return lateral ? 'Região Geniana (bochecha)' : 'Região Oral';
+  }
+  if (y < 91) {
+    const lateral = x < 30 || x > 70;
+    return lateral ? 'Região Submandibular' : 'Região Mentual';
+  }
+  const lateral = x < 34 || x > 66;
   return lateral ? 'Região Submandibular' : 'Região Anterior do Pescoço';
 }
 
