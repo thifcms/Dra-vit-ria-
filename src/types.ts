@@ -398,12 +398,11 @@ export interface ClinicSettings {
     id: string;
     name: string;
     unit: 'ml' | 'unidade';
-    pricePerUnit: number;
     procedureIds: string[]; // a quais procedimentos essa substância pode ser aplicada
-    // Quantos ml/UI vêm em 1 ampola/frasco — usado pra calcular quantas ampolas de
-    // verdade serão abertas no paciente, a partir da soma do que foi marcado ponto a
-    // ponto no mapa de aplicação (arredondado pra cima, já que não dá pra abrir "meia
-    // ampola")
+    // pricePerUnit/ampouleSize removidos — o valor é sempre do procedimento agora, a
+    // substância não entra no cálculo do orçamento. Mantidos como opcionais só pra não
+    // quebrar leitura de dados antigos que ainda tenham esses campos gravados.
+    pricePerUnit?: number;
     ampouleSize?: number;
   }[];
 }
@@ -466,16 +465,13 @@ export interface FaceMarkingPoint {
 }
 
 // Resumo de quanto de cada substância foi usado numa sessão de marcação inteira — soma
-// de todos os pontos, já convertido em número de ampolas/frascos necessários e custo
-// total, pronto pra levar direto ao Orçamento.
+// Soma de quanto de cada substância foi usado numa sessão de marcação inteira — só
+// informativo (quanto produto foi gasto), não entra no cálculo do orçamento, que sempre
+// vem do valor do procedimento.
 export interface SubstanceUsageSummary {
   substanceId: string;
   substanceName: string;
   totalMl: number;
-  ampouleSize?: number;
-  ampoulesNeeded?: number; // undefined se a substância não tem ampouleSize cadastrado
-  unitCost: number; // preço por ml/UI, capturado no momento (não muda se o preço mudar depois)
-  totalCost: number;
 }
 
 // Uma "sessão" de marcação salva no histórico do paciente — guarda o sexo usado no
@@ -487,7 +483,6 @@ export interface FaceMarkingSession {
   notes?: string;
   points: FaceMarkingPoint[];
   substanceUsage?: SubstanceUsageSummary[];
-  addedToBudget?: boolean; // evita duplicar no orçamento se a sessão for reaberta
 }
 
 // Senha do painel de administração — uma por administrador (documento admin_security/{uid})

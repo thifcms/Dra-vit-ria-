@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { doc, getDoc, updateDoc, collection, query, where, onSnapshot, addDoc, increment } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { getClinicOwnerId } from '../lib/slots';
-import { Patient, FaceMarkingSession, FaceMarkingPoint, InventoryItem, SubstanceUsageSummary } from '../types';
+import { Patient, FaceMarkingSession, FaceMarkingPoint, InventoryItem } from '../types';
 import { User } from 'firebase/auth';
 import { Plus, X, Trash2, Calendar, Package, DollarSign } from 'lucide-react';
 import GenericFaceDiagram from './GenericFaceDiagram';
@@ -44,7 +44,7 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
   const [activeColor, setActiveColor] = useState(MARK_COLORS[0].color);
   const [selectedPointIdx, setSelectedPointIdx] = useState<number | null>(null);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
-  const [substances, setSubstances] = useState<{ id: string; name: string; unit: string; pricePerUnit: number; ampouleSize?: number }[]>([]);
+  const [substances, setSubstances] = useState<{ id: string; name: string; unit: string }[]>([]);
 
   useEffect(() => {
     const unsub = onSnapshot(
@@ -112,9 +112,10 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
   };
 
   // Soma quanto de cada substância foi usado em todos os pontos marcados até agora —
-  // atualiza sozinho conforme os pontos vão sendo criados/editados, sem precisar salvar
-  // nada antes de ver o total.
-  const substanceUsage: SubstanceUsageSummary[] = (() => {
+  // atualiza sozinho conforme os pontos vão sendo criados/editados. É só informativo
+  // (quanto produto vai ser gasto no total), não entra no cálculo do orçamento — o valor
+  // sempre vem do procedimento marcado na anamnese, nunca da substância.
+  const substanceUsage: { substanceId: string; substanceName: string; totalMl: number }[] = (() => {
     const totals: Record<string, number> = {};
     points.forEach(p => {
       if (p.substanceId && p.substanceMlPerPoint) {
@@ -123,20 +124,10 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
     });
     return Object.entries(totals).map(([substanceId, totalMl]) => {
       const sub = substances.find(s => s.id === substanceId);
-      const ampoulesNeeded = sub?.ampouleSize ? Math.ceil(totalMl / sub.ampouleSize) : undefined;
-      const unitCost = sub?.pricePerUnit || 0;
-      // Se a substância tem ampola cadastrada, o custo é por ampola inteira aberta
-      // (arredondado pra cima) — é isso que realmente é gasto, mesmo que sobre produto.
-      // Sem ampola cadastrada, cobra pelo total de ml/UI usado mesmo.
-      const totalCost = ampoulesNeeded && sub?.ampouleSize ? ampoulesNeeded * sub.ampouleSize * unitCost : totalMl * unitCost;
       return {
         substanceId,
         substanceName: sub?.name || 'Substância removida',
         totalMl,
-        ampouleSize: sub?.ampouleSize,
-        ampoulesNeeded,
-        unitCost,
-        totalCost,
       };
     });
   })();
@@ -361,12 +352,7 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
                   {substanceUsage.map(u => (
                     <div key={u.substanceId} className="flex items-center justify-between text-xs">
                       <span className="text-[#4A433D] font-medium">{u.substanceName}</span>
-                      <span className="text-[#4A433D]">
-                        {u.totalMl.toFixed(2).replace('.', ',')} ml/UI
-                        {u.ampoulesNeeded ? ` · ${u.ampoulesNeeded} ampola(s)` : ''}
-                        {' · '}
-                        <strong>R$ {u.totalCost.toFixed(2).replace('.', ',')}</strong>
-                      </span>
+                      <span className="text-[#4A433D]">{u.totalMl.toFixed(2).replace('.', ',')} ml/UI</span>
                     </div>
                   ))}
                 </div>
