@@ -17,6 +17,22 @@ const MARK_COLORS = [
 
 // Nomenclatura anatômica padrão das regiões da face, usada como sugestão ao rotular
 // cada ponto marcado — mesmos nomes/grafia de referências de harmonização facial.
+// Estima o nome da região anatômica a partir de onde a pessoa tocou no rosto (x/y em
+// porcentagem da imagem) — usa proporções aproximadas de um rosto de frente, baseadas na
+// mesma referência anatômica usada no menu suspenso. Preenche o rótulo sozinho ao marcar
+// o ponto; como é uma estimativa por posição, continua totalmente editável depois (o
+// menu suspenso continua lá pra corrigir se a estimativa não bater certinho).
+function guessRegionFromPosition(x: number, y: number): string {
+  const lateral = x < 32 || x > 68; // fora da faixa central do rosto
+  if (y < 18) return 'Região Frontal';
+  if (y < 26) return lateral ? 'Região Temporal' : (x < 44 || x > 56 ? 'Região Supraorbital' : 'Glabela');
+  if (y < 40) return lateral ? 'Região Temporal' : 'Região Orbital';
+  if (y < 52) return lateral ? 'Região Zigomática' : 'Região Nasal';
+  if (y < 65) return lateral ? 'Região Geniana (bochecha)' : 'Região Oral';
+  if (y < 80) return 'Região Mentual';
+  return lateral ? 'Região Submandibular' : 'Região Anterior do Pescoço';
+}
+
 const FACIAL_REGIONS = [
   'Glabela',
   'Região Frontal',
@@ -85,7 +101,7 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
     const rect = svg.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
-    setPoints(prev => [...prev, { x, y, label: '', color: activeColor }]);
+    setPoints(prev => [...prev, { x, y, label: guessRegionFromPosition(x, y), color: activeColor }]);
     setSelectedPointIdx(points.length);
   };
 
@@ -304,7 +320,7 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
                       <input
                         value={p.label}
                         onChange={e => updatePointLabel(i, e.target.value)}
-                        placeholder="Ex: 4U (toque a região abaixo)"
+                        placeholder="Ex: 4U"
                         className="flex-1 text-xs bg-transparent outline-none text-[#4A433D]"
                       />
                       <button onClick={() => removePoint(i)} className="text-[#9CA3AF] hover:text-red-400 shrink-0">
@@ -316,12 +332,11 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
                         value=""
                         onChange={e => {
                           if (!e.target.value) return;
-                          const current = p.label.trim();
-                          updatePointLabel(i, current ? `${current}, ${e.target.value}` : e.target.value);
+                          updatePointLabel(i, e.target.value);
                         }}
                         className="w-full text-[10px] bg-white border border-[#F5F2F0] rounded-lg px-2 py-1.5 outline-none text-[#9CA3AF]"
                       >
-                        <option value="">+ Adicionar nome da região...</option>
+                        <option value="">Corrigir região marcada automaticamente...</option>
                         {FACIAL_REGIONS.map(r => (
                           <option key={r} value={r}>{r}</option>
                         ))}
