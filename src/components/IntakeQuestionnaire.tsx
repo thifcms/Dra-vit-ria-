@@ -197,8 +197,8 @@ export default function IntakeQuestionnaire({ appointmentId, patientId, patientN
       setErrorMsg('Confirme que as informações fornecidas são verdadeiras.');
       return;
     }
-    if (!photoConsent || !imageDisclosureConsent) {
-      setErrorMsg('As duas autorizações são obrigatórias para prosseguir.');
+    if (!photoConsent) {
+      setErrorMsg('A autorização de documentação fotográfica é obrigatória para prosseguir.');
       return;
     }
     if (!sigPad.current || sigPad.current.isEmpty()) {
@@ -394,7 +394,10 @@ export default function IntakeQuestionnaire({ appointmentId, patientId, patientN
           </label>
           <label className="flex items-start gap-3 cursor-pointer">
             <input type="checkbox" checked={imageDisclosureConsent} onChange={e => setImageDisclosureConsent(e.target.checked)} className="mt-1 accent-[#8BA888] w-4 h-4 shrink-0" />
-            <p className="text-xs text-[#4A433D] leading-relaxed">{IMAGE_DISCLOSURE_TEXT}</p>
+            <p className="text-xs text-[#4A433D] leading-relaxed">
+              <span className="text-[9px] font-bold text-[#9CA3AF] uppercase tracking-widest block mb-1">Opcional</span>
+              {IMAGE_DISCLOSURE_TEXT}
+            </p>
           </label>
         </div>
 

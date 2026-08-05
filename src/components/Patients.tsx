@@ -2409,13 +2409,16 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
               signedAt: s.submittedAt,
               signatureUrl: s.signatureUrl,
             },
-            {
+            // A divulgação de imagens é opcional na ficha — só entra aqui como termo
+            // assinado se o paciente realmente marcou essa caixa. Gravar sempre, mesmo
+            // desmarcada, faria o prontuário mostrar uma autorização que a pessoa nunca deu.
+            ...(s.imageDisclosureConsent ? [{
               templateId: 'intake-image-disclosure',
               templateTitle: 'Autorização de Divulgação de Imagens (Ficha Clínica)',
               content: 'Autorizo divulgação de autorretrato (selfies) e imagens relativas ao "antes e depois" do procedimento, nos perfis pessoais nas redes sociais da CONTRATADA, conforme permissão da Resolução nº 196/2019 do Conselho Federal de Odontologia (CFO), desde que a divulgação contenha o nome da CONTRATADA, acompanhado do número de inscrição junto ao Conselho Regional de Odontologia (CRO).',
               signedAt: s.submittedAt,
               signatureUrl: s.signatureUrl,
-            },
+            }] : []),
           ],
           anamnesis: {
             ...currentAnamnesis,
