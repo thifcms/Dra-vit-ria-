@@ -113,45 +113,49 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
       const { jsPDF } = await import('jspdf');
       const docPdf = new jsPDF({ unit: 'mm', format: 'a4' });
       const pageWidth = docPdf.internal.pageSize.getWidth();
-      const margin = 20;
-      let y = 28;
+      const margin = 24;
+      let y = 18;
 
       const clinicName = settings?.clinicName || settings?.professionalName || 'Clínica';
-      const professionalName = settings?.professionalName || '';
-      const registrationNumber = settings?.registrationNumber || '';
-      const clinicAddress = settings?.clinicAddress || '';
 
-      // Cabeçalho
-      docPdf.setFont('helvetica', 'normal');
-      docPdf.setFontSize(20);
-      docPdf.setTextColor(92, 84, 78); // #4A433D
-      docPdf.text(clinicName, margin, y);
-      y += 7;
-      if (professionalName) {
-        docPdf.setFontSize(10);
-        docPdf.setTextColor(154, 144, 132);
-        docPdf.text(`${professionalName}${registrationNumber ? ' — ' + registrationNumber : ''}`, margin, y);
-        y += 5;
+      // Logo centralizada no topo — mesmo espírito visual dos documentos impressos
+      // (Atestados, Receituário, Termos): busca a imagem e converte pra base64, já que
+      // o jsPDF não consegue referenciar um caminho de arquivo direto.
+      try {
+        const logoDataUrl: string = await new Promise((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            canvas.getContext('2d')!.drawImage(img, 0, 0);
+            resolve(canvas.toDataURL('image/png'));
+          };
+          img.onerror = reject;
+          img.src = '/logo/logo-full-v2.png';
+        });
+        const logoWidth = 55;
+        const props = docPdf.getImageProperties(logoDataUrl);
+        const ratioHeight = (logoWidth * props.height) / props.width;
+        docPdf.addImage(logoDataUrl, 'PNG', (pageWidth - logoWidth) / 2, y, logoWidth, ratioHeight);
+        y += ratioHeight + 8;
+      } catch {
+        // Se a logo não carregar por algum motivo, segue sem travar a geração do PDF
+        y += 4;
       }
-      if (clinicAddress) {
-        docPdf.setFontSize(9);
-        docPdf.text(clinicAddress, margin, y);
-        y += 5;
-      }
 
-      y += 6;
-      docPdf.setDrawColor(234, 223, 212); // #EADFD4
-      docPdf.setLineWidth(0.5);
-      docPdf.line(margin, y, pageWidth - margin, y);
-      y += 12;
-
-      // Título
-      docPdf.setFontSize(15);
-      docPdf.setTextColor(92, 84, 78);
-      docPdf.text('Orçamento de Procedimento', margin, y);
-      y += 10;
+      // Faixa colorida com o título, de ponta a ponta — igual à dos outros documentos
+      docPdf.setFillColor(234, 223, 212); // #EADFD4
+      docPdf.rect(0, y, pageWidth, 10, 'F');
+      docPdf.setFont('helvetica', 'bold');
+      docPdf.setFontSize(10);
+      docPdf.setTextColor(255, 255, 255);
+      docPdf.text('ORÇAMENTO DE PROCEDIMENTO', pageWidth / 2, y + 6.5, { align: 'center' });
+      y += 20;
 
       // Dados do paciente e data
+      docPdf.setFont('helvetica', 'normal');
       docPdf.setFontSize(10);
       docPdf.setTextColor(92, 84, 78);
       docPdf.text(`Paciente: ${patient.name}`, margin, y);

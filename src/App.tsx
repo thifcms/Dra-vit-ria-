@@ -261,9 +261,21 @@ function AuthenticatedApp() {
     };
   }, [user]);
 
-  // PIN/biometria de segurança extra, além do login do Google — desbloqueado uma vez por
-  // sessão (sessionStorage some quando a aba/app fecha, pedindo de novo na próxima abertura)
-  const [pinUnlocked, setPinUnlocked] = useState(() => sessionStorage.getItem('pinUnlocked') === 'true');
+  // PIN/biometria de segurança extra, além do login do Google. Fica destravado por até
+  // 10 minutos de inatividade — sair do app rapidinho pra abrir um link ou um arquivo e
+  // voltar não pede a senha de novo; só pede se realmente ficou mais de 10 minutos sem
+  // usar. Guardado em localStorage (não sessionStorage) porque precisa sobreviver a um
+  // fechamento/reabertura do app dentro dessa janela de tempo, não só trocar de aba.
+  const PIN_GRACE_MS = 10 * 60 * 1000;
+  const isWithinGracePeriod = () => {
+    const unlockedAt = Number(localStorage.getItem('pinUnlockedAt') || 0);
+    return unlockedAt > 0 && (Date.now() - unlockedAt) < PIN_GRACE_MS;
+  };
+  const markUnlocked = () => {
+    localStorage.setItem('pinUnlockedAt', Date.now().toString());
+    setPinUnlocked(true);
+  };
+  const [pinUnlocked, setPinUnlocked] = useState(() => isWithinGracePeriod());
   const [pinEntry, setPinEntry] = useState('');
   const [pinError, setPinError] = useState(false);
   const [checkingPin, setCheckingPin] = useState(false);
@@ -271,27 +283,31 @@ function AuthenticatedApp() {
   const [biometricFailed, setBiometricFailed] = useState(false);
   const needsPinCheck = !!(clinicSettings?.pinHash || clinicSettings?.webauthnCredentialId) && !pinUnlocked;
 
-  // Re-trava automaticamente sempre que a pessoa sai da tela do app (troca de aba, minimiza,
-  // bloqueia o celular) — ao voltar, pede PIN/biometria de novo, em vez de continuar
-  // desbloqueado só porque ainda é "a mesma sessão" do navegador.
+  // Ao voltar a ficar visível (reabriu o app, voltou de outro app/link), confere se
+  // ainda está dentro da janela de 10 minutos — se sim, continua destravado e renova o
+  // prazo (mais 10 minutos de uso contínuo); se passou do tempo, tranca de novo.
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.hidden) {
-        sessionStorage.removeItem('pinUnlocked');
-        setPinUnlocked(false);
+      if (!document.hidden) {
+        if (isWithinGracePeriod()) {
+          if (!pinUnlocked) setPinUnlocked(true);
+          localStorage.setItem('pinUnlockedAt', Date.now().toString());
+        } else if (pinUnlocked) {
+          setPinUnlocked(false);
+        }
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pinUnlocked]);
 
   const handleCheckPin = async () => {
     if (!isValidPinFormat(pinEntry) || !clinicSettings?.pinHash || checkingPin) return;
     setCheckingPin(true);
     const hash = await hashPin(pinEntry);
     if (hash === clinicSettings.pinHash) {
-      sessionStorage.setItem('pinUnlocked', 'true');
-      setPinUnlocked(true);
+      markUnlocked();
     } else {
       setPinError(true);
       setPinEntry('');
@@ -306,8 +322,7 @@ function AuthenticatedApp() {
     setBiometricFailed(false);
     const ok = await verifyBiometric(clinicSettings.webauthnCredentialId);
     if (ok) {
-      sessionStorage.setItem('pinUnlocked', 'true');
-      setPinUnlocked(true);
+      markUnlocked();
     } else {
       setBiometricFailed(true);
     }
@@ -330,8 +345,7 @@ function AuthenticatedApp() {
     // de novo nesse celular, é só cadastrar um PIN novo em Configurações → Segurança.
     const ownerId = await getClinicOwnerId(db).catch(() => user.uid);
     await updateDoc(doc(db, 'settings', ownerId), { pinHash: undefined, biometricEnabled: false, webauthnCredentialId: undefined }).catch(() => {});
-    sessionStorage.setItem('pinUnlocked', 'true');
-    setPinUnlocked(true);
+    markUnlocked();
   };
 
   return (
@@ -613,7 +627,7 @@ function AuthenticatedApp() {
                   </div>
                 </div>
                 <button 
-                  onClick={() => { sessionStorage.removeItem('pinUnlocked'); signOut(auth); }}
+                  onClick={() => { localStorage.removeItem('pinUnlockedAt'); signOut(auth); }}
                   className="w-full flex items-center gap-4 px-6 py-4 text-[#9CA3AF] hover:text-red-400 hover:bg-red-50/30 rounded-2xl transition-all font-medium text-sm group"
                 >
                   <LogOut size={20} className="group-hover:translate-x-1 transition-transform" />
