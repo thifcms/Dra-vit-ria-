@@ -32,26 +32,61 @@ export interface IntakeSubmission {
   profession?: string;
   maritalStatus?: string;
   howHeardAboutClinic?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
 
   // Questionário de saúde
   usedToxinBefore: boolean;
   lastToxinDate: string;
   toxinTimes: string;
+  usedPMMA: boolean;
+  hadPastComplications: boolean; // nódulo, edema tardio intermitente persistente (ETIPE)
+  pastComplicationsDetail: string;
   hasFoodAllergy: boolean;
+  foodAllergyDetail: string;
+  hasInsectAllergy: boolean;
+  insectAllergyDetail: string;
   hadFillerBefore: boolean;
   fillerProduct: string;
   isPregnant: boolean;
   isBreastfeeding: boolean;
   hasCoagulationDisease: boolean;
-  hasAutoimmuneDisease: boolean;
+  coagulationDiseaseDetail: string;
   bleedsEasily: boolean;
   hadHemorrhageOrHerpes: boolean;
-  hasDiabetes: boolean;
+  hemorrhageOrHerpesDetail: string;
   hasAnemia: boolean;
   hasMedicationAllergy: boolean;
   medicationAllergyDetail: string;
   usesContinuousMedication: boolean;
   continuousMedicationDetail: string;
+
+  // Condições médicas — só pergunta uma vez "tem alguma condição médica?" e, se sim,
+  // mostra a lista completa (mesma da anamnese, exceto anticoncepcional)
+  hasMedicalConditions: boolean;
+  medicalConditions: {
+    diabetes: boolean;
+    hypertension: boolean;
+    heartProblems: boolean;
+    autoimmune: boolean;
+    cancerHistory: boolean;
+    keloid: boolean;
+    herpes: boolean;
+    epilepsy: boolean;
+    hivHepatitis: boolean;
+    pacemaker: boolean;
+    anticoagulant: boolean;
+    isotretinoin: boolean;
+  };
+
+  // Estilo de vida — mesmos campos já usados na anamnese
+  lifestyle: {
+    smoking: boolean;
+    alcohol: boolean;
+    exercise: boolean;
+    sunExposure: boolean;
+    sunscreen: boolean;
+  };
 
   mainComplaint: string;
 
@@ -95,6 +130,8 @@ export interface Patient {
   profession?: string;
   maritalStatus?: string;
   howHeardAboutClinic?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
   sex?: 'F' | 'M' | 'N'; // N = "prefiro não informar" — usado pra mostrar o diagrama/rosto genérico correto na Anamnese (usa um padrão neutro quando N)
   faceMarkings?: FaceMarkingSession[]; // histórico de mapas de pontos de aplicação
 
@@ -158,21 +195,41 @@ export interface Patient {
     // se o botão "Lançar no Financeiro" for clicado de novo por engano
     launchedProcedures?: string[];
 
-    // Questionário de saúde específico da Ficha Clínica de Harmonização Facial —
-    // preenchido pelo próprio paciente após o check-in. Campos que não têm equivalente
-    // nas condições fixas acima (diabetes, autoimune, gravidez, amamentação já são
-    // reaproveitados dali).
+    // Questionário de saúde específico da Ficha Clínica — preenchido pelo próprio
+    // paciente após o check-in. Guarda um retrato completo do que foi respondido (pra
+    // sempre dar pra ver exatamente o que o paciente disse), além de também refletir
+    // condições médicas e estilo de vida direto nos campos de sempre da anamnese
+    // (conditions/habits) — dá pra ver dos dois jeitos.
     intakeQuestionnaire?: {
       usedToxinBefore: boolean;
       lastToxinDate: string;
       toxinTimes: string;
+      usedPMMA: boolean;
+      hadPastComplications: boolean;
+      pastComplicationsDetail: string;
       hasFoodAllergy: boolean;
+      foodAllergyDetail: string;
+      hasInsectAllergy: boolean;
+      insectAllergyDetail: string;
       hadFillerBefore: boolean;
       fillerProduct: string;
       hasCoagulationDisease: boolean;
+      coagulationDiseaseDetail: string;
       bleedsEasily: boolean;
       hadHemorrhageOrHerpes: boolean;
+      hemorrhageOrHerpesDetail: string;
       hasAnemia: boolean;
+      hasMedicalConditions: boolean;
+      medicalConditions?: {
+        diabetes: boolean; hypertension: boolean; heartProblems: boolean; autoimmune: boolean;
+        cancerHistory: boolean; keloid: boolean; herpes: boolean; epilepsy: boolean;
+        hivHepatitis: boolean; pacemaker: boolean; anticoagulant: boolean; isotretinoin: boolean;
+      };
+      lifestyle?: {
+        smoking: boolean; alcohol: boolean; exercise: boolean; sunExposure: boolean; sunscreen: boolean;
+      };
+      emergencyContactName?: string;
+      emergencyContactPhone?: string;
       howHeardAboutClinic?: string;
       submittedAt?: string; // quando o paciente enviou esse questionário
     };

@@ -1267,14 +1267,22 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
                         <div className="w-1.5 h-1.5 rounded-full bg-[#8BA888]" /> Questionário Pré-Consulta (respondido pelo paciente)
                       </h4>
                       <div className="bg-[#F0F7F0] p-5 md:p-8 rounded-[32px] border border-[#E5EFE5]">
+                        {(anamnesis.intakeQuestionnaire.emergencyContactName || anamnesis.intakeQuestionnaire.emergencyContactPhone) && (
+                          <p className="text-xs text-[#4A433D] mb-4 pb-4 border-b border-[#E5EFE5]">
+                            <span className="font-bold">Contato de emergência:</span> {anamnesis.intakeQuestionnaire.emergencyContactName || '—'} · {anamnesis.intakeQuestionnaire.emergencyContactPhone || '—'}
+                          </p>
+                        )}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           {[
                             { label: 'Já utilizou toxina botulínica?', value: anamnesis.intakeQuestionnaire.usedToxinBefore, detail: [anamnesis.intakeQuestionnaire.lastToxinDate, anamnesis.intakeQuestionnaire.toxinTimes].filter(Boolean).join(' · ') },
-                            { label: 'Possui alergia a algum alimento?', value: anamnesis.intakeQuestionnaire.hasFoodAllergy },
+                            { label: 'Já fez procedimento com PMMA?', value: anamnesis.intakeQuestionnaire.usedPMMA },
+                            { label: 'Intercorrências passadas (nódulo/ETIPE)?', value: anamnesis.intakeQuestionnaire.hadPastComplications, detail: anamnesis.intakeQuestionnaire.pastComplicationsDetail },
+                            { label: 'Possui alergia a algum alimento?', value: anamnesis.intakeQuestionnaire.hasFoodAllergy, detail: anamnesis.intakeQuestionnaire.foodAllergyDetail },
+                            { label: 'Possui alergia a picada de inseto?', value: anamnesis.intakeQuestionnaire.hasInsectAllergy, detail: anamnesis.intakeQuestionnaire.insectAllergyDetail },
                             { label: 'Já realizou preenchimento facial?', value: anamnesis.intakeQuestionnaire.hadFillerBefore, detail: anamnesis.intakeQuestionnaire.fillerProduct },
-                            { label: 'Doença que interfira na coagulação?', value: anamnesis.intakeQuestionnaire.hasCoagulationDisease },
+                            { label: 'Doença que interfira na coagulação?', value: anamnesis.intakeQuestionnaire.hasCoagulationDisease, detail: anamnesis.intakeQuestionnaire.coagulationDiseaseDetail },
                             { label: 'Sangra muito depois de ferido?', value: anamnesis.intakeQuestionnaire.bleedsEasily },
-                            { label: 'Já teve hemorragia ou herpes?', value: anamnesis.intakeQuestionnaire.hadHemorrhageOrHerpes },
+                            { label: 'Já teve hemorragia ou herpes?', value: anamnesis.intakeQuestionnaire.hadHemorrhageOrHerpes, detail: anamnesis.intakeQuestionnaire.hemorrhageOrHerpesDetail },
                             { label: 'Anemia?', value: anamnesis.intakeQuestionnaire.hasAnemia },
                           ].map((item, i) => (
                             <div key={i} className="flex items-start justify-between gap-3 py-2 border-b border-[#E5EFE5] last:border-0 sm:border-0">
@@ -1288,6 +1296,29 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
                             </div>
                           ))}
                         </div>
+                        {anamnesis.intakeQuestionnaire.hasMedicalConditions && anamnesis.intakeQuestionnaire.medicalConditions && (
+                          <div className="mt-4 pt-4 border-t border-[#E5EFE5]">
+                            <p className="text-xs font-bold text-[#4A433D] mb-2">Condições médicas marcadas:</p>
+                            <div className="flex flex-wrap gap-2">
+                              {Object.entries(anamnesis.intakeQuestionnaire.medicalConditions).filter(([, v]) => v).map(([k]) => (
+                                <span key={k} className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-[#8BA888] text-white">{k}</span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {anamnesis.intakeQuestionnaire.lifestyle && (
+                          <div className="mt-4 pt-4 border-t border-[#E5EFE5]">
+                            <p className="text-xs font-bold text-[#4A433D] mb-2">Estilo de vida marcado:</p>
+                            <div className="flex flex-wrap gap-2">
+                              {Object.entries(anamnesis.intakeQuestionnaire.lifestyle).filter(([, v]) => v).map(([k]) => (
+                                <span key={k} className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-[#EADFD4] text-white">{k}</span>
+                              ))}
+                              {Object.values(anamnesis.intakeQuestionnaire.lifestyle).every(v => !v) && (
+                                <span className="text-[10px] text-[#9CA3AF] italic">Nenhum hábito marcado</span>
+                              )}
+                            </div>
+                          </div>
+                        )}
                         {anamnesis.intakeQuestionnaire.submittedAt && (
                           <p className="text-[10px] text-[#9CA3AF] mt-5 pt-4 border-t border-[#E5EFE5]">
                             Enviado pelo paciente em {new Date(anamnesis.intakeQuestionnaire.submittedAt).toLocaleString('pt-BR')}
@@ -2295,6 +2326,8 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
           profession: patient.profession || s.profession || '',
           maritalStatus: patient.maritalStatus || s.maritalStatus || '',
           howHeardAboutClinic: patient.howHeardAboutClinic || s.howHeardAboutClinic || '',
+          emergencyContactName: patient.emergencyContactName || s.emergencyContactName || '',
+          emergencyContactPhone: patient.emergencyContactPhone || s.emergencyContactPhone || '',
           consentTerms: [
             ...(patient.consentTerms || []),
             {
@@ -2317,26 +2350,60 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
             mainComplaint: currentAnamnesis.mainComplaint || s.mainComplaint || '',
             conditions: {
               ...(currentAnamnesis.conditions || {}),
-              diabetes: currentAnamnesis.conditions?.diabetes || !!s.hasDiabetes,
-              autoimmune: currentAnamnesis.conditions?.autoimmune || !!s.hasAutoimmuneDisease,
               pregnant: currentAnamnesis.conditions?.pregnant || !!s.isPregnant,
               breastfeeding: currentAnamnesis.conditions?.breastfeeding || !!s.isBreastfeeding,
+              anticoagulant: currentAnamnesis.conditions?.anticoagulant || !!s.medicalConditions?.anticoagulant,
+              // As demais condições médicas (diabetes, hipertensão, autoimune, etc.) vêm
+              // todas do checklist único "Tem alguma condição médica?" da ficha — nunca
+              // sobrescreve um "sim" que já existia, só adiciona o que o paciente marcou
+              diabetes: currentAnamnesis.conditions?.diabetes || !!s.medicalConditions?.diabetes,
+              hypertension: currentAnamnesis.conditions?.hypertension || !!s.medicalConditions?.hypertension,
+              heartProblems: currentAnamnesis.conditions?.heartProblems || !!s.medicalConditions?.heartProblems,
+              autoimmune: currentAnamnesis.conditions?.autoimmune || !!s.medicalConditions?.autoimmune,
+              cancerHistory: currentAnamnesis.conditions?.cancerHistory || !!s.medicalConditions?.cancerHistory,
+              keloid: currentAnamnesis.conditions?.keloid || !!s.medicalConditions?.keloid,
+              herpes: currentAnamnesis.conditions?.herpes || !!s.medicalConditions?.herpes,
+              epilepsy: currentAnamnesis.conditions?.epilepsy || !!s.medicalConditions?.epilepsy,
+              hivHepatitis: currentAnamnesis.conditions?.hivHepatitis || !!s.medicalConditions?.hivHepatitis,
+              pacemaker: currentAnamnesis.conditions?.pacemaker || !!s.medicalConditions?.pacemaker,
+              isotretinoin: currentAnamnesis.conditions?.isotretinoin || !!s.medicalConditions?.isotretinoin,
             },
             hasAllergies: currentAnamnesis.hasAllergies || !!s.hasMedicationAllergy,
             allergiesDetails: currentAnamnesis.allergiesDetails || s.medicationAllergyDetail || '',
             hasContinuousMedication: currentAnamnesis.hasContinuousMedication || !!s.usesContinuousMedication,
             medicationsDetails: currentAnamnesis.medicationsDetails || s.continuousMedicationDetail || '',
+            habits: {
+              ...(currentAnamnesis.habits || {}),
+              smoking: currentAnamnesis.habits?.smoking || !!s.lifestyle?.smoking,
+              alcohol: currentAnamnesis.habits?.alcohol || !!s.lifestyle?.alcohol,
+              exercise: currentAnamnesis.habits?.exercise || !!s.lifestyle?.exercise,
+              sunExposure: currentAnamnesis.habits?.sunExposure || !!s.lifestyle?.sunExposure,
+              sunscreen: currentAnamnesis.habits?.sunscreen || !!s.lifestyle?.sunscreen,
+            },
             intakeQuestionnaire: {
               usedToxinBefore: !!s.usedToxinBefore,
               lastToxinDate: s.lastToxinDate || '',
               toxinTimes: s.toxinTimes || '',
+              usedPMMA: !!s.usedPMMA,
+              hadPastComplications: !!s.hadPastComplications,
+              pastComplicationsDetail: s.pastComplicationsDetail || '',
               hasFoodAllergy: !!s.hasFoodAllergy,
+              foodAllergyDetail: s.foodAllergyDetail || '',
+              hasInsectAllergy: !!s.hasInsectAllergy,
+              insectAllergyDetail: s.insectAllergyDetail || '',
               hadFillerBefore: !!s.hadFillerBefore,
               fillerProduct: s.fillerProduct || '',
               hasCoagulationDisease: !!s.hasCoagulationDisease,
+              coagulationDiseaseDetail: s.coagulationDiseaseDetail || '',
               bleedsEasily: !!s.bleedsEasily,
               hadHemorrhageOrHerpes: !!s.hadHemorrhageOrHerpes,
+              hemorrhageOrHerpesDetail: s.hemorrhageOrHerpesDetail || '',
               hasAnemia: !!s.hasAnemia,
+              hasMedicalConditions: !!s.hasMedicalConditions,
+              medicalConditions: s.medicalConditions || undefined,
+              lifestyle: s.lifestyle || undefined,
+              emergencyContactName: s.emergencyContactName || '',
+              emergencyContactPhone: s.emergencyContactPhone || '',
               howHeardAboutClinic: s.howHeardAboutClinic || '',
               submittedAt: s.submittedAt,
             },
