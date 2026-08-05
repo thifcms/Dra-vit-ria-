@@ -187,9 +187,6 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
 
   return (
     <div className="space-y-8">
-      <datalist id="facial-regions">
-        {FACIAL_REGIONS.map(r => <option key={r} value={r} />)}
-      </datalist>
       <div className="flex items-center justify-between pb-6 border-b border-[#F5F2F0]">
         <h3 className="serif text-2xl text-[#4A433D]">Mapa de Aplicação</h3>
         <button
@@ -307,13 +304,28 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
                       <input
                         value={p.label}
                         onChange={e => updatePointLabel(i, e.target.value)}
-                        placeholder="Ex: 4U, região frontal"
-                        list="facial-regions"
+                        placeholder="Ex: 4U (toque a região abaixo)"
                         className="flex-1 text-xs bg-transparent outline-none text-[#4A433D]"
                       />
                       <button onClick={() => removePoint(i)} className="text-[#9CA3AF] hover:text-red-400 shrink-0">
                         <Trash2 size={14} />
                       </button>
+                    </div>
+                    <div className="pl-8">
+                      <select
+                        value=""
+                        onChange={e => {
+                          if (!e.target.value) return;
+                          const current = p.label.trim();
+                          updatePointLabel(i, current ? `${current}, ${e.target.value}` : e.target.value);
+                        }}
+                        className="w-full text-[10px] bg-white border border-[#F5F2F0] rounded-lg px-2 py-1.5 outline-none text-[#9CA3AF]"
+                      >
+                        <option value="">+ Adicionar nome da região...</option>
+                        {FACIAL_REGIONS.map(r => (
+                          <option key={r} value={r}>{r}</option>
+                        ))}
+                      </select>
                     </div>
                     {substances.length > 0 && (
                       <div className="flex items-center gap-1.5 pl-8 mt-1.5">
