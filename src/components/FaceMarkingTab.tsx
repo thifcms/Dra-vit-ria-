@@ -23,13 +23,18 @@ const MARK_COLORS = [
 // o ponto; como é uma estimativa por posição, continua totalmente editável depois (o
 // menu suspenso continua lá pra corrigir se a estimativa não bater certinho).
 function guessRegionFromPosition(x: number, y: number): string {
-  const lateral = x < 32 || x > 68; // fora da faixa central do rosto
-  if (y < 18) return 'Região Frontal';
-  if (y < 26) return lateral ? 'Região Temporal' : (x < 44 || x > 56 ? 'Região Supraorbital' : 'Glabela');
-  if (y < 40) return lateral ? 'Região Temporal' : 'Região Orbital';
-  if (y < 52) return lateral ? 'Região Zigomática' : 'Região Nasal';
-  if (y < 65) return lateral ? 'Região Geniana (bochecha)' : 'Região Oral';
-  if (y < 80) return 'Região Mentual';
+  // Faixas recalibradas olhando diretamente as imagens reais usadas no mapa
+  // (/diagrams/face-female.jpg e face-male.jpg) — as sobrancelhas ficam por volta de
+  // 37-43% da altura, os olhos por volta de 43-58%, a boca por volta de 70-85%, o queixo
+  // termina perto de 90-93%. As faixas anteriores estavam bem mais "apertadas" no topo
+  // do que a imagem de verdade, por terem sido feitas sem olhar a imagem ainda.
+  const lateral = x < 30 || x > 70; // fora da faixa central do rosto
+  if (y < 37) return 'Região Frontal';
+  if (y < 43) return lateral ? 'Região Temporal' : (x < 42 || x > 58 ? 'Região Supraorbital' : 'Glabela');
+  if (y < 58) return lateral ? 'Região Temporal' : 'Região Orbital';
+  if (y < 70) return lateral ? 'Região Zigomática' : 'Região Nasal';
+  if (y < 85) return lateral ? 'Região Geniana (bochecha)' : 'Região Oral';
+  if (y < 93) return lateral ? 'Região Submandibular' : 'Região Mentual';
   return lateral ? 'Região Submandibular' : 'Região Anterior do Pescoço';
 }
 
