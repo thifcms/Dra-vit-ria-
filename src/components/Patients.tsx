@@ -745,6 +745,32 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
     setReleasingAnamnesis(false);
   };
 
+  const [startingNewAnamnesis, setStartingNewAnamnesis] = useState(false);
+
+  // Paciente que volta pedindo um tratamento novo — a anamnese anterior já está travada
+  // e preservada em anamnesisHistory (isso acontece sozinho no momento da liberação, não
+  // precisa fazer nada extra aqui pra guardá-la). Só abre uma anamnese em branco pra essa
+  // nova consulta. O Orçamento já se sincroniza sozinho com a Conduta da anamnese atual —
+  // como a nova anamnese começa sem nenhum procedimento marcado, o orçamento também
+  // aparece limpo automaticamente, sem precisar zerar nada à parte.
+  const handleNewAnamnesis = async () => {
+    if (!confirm('Isso abre uma nova anamnese em branco pra esse paciente, pra um novo tratamento. A anamnese anterior já está guardada no histórico e continua acessível lá. Confirma?')) return;
+    setStartingNewAnamnesis(true);
+    try {
+      const freshAnamnesis = normalizeAnamnesis({});
+      await updateDoc(doc(db, 'patients', patient.id!), {
+        anamnesis: freshAnamnesis,
+        anamnesisReleased: false,
+        updatedAt: new Date().toISOString(),
+      });
+      setAnamnesis(freshAnamnesis);
+      showToast('Nova anamnese iniciada');
+    } catch (err) {
+      showToast('Erro ao iniciar nova anamnese', 'error');
+    }
+    setStartingNewAnamnesis(false);
+  };
+
   const [editingEvolutionIndex, setEditingEvolutionIndex] = useState<number | null>(null);
 
   const handleAddEvolution = async () => {
@@ -1243,6 +1269,16 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
                         className="text-[#9CA3AF] hover:text-[#4A433D] flex items-center gap-2 px-6 py-3 rounded-2xl transition-all font-bold text-[10px] uppercase tracking-widest border border-[#F5F2F0]"
                       >
                         <History size={16} /> Histórico ({patient.anamnesisHistory!.length})
+                      </button>
+                    )}
+                    {patient.anamnesisReleased && (
+                      <button
+                        onClick={handleNewAnamnesis}
+                        disabled={startingNewAnamnesis}
+                        className="bg-[#EADFD4] text-white flex items-center gap-2 hover:bg-[#DFCFBF] px-6 py-3 rounded-2xl transition-all font-bold text-[10px] uppercase tracking-widest shadow-md disabled:opacity-50"
+                      >
+                        <Plus size={16} />
+                        {startingNewAnamnesis ? 'Iniciando...' : 'Nova Anamnese'}
                       </button>
                     )}
                     {!patient.anamnesisReleased && (
