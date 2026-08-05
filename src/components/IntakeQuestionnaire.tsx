@@ -63,6 +63,16 @@ function Question({ label, value, onChange, children }: { label: string; value: 
   );
 }
 
+// Aplica a máscara DD/MM/AAAA automaticamente enquanto a pessoa digita — só números,
+// barras inseridas sozinhas nas posições certas. Evita qualquer confusão de formato
+// (mês/dia trocados, digitação livre) numa data que precisa estar em português certinho.
+function formatDateInput(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+}
+
 function TextField({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string }) {
   return (
     <div>
@@ -178,6 +188,15 @@ export default function IntakeQuestionnaire({ appointmentId, patientId, patientN
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Sem isso, quem estivesse rolado lá embaixo (perto do botão "Enviar") não via a
+  // mensagem de erro aparecer no topo — clicava, nada parecia acontecer, e parecia que o
+  // formulário estava travado mesmo com tudo certo. Agora, ao aparecer um erro, rola a
+  // tela pro topo automaticamente pra garantir que a pessoa veja o que falta.
+  React.useEffect(() => {
+    if (errorMsg) window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [errorMsg]);
+
   const sigPad = React.useRef<any>(null);
 
   const allHealthAnswered = [
@@ -288,7 +307,7 @@ export default function IntakeQuestionnaire({ appointmentId, patientId, patientN
             <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Nome Completo</label>
             <p className="p-4 bg-[#FDFBF9] rounded-2xl text-sm text-[#4A433D]">{patientName}</p>
           </div>
-          <TextField label="Data de Nascimento" value={birthDate} onChange={setBirthDate} placeholder="DD/MM/AAAA" />
+          <TextField label="Data de Nascimento" value={birthDate} onChange={v => setBirthDate(formatDateInput(v))} placeholder="DD/MM/AAAA" />
           <TextField label="Endereço" value={address} onChange={setAddress} />
           <div className="grid grid-cols-2 gap-4">
             <TextField label="E-mail" value={email} onChange={setEmail} />
@@ -411,6 +430,12 @@ export default function IntakeQuestionnaire({ appointmentId, patientId, patientN
             </button>
           </div>
         </div>
+
+        {errorMsg && (
+          <div className="p-4 bg-red-50 border border-red-100 rounded-2xl text-xs text-red-500 font-medium text-center">
+            {errorMsg}
+          </div>
+        )}
 
         <button
           onClick={handleSubmit}

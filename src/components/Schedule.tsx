@@ -98,12 +98,20 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
     [appointments, dateStr, professionalFilter]
   );
 
-  const waitingQueue = useMemo(
-    () => dayAppointments
+  const waitingQueue = useMemo(() => {
+    const filtered = dayAppointments
       .filter(a => a.checkedInAt && a.status !== 'completed' && a.status !== 'cancelled')
-      .sort((a, b) => (a.checkedInAt! < b.checkedInAt! ? -1 : 1)),
-    [dayAppointments]
-  );
+      .sort((a, b) => (a.checkedInAt! < b.checkedInAt! ? -1 : 1));
+    // Proteção extra: garante que o mesmo agendamento nunca apareça duas vezes na fila,
+    // não importa a causa (ex: uma atualização otimista sobrepondo brevemente o dado
+    // antigo com o novo antes da confirmação do servidor)
+    const seen = new Set<string>();
+    return filtered.filter(a => {
+      if (seen.has(a.id!)) return false;
+      seen.add(a.id!);
+      return true;
+    });
+  }, [dayAppointments]);
 
   const isViewingToday = dateStr === todayLocalStr();
   const todaysReminders = useMemo(
