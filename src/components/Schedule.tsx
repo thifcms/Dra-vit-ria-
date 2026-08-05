@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, setDoc, doc, getDoc, getDocs, where, orderBy } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Appointment, Patient, ClinicSettings } from '../types';
-import { slotId, checkinLink, cancelLink, CLINIC_HOURS, EMAIL_SERVICE_URL, localDateStr, todayLocalStr, getClinicOwnerId } from '../lib/slots';
+import { slotId, checkinLink, cancelLink, intakeInviteLink, CLINIC_HOURS, EMAIL_SERVICE_URL, localDateStr, todayLocalStr, getClinicOwnerId } from '../lib/slots';
 import { buildReminderMessage, whatsappLink, emailLink } from '../lib/reminders';
 import { User as FirebaseUser } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
@@ -187,8 +187,47 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
     try {
       await updateDoc(doc(db, 'appointments', id), { checkedInAt: new Date().toISOString() });
       showToast('Check-in realizado');
+      // Ao fazer check-in manual, reenvia a ficha inicial automaticamente — mesma coisa
+      // que já acontece quando o próprio paciente faz check-in online
+      const appt = appointments.find(a => a.id === id);
+      if (appt) await handleSendIntakeForm(appt, true);
     } catch (err) {
       showToast('Erro ao fazer check-in', 'error');
+    } finally {
+      setOpenMenuId(null);
+    }
+  };
+
+  // Cria um convite pra Ficha Clínica de Harmonização Facial e abre o WhatsApp já com a
+  // mensagem pronta — usado tanto no reenvio manual (menu de 3 pontos) quanto
+  // automaticamente ao fazer check-in manual. silent=true pula o toast de sucesso (usado
+  // quando é parte automática de outra ação, como o check-in, pra não empilhar avisos).
+  const handleSendIntakeForm = async (appt: Appointment, silent = false) => {
+    if (!appt.patientId) {
+      if (!silent) showToast('Esse agendamento não tem paciente vinculado ainda', 'error');
+      return;
+    }
+    const patient = patients.find(p => p.id === appt.patientId);
+    const phone = patient?.phone || appt.guestPhone;
+    if (!phone) {
+      if (!silent) showToast('Este paciente não tem telefone cadastrado', 'error');
+      return;
+    }
+    try {
+      const inviteRef = doc(collection(db, 'intakeInvites'));
+      await setDoc(inviteRef, {
+        userId: user.uid,
+        patientId: appt.patientId,
+        patientName: appt.patientName,
+        ownerId: ownerId || user.uid,
+        createdAt: new Date().toISOString(),
+      });
+      const link = intakeInviteLink(inviteRef.id);
+      const message = `Olá, ${appt.patientName}! Por favor, preencha a ficha clínica antes da sua consulta: ${link}`;
+      window.open(whatsappLink(phone, message), '_blank');
+      if (!silent) showToast('Ficha enviada por WhatsApp');
+    } catch (err) {
+      if (!silent) showToast('Erro ao enviar a ficha', 'error');
     } finally {
       setOpenMenuId(null);
     }
@@ -513,6 +552,7 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
                                   {!appt.checkedInAt && appt.status !== 'completed' && appt.status !== 'cancelled' && (
                                     <>
                                       <MenuOption onClick={() => handleCheckIn(appt.id!)} label="Fazer Check-in Manual" color="text-amber-500" />
+                                      <MenuOption onClick={() => handleSendIntakeForm(appt)} label="Enviar Ficha via WhatsApp" color="text-[#8BA888]" />
                                       <MenuOption onClick={() => handleCopyCheckinLink(appt)} label="Copiar Link de Check-in" color="text-[#EADFD4]" />
                                       <MenuOption onClick={() => handleSendReminder(appt, 'whatsapp')} label="Lembrete por WhatsApp" color="text-[#8BA888]" />
                                       <MenuOption onClick={() => handleSendReminder(appt, 'email')} label="Lembrete por E-mail" color="text-[#8BA888]" />

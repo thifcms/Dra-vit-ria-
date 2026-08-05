@@ -35,6 +35,7 @@ const Settings = lazy(() => import('./components/Settings'));
 const PublicBooking = lazy(() => import('./components/PublicBooking'));
 const CheckIn = lazy(() => import('./components/CheckIn'));
 const RemoteSign = lazy(() => import('./components/RemoteSign'));
+const IntakeInviteView = lazy(() => import('./components/IntakeInviteView'));
 const Cancel = lazy(() => import('./components/Cancel'));
 const ComingSoon = lazy(() => import('./components/ComingSoon'));
 const TestSite = lazy(() => import('./components/TestSite'));
@@ -72,6 +73,13 @@ export default function App() {
     return (
       <Suspense fallback={<ViewLoadingFallback />}>
         <RemoteSign />
+      </Suspense>
+    );
+  }
+  if (hash.startsWith('#ficha')) {
+    return (
+      <Suspense fallback={<ViewLoadingFallback />}>
+        <IntakeInviteView />
       </Suspense>
     );
   }

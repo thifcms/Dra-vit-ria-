@@ -329,6 +329,25 @@ service cloud.firestore {
       allow delete: if isSharedAccess() || isOwnDataAccess();
     }
 
+    // Convite pra Ficha Clínica — link enviado por WhatsApp, independente de um
+    // agendamento (cadastro manual, reenvio, etc). Leitura pública só por ID exato (o
+    // token é o próprio ID do documento, não adivinhável); nunca lista, e só expõe
+    // nome/id do paciente/dono da clínica, nunca o prontuário.
+    function isValidIntakeInvite(data) {
+      return data.userId is string
+        && data.patientId is string
+        && data.patientName is string
+        && data.ownerId is string
+        && data.createdAt is string;
+    }
+
+    match /intakeInvites/{token} {
+      allow get: if true;
+      allow list: if isSharedAccess() || isOwnDataAccess();
+      allow create: if (isSharedAccess() || isOwnDataCreate()) && isValidIntakeInvite(incoming()) && isValidId(token);
+      allow delete: if isSharedAccess() || isOwnDataAccess();
+    }
+
     // Rules for Inventory
     match /inventory/{itemId} {
       allow read: if isSharedAccess() || isOwnDataAccess();

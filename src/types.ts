@@ -3,6 +3,20 @@
 // o profissional abrir o prontuário desse paciente, quando é mesclada automaticamente:
 // dados de cadastro e questionário de saúde vão pra anamnese, as duas autorizações vão
 // pra aba de Termos, exatamente como pedido.
+// Convite pra Ficha Clínica, enviado por WhatsApp — link público e independente de um
+// agendamento específico (diferente do fluxo original, que só aparecia depois do
+// check-in). Usado tanto no cadastro manual de um paciente novo quanto pra reenviar a
+// ficha manualmente. O ID do documento é o próprio token secreto — só expõe o mínimo
+// necessário (nome, id do paciente, dono da clínica), nunca o prontuário inteiro.
+export interface IntakeInvite {
+  id?: string;
+  userId: string;
+  patientId: string;
+  patientName: string;
+  ownerId: string;
+  createdAt: string;
+}
+
 export interface IntakeSubmission {
   id?: string; // igual ao ID do agendamento (appointmentId) — 1 ficha por check-in
   patientId: string;

@@ -56,6 +56,13 @@ export function remoteSignLink(requestId: string): string {
   return `${base}#assinar/${requestId}`;
 }
 
+// Link do convite pra Ficha Clínica de Harmonização Facial — independente de
+// agendamento, usado no cadastro manual e no reenvio pelo menu de check-in.
+export function intakeInviteLink(token: string): string {
+  const base = window.location.href.split('#')[0];
+  return `${base}#ficha/${token}`;
+}
+
 export function normalizePhone(phone: string): string {
   const digits = phone.replace(/\D/g, '');
   if (digits.startsWith('55') && digits.length >= 12) return digits;

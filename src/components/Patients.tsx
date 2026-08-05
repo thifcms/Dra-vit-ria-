@@ -4,7 +4,8 @@ import { ref, uploadBytes, getDownloadURL, deleteObject, listAll } from 'firebas
 import { compressImage } from '../lib/imageCompress';
 import { db, storage } from '../lib/firebase';
 import { Patient, ClinicSettings } from '../types';
-import { phoneIndexKey, cpfIndexKey, getClinicOwnerId, todayLocalStr, remoteSignLink } from '../lib/slots';
+import { phoneIndexKey, cpfIndexKey, getClinicOwnerId, todayLocalStr, remoteSignLink, intakeInviteLink } from '../lib/slots';
+import { whatsappLink } from '../lib/reminders';
 import { buildLetterheadHtml } from '../lib/documentTemplate';
 import { User } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
@@ -330,13 +331,33 @@ function AddPatientModal({ user, onClose }: { user: User, onClose: () => void })
         files: [],
         consentTerms: []
       });
+      const ownerId = await getClinicOwnerId(db).catch(() => user.uid);
       if (phone) {
-        const ownerId = await getClinicOwnerId(db).catch(() => user.uid);
         await setDoc(doc(db, 'patientPhoneIndex', phoneIndexKey(ownerId, phone)), {
           clinicId: ownerId,
           patientId: ref.id,
           name,
         }).catch(() => {});
+      }
+      // Encaminha a Ficha Clínica de Harmonização Facial automaticamente pro paciente
+      // recém-cadastrado — mesma ficha que já é oferecida quando o próprio paciente
+      // agenda online, agora também no cadastro feito manualmente pela equipe
+      if (phone) {
+        try {
+          const inviteRef = doc(collection(db, 'intakeInvites'));
+          await setDoc(inviteRef, {
+            userId: user.uid,
+            patientId: ref.id,
+            patientName: name,
+            ownerId,
+            createdAt: new Date().toISOString(),
+          });
+          const link = intakeInviteLink(inviteRef.id);
+          const message = `Olá, ${name}! Por favor, preencha a ficha clínica: ${link}`;
+          window.open(whatsappLink(phone, message), '_blank');
+        } catch (err) {
+          // Melhor esforço — não impede o cadastro de ter dado certo
+        }
       }
       showToast('Paciente cadastrado com sucesso');
       onClose();
