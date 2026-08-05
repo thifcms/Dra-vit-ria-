@@ -81,12 +81,25 @@ export default function IntakeQuestionnaire({ appointmentId, patientId, patientN
 
   // Dados de cadastro complementares
   const [birthDate, setBirthDate] = useState('');
-  const [rg, setRg] = useState('');
   const [address, setAddress] = useState('');
   const [email, setEmail] = useState('');
   const [profession, setProfession] = useState('');
   const [maritalStatus, setMaritalStatus] = useState('');
   const [howHeard, setHowHeard] = useState('');
+
+  // Assim que carrega o cadastro do paciente, pré-preenche tudo que já se sabe — evita
+  // pedir de novo o que o paciente já informou antes (no agendamento online, por
+  // exemplo). Só preenche campos que ainda estão vazios, nunca sobrescreve o que a
+  // pessoa já tiver digitado nessa tela.
+  React.useEffect(() => {
+    if (!patient) return;
+    setBirthDate(prev => prev || patient.birthDate || '');
+    setAddress(prev => prev || patient.address || '');
+    setEmail(prev => prev || patient.email || '');
+    setProfession(prev => prev || patient.profession || '');
+    setMaritalStatus(prev => prev || patient.maritalStatus || '');
+    setHowHeard(prev => prev || patient.howHeardAboutClinic || '');
+  }, [patient]);
 
   // Questionário de saúde
   const [usedToxinBefore, setUsedToxinBefore] = useState<boolean | null>(null);
@@ -151,7 +164,7 @@ export default function IntakeQuestionnaire({ appointmentId, patientId, patientN
         ownerId,
         submittedAt: new Date().toISOString(),
         mergedIntoRecord: false,
-        birthDate, rg, address, email, profession, maritalStatus, howHeardAboutClinic: howHeard,
+        birthDate, address, email, profession, maritalStatus, howHeardAboutClinic: howHeard,
         usedToxinBefore, lastToxinDate, toxinTimes,
         hasFoodAllergy: !!hasFoodAllergy,
         hadFillerBefore: !!hadFillerBefore, fillerProduct,
@@ -203,7 +216,7 @@ export default function IntakeQuestionnaire({ appointmentId, patientId, patientN
         <img src="/logo/logo-full-v2.png" alt="Dra. Vitória Oliveira" className="h-20 w-auto mx-auto object-contain" />
       </div>
       <div className="bg-[#EADFD4] py-3 px-6 text-center mb-8">
-        <p className="text-white text-xs font-bold uppercase tracking-[0.2em]">Ficha Clínica do Paciente de Harmonização Facial</p>
+        <p className="text-white text-xs font-bold uppercase tracking-[0.2em]">Ficha Clínica do Paciente</p>
       </div>
 
       <div className="max-w-lg mx-auto px-6 space-y-6">
@@ -220,10 +233,7 @@ export default function IntakeQuestionnaire({ appointmentId, patientId, patientN
             <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Nome Completo</label>
             <p className="p-4 bg-[#FDFBF9] rounded-2xl text-sm text-[#4A433D]">{patientName}</p>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <TextField label="Data de Nascimento" value={birthDate} onChange={setBirthDate} placeholder="DD/MM/AAAA" />
-            <TextField label="RG" value={rg} onChange={setRg} />
-          </div>
+          <TextField label="Data de Nascimento" value={birthDate} onChange={setBirthDate} placeholder="DD/MM/AAAA" />
           <TextField label="Endereço" value={address} onChange={setAddress} />
           <div className="grid grid-cols-2 gap-4">
             <TextField label="E-mail" value={email} onChange={setEmail} />

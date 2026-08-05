@@ -27,7 +27,6 @@ export interface IntakeSubmission {
 
   // Dados de cadastro complementares
   birthDate?: string;
-  rg?: string;
   address?: string;
   email?: string;
   profession?: string;
@@ -230,6 +229,7 @@ export interface Patient {
   consentTerms?: {
     templateId: string;
     templateTitle: string;
+    content?: string; // texto completo assinado — sem isso, dava pra ver só o título e a assinatura, nunca o termo por inteiro
     signedAt: string;
     signatureUrl: string; // Base64 or URL
   }[];

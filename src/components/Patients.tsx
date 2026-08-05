@@ -1261,6 +1261,42 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
                     </div>
                   </section>
 
+                  {anamnesis.intakeQuestionnaire && (
+                    <section>
+                      <h4 className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-[0.2em] mb-4 md:mb-6 flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-[#8BA888]" /> Questionário Pré-Consulta (respondido pelo paciente)
+                      </h4>
+                      <div className="bg-[#F0F7F0] p-5 md:p-8 rounded-[32px] border border-[#E5EFE5]">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {[
+                            { label: 'Já utilizou toxina botulínica?', value: anamnesis.intakeQuestionnaire.usedToxinBefore, detail: [anamnesis.intakeQuestionnaire.lastToxinDate, anamnesis.intakeQuestionnaire.toxinTimes].filter(Boolean).join(' · ') },
+                            { label: 'Possui alergia a algum alimento?', value: anamnesis.intakeQuestionnaire.hasFoodAllergy },
+                            { label: 'Já realizou preenchimento facial?', value: anamnesis.intakeQuestionnaire.hadFillerBefore, detail: anamnesis.intakeQuestionnaire.fillerProduct },
+                            { label: 'Doença que interfira na coagulação?', value: anamnesis.intakeQuestionnaire.hasCoagulationDisease },
+                            { label: 'Sangra muito depois de ferido?', value: anamnesis.intakeQuestionnaire.bleedsEasily },
+                            { label: 'Já teve hemorragia ou herpes?', value: anamnesis.intakeQuestionnaire.hadHemorrhageOrHerpes },
+                            { label: 'Anemia?', value: anamnesis.intakeQuestionnaire.hasAnemia },
+                          ].map((item, i) => (
+                            <div key={i} className="flex items-start justify-between gap-3 py-2 border-b border-[#E5EFE5] last:border-0 sm:border-0">
+                              <div>
+                                <p className="text-xs text-[#4A433D]">{item.label}</p>
+                                {item.detail && <p className="text-[10px] text-[#9CA3AF] mt-0.5">{item.detail}</p>}
+                              </div>
+                              <span className={`text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full shrink-0 ${item.value ? 'bg-[#8BA888] text-white' : 'bg-white text-[#9CA3AF] border border-[#E5EFE5]'}`}>
+                                {item.value ? 'Sim' : 'Não'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                        {anamnesis.intakeQuestionnaire.submittedAt && (
+                          <p className="text-[10px] text-[#9CA3AF] mt-5 pt-4 border-t border-[#E5EFE5]">
+                            Enviado pelo paciente em {new Date(anamnesis.intakeQuestionnaire.submittedAt).toLocaleString('pt-BR')}
+                          </p>
+                        )}
+                      </div>
+                    </section>
+                  )}
+
                   <section>
                     <h4 className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-[0.2em] mb-4 md:mb-6 flex items-center gap-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-[#EADFD4]" /> Estilo de Vida
@@ -2124,6 +2160,35 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
   const [editableContent, setEditableContent] = useState('');
   const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
 
+  const handleViewSignedTerm = (term: NonNullable<Patient['consentTerms']>[number]) => {
+    const clinicName = clinicSettings?.clinicName || clinicSettings?.professionalName || 'Clínica';
+    const bodyHtml = `
+      <div class="box">
+        <div class="box-label">Paciente</div>
+        <p>${patient.name}</p>
+      </div>
+      <div class="box">
+        <div class="box-label">Termo Assinado</div>
+        <p>${(term.content || 'Texto completo não disponível para este termo (assinado antes desse recurso existir).').replace(/\n/g, '<br/>')}</p>
+      </div>
+      <div class="box" style="text-align: center;">
+        <div class="box-label">Assinatura</div>
+        <img src="${term.signatureUrl}" alt="Assinatura" style="max-height: 100px; margin: 10px auto; display: block; mix-blend-mode: multiply;" />
+      </div>
+    `;
+    const footerHtml = `
+      <div class="footer-row">
+        <span>Assinado em ${new Date(term.signedAt).toLocaleString('pt-BR')}</span>
+      </div>
+    `;
+    const html = buildLetterheadHtml({ title: term.templateTitle, clinicName, bodyHtml, footerHtml, documentLabel: `${term.templateTitle} — ${patient.name}` });
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(html);
+      printWindow.document.close();
+    }
+  };
+
   // Os 3 modelos padrão (TCLE, Autorização de Imagem, Recibo) sempre aparecem aqui, sem
   // depender de nenhum passo em Configurações — só recebem um ID estável baseado no
   // título, pra continuar reconhecíveis caso o mesmo modelo também exista salvo lá (evita
@@ -2184,6 +2249,7 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
           return {
             templateId: data.templateId,
             templateTitle: data.templateTitle,
+            content: data.templateContent || '',
             signedAt: data.signedAt,
             signatureUrl: data.signatureUrl,
           };
@@ -2224,7 +2290,6 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
           // Só preenche o que ainda não existia — nunca sobrescreve o que já estava
           // certo no cadastro
           birthDate: patient.birthDate || s.birthDate || '',
-          rg: patient.rg || s.rg || '',
           address: patient.address || s.address || '',
           email: patient.email || s.email || '',
           profession: patient.profession || s.profession || '',
@@ -2235,12 +2300,14 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
             {
               templateId: 'intake-photo-consent',
               templateTitle: 'Autorização de Documentação Fotográfica (Ficha Clínica)',
+              content: 'Autorizo a realização de documentação fotográfica referente ao procedimento realizado, que poderá ser utilizada para fins de acompanhamento do procedimento e para uso do médico em atividades científicas.',
               signedAt: s.submittedAt,
               signatureUrl: s.signatureUrl,
             },
             {
               templateId: 'intake-image-disclosure',
               templateTitle: 'Autorização de Divulgação de Imagens (Ficha Clínica)',
+              content: 'Autorizo divulgação de autorretrato (selfies) e imagens relativas ao "antes e depois" do procedimento, nos perfis pessoais nas redes sociais da CONTRATADA, conforme permissão da Resolução nº 196/2019 do Conselho Federal de Odontologia (CFO), desde que a divulgação contenha o nome da CONTRATADA, acompanhado do número de inscrição junto ao Conselho Regional de Odontologia (CRO).',
               signedAt: s.submittedAt,
               signatureUrl: s.signatureUrl,
             },
@@ -2348,6 +2415,7 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
         const newTerm = {
           templateId: selectedTemplate.id,
           templateTitle: selectedTemplate.title,
+          content: selectedTemplate.content || '',
           signedAt: new Date().toISOString(),
           signatureUrl
         };
@@ -2395,6 +2463,12 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
             <div className="h-24 bg-[#FDFBF9] rounded-2xl flex items-center justify-center border border-dashed border-[#F5F2F0] p-4 shadow-sm">
               <img src={term.signatureUrl} alt="Assinatura" className="h-full object-contain mix-blend-multiply opacity-80" />
             </div>
+            <button
+              onClick={() => handleViewSignedTerm(term)}
+              className="w-full py-3 bg-white border border-[#F5F2F0] text-[#5C544E] rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:border-[#EADFD4]/40 transition-all"
+            >
+              <Eye size={14} /> Visualizar e Imprimir
+            </button>
           </div>
         ))}
         {(!patient.consentTerms || patient.consentTerms.length === 0) && (
