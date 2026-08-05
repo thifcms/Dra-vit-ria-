@@ -840,48 +840,58 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
     try {
       const ownerId = await getClinicOwnerId(db).catch(() => user.uid);
 
-      // Apaga cada arquivo pelo link que já temos guardado no prontuário — funciona
-      // corretamente não importa qual administrador/usuário tenha feito o upload original
-      // (a pasta no Storage é nomeada pelo UID de quem enviou, que pode não ser o mesmo
-      // "dono" da clínica usado como referência fixa em outros lugares do sistema).
+      // Apaga cada arquivo pelo link que já temos guardado no prontuário (mais rápido,
+      // não precisa listar a pasta) — funciona não importa qual administrador/usuário
+      // tenha feito o upload original.
       const knownUrls: string[] = [
         ...(patient.photoHistory || []),
         ...(patient.files || []).map(f => f.url),
         ...(patient.exams || []).filter(e => e.fileUrl).map(e => e.fileUrl!),
         ...(patient.consentTerms || []).map(t => t.signatureUrl).filter(Boolean),
       ];
-      await Promise.all(knownUrls.map(url =>
-        deleteObject(ref(storage, url)).catch(() => {})
-      ));
 
-      // Reforço extra: também limpa a pasta do dono fixo da clínica, caso exista algum
-      // arquivo órfão sem link salvo no prontuário (ex: dado legado)
-      try {
-        const folderRef = ref(storage, `patients/${ownerId}/${patient.id}`);
-        const deleteRecursive = async (r: typeof folderRef) => {
-          const l = await listAll(r);
-          await Promise.all(l.items.map(item => deleteObject(item).catch(() => {})));
-          await Promise.all(l.prefixes.map(p => deleteRecursive(p)));
-        };
-        await deleteRecursive(folderRef);
-      } catch { /* melhor esforço */ }
+      // As três frentes de limpeza (arquivos conhecidos, reforço da pasta inteira,
+      // backups) e os dois índices de busca não dependem uma da outra — rodando tudo em
+      // paralelo em vez de esperar uma etapa terminar pra começar a próxima, o tempo
+      // total cai bastante, especialmente em prontuários com muitos arquivos.
+      await Promise.all([
+        Promise.all(knownUrls.map(url => deleteObject(ref(storage, url)).catch(() => {}))),
 
-      // Backups automáticos desse paciente na nuvem
-      try {
-        const backupFolderRef = ref(storage, `backups/${patient.id}`);
-        const backupList = await listAll(backupFolderRef);
-        await Promise.all(backupList.items.map(item => deleteObject(item).catch(() => {})));
-      } catch { /* melhor esforço */ }
+        // Reforço extra: limpa a pasta do dono fixo da clínica, caso exista algum
+        // arquivo órfão sem link salvo no prontuário (ex: dado legado). Roda em
+        // paralelo com a exclusão por link acima — tentar apagar o mesmo arquivo duas
+        // vezes não é problema, o catch silencioso absorve o "não encontrado".
+        (async () => {
+          try {
+            const folderRef = ref(storage, `patients/${ownerId}/${patient.id}`);
+            const deleteRecursive = async (r: typeof folderRef) => {
+              const l = await listAll(r);
+              await Promise.all([
+                ...l.items.map(item => deleteObject(item).catch(() => {})),
+                ...l.prefixes.map(p => deleteRecursive(p)),
+              ]);
+            };
+            await deleteRecursive(folderRef);
+          } catch { /* melhor esforço */ }
+        })(),
 
-      // Índices de busca (telefone e CPF)
-      if (patient.phone) {
-        await deleteDoc(doc(db, 'patientPhoneIndex', phoneIndexKey(ownerId, patient.phone))).catch(() => {});
-      }
-      if (patient.cpf) {
-        await deleteDoc(doc(db, 'patientCpfIndex', cpfIndexKey(ownerId, patient.cpf))).catch(() => {});
-      }
+        // Backups automáticos desse paciente na nuvem
+        (async () => {
+          try {
+            const backupFolderRef = ref(storage, `backups/${patient.id}`);
+            const backupList = await listAll(backupFolderRef);
+            await Promise.all(backupList.items.map(item => deleteObject(item).catch(() => {})));
+          } catch { /* melhor esforço */ }
+        })(),
 
-      // O prontuário em si, por último
+        // Índices de busca (telefone e CPF)
+        patient.phone ? deleteDoc(doc(db, 'patientPhoneIndex', phoneIndexKey(ownerId, patient.phone))).catch(() => {}) : Promise.resolve(),
+        patient.cpf ? deleteDoc(doc(db, 'patientCpfIndex', cpfIndexKey(ownerId, patient.cpf))).catch(() => {}) : Promise.resolve(),
+      ]);
+
+      // O prontuário em si, por último — só depois que todo o resto (arquivos, índices)
+      // já foi resolvido, pra não deixar nada órfão apontando pra um paciente que já não
+      // existe mais
       await deleteDoc(doc(db, 'patients', patient.id!));
 
       showToast('Todos os dados do paciente foram excluídos');

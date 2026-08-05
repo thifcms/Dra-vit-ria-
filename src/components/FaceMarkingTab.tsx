@@ -115,7 +115,7 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
   // atualiza sozinho conforme os pontos vão sendo criados/editados. É só informativo
   // (quanto produto vai ser gasto no total), não entra no cálculo do orçamento — o valor
   // sempre vem do procedimento marcado na anamnese, nunca da substância.
-  const substanceUsage: { substanceId: string; substanceName: string; totalMl: number }[] = (() => {
+  const substanceUsage: { substanceId: string; substanceName: string; totalMl: number; unit: string }[] = (() => {
     const totals: Record<string, number> = {};
     points.forEach(p => {
       if (p.substanceId && p.substanceMlPerPoint) {
@@ -128,6 +128,7 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
         substanceId,
         substanceName: sub?.name || 'Substância removida',
         totalMl,
+        unit: sub?.unit === 'unidade' ? 'UI' : (sub?.unit || 'ml'),
       };
     });
   })();
@@ -352,7 +353,7 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
                   {substanceUsage.map(u => (
                     <div key={u.substanceId} className="flex items-center justify-between text-xs">
                       <span className="text-[#4A433D] font-medium">{u.substanceName}</span>
-                      <span className="text-[#4A433D]">{u.totalMl.toFixed(2).replace('.', ',')} ml/UI</span>
+                      <span className="text-[#4A433D]">{u.totalMl.toFixed(2).replace('.', ',')} {u.unit}</span>
                     </div>
                   ))}
                 </div>

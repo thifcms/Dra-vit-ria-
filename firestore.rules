@@ -82,7 +82,7 @@ service cloud.firestore {
         && (!('birthDate' in data) || data.birthDate is string)
         && (!('address' in data) || data.address is string)
         && (!('cpf' in data) || data.cpf is string)
-        && (!('sex' in data) || (data.sex is string && (data.sex == 'F' || data.sex == 'M')))
+        && (!('sex' in data) || (data.sex is string && (data.sex == 'F' || data.sex == 'M' || data.sex == 'N')))
         && (!('faceMarkings' in data) || data.faceMarkings is list)
         && (!('photoHistory' in data) || data.photoHistory is list)
         && (!('files' in data) || data.files is list)
