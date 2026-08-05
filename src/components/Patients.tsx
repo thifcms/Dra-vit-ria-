@@ -1559,6 +1559,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
                           <Area 
                             type="monotone" 
                             dataKey="value" 
+                            name="Valor"
                             stroke="#EADFD4" 
                             strokeWidth={3}
                             fillOpacity={1} 

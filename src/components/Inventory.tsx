@@ -164,7 +164,7 @@ export default function Inventory({ user }: { user: User }) {
                   <Tooltip 
                     contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.05)', fontSize: '10px' }}
                   />
-                  <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                  <Bar dataKey="value" name="Consumo" radius={[4, 4, 0, 0]}>
                     {stats.consumptionData.map((_, i) => (
                       <Cell key={i} fill={['#EADFD4', '#A3988E', '#DFCFBF'][i % 3]} />
                     ))}

@@ -393,6 +393,7 @@ export default function Dashboard({ user, onNavigate, onOpenPatient, professiona
                 <Area 
                   type="monotone" 
                   dataKey="revenue" 
+                  name="Receita"
                   stroke="#EADFD4" 
                   strokeWidth={4}
                   fillOpacity={1} 
