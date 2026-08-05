@@ -23,6 +23,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { doc, getDoc } from 'firebase/firestore';
 import { buildReminderMessage, whatsappLink } from '../lib/reminders';
 import { checkinLink, cancelLink, todayLocalStr, getClinicOwnerId, hasFinanceAccess } from '../lib/slots';
+import { showToast } from '../lib/toast';
 import { ClinicSettings } from '../types';
 import { 
   AreaChart, 
@@ -172,10 +173,24 @@ export default function Dashboard({ user, onNavigate, onOpenPatient, professiona
     return apptTime > new Date();
   }) || todaySchedule[0];
 
-  const handleSendReminder = (appt: any) => {
+  // Agendamentos online vinculados a um paciente já cadastrado não têm guestPhone
+  // preenchido (esse campo é só pra quando alguém agenda sem cadastro ainda) — o
+  // telefone, nesse caso, mora no próprio cadastro do paciente. Sem esse fallback, o
+  // botão "Confirmar & Enviar" clicava e não fazia nada, silenciosamente, pra qualquer
+  // agendamento online de um paciente que já existia no sistema.
+  const handleSendReminder = async (appt: any) => {
     if (!clinicSettings) return;
-    const phone = appt.guestPhone;
-    if (!phone) return;
+    let phone = appt.guestPhone;
+    if (!phone && appt.patientId) {
+      try {
+        const patientSnap = await getDoc(doc(db, 'patients', appt.patientId));
+        if (patientSnap.exists()) phone = patientSnap.data().phone;
+      } catch { /* segue pro aviso abaixo se não conseguir buscar */ }
+    }
+    if (!phone) {
+      showToast('Este paciente não tem telefone cadastrado', 'error');
+      return;
+    }
 
     const checkinUrl = checkinLink(appt.id, appt.checkinToken, appt.date, appt.time);
     const cancel = cancelLink(appt.id, appt.checkinToken, appt.date, appt.time, user.uid);
