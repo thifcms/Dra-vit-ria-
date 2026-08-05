@@ -23,40 +23,42 @@ const MARK_COLORS = [
 // o ponto; como é uma estimativa por posição, continua totalmente editável depois (o
 // menu suspenso continua lá pra corrigir se a estimativa não bater certinho).
 function guessRegionFromPosition(x: number, y: number): string {
-  // Medido direto na imagem real com uma grade de porcentagem sobreposta (não mais só
-  // "olhando por cima"): sobrancelhas ~35-40%, olhos (pupila) ~45-48% de altura e
-  // ~33%/67% de largura, base do nariz ~62-65%, boca ~73-80%, queixo termina ~88-90%.
-  // O limiar de "lateral" muda por faixa de altura porque o rosto não é um retângulo —
-  // é mais estreito na testa/queixo e mais largo na altura da maçã do rosto; um único
-  // valor fixo pra tudo errava nas bordas dessas faixas.
-  if (y < 34) return 'Região Frontal';
-  if (y < 42) {
-    const lateral = x < 22 || x > 78;
+  // Duas fontes combinadas: a ESCALA (em que altura cada coisa fica) vem do desenho real
+  // usado no mapa (/diagrams/face-male.jpg e face-female.jpg), medido com grade de
+  // porcentagem sobreposta — sobrancelhas ~35-40%, olhos ~42-58%, base do nariz ~62%,
+  // boca ~62-80%, queixo termina ~88-90%. A LÓGICA ANATÔMICA (nariz é um triângulo que
+  // alarga descendo; infraorbital fica abaixo do orbital, não do lado; zigomática vem
+  // depois do infraorbital, não no lugar dele) vem da foto de referência enviada,
+  // também medida com grade — as duas fotos têm enquadramentos diferentes, então usar a
+  // escala de uma com a lógica da outra dava resultado errado.
+  if (y < 32) return 'Região Frontal';
+
+  if (y < 40) {
+    const lateral = x < 25 || x > 75;
     if (lateral) return 'Região Temporal';
     if (x >= 44 && x <= 56) return 'Glabela';
     return 'Região Supraorbital';
   }
-  if (y < 58) {
+
+  if (y < 62) {
+    // Triângulo do nariz alargando: estreito perto da glabela, mais largo perto da base
+    const nasalHalfWidth = 6 + ((y - 40) / (62 - 40)) * 9;
+    if (x >= 50 - nasalHalfWidth && x <= 50 + nasalHalfWidth) return 'Região Nasal';
     const lateral = x < 22 || x > 78;
-    if (lateral) return 'Região Temporal';
-    // O nariz é uma faixa estreita e vertical que já começa nessa altura (entre os
-    // olhos, descendo) — sem isso, um ponto no dorso do nariz caía como "Orbital" só
-    // por ainda estar na mesma faixa de altura dos olhos
-    if (x >= 46 && x <= 54) return 'Região Nasal';
-    return 'Região Orbital';
+    if (lateral) return y < 50 ? 'Região Temporal' : 'Região Zigomática';
+    return y < 50 ? 'Região Orbital' : 'Região Infraorbital';
   }
-  if (y < 70) {
-    const lateral = x < 20 || x > 80;
-    return lateral ? 'Região Zigomática' : 'Região Nasal';
-  }
-  if (y < 84) {
-    const lateral = x < 26 || x > 74;
+
+  if (y < 80) {
+    const lateral = x < 28 || x > 72;
     return lateral ? 'Região Geniana (bochecha)' : 'Região Oral';
   }
-  if (y < 91) {
+
+  if (y < 90) {
     const lateral = x < 30 || x > 70;
     return lateral ? 'Região Submandibular' : 'Região Mentual';
   }
+
   const lateral = x < 34 || x > 66;
   return lateral ? 'Região Submandibular' : 'Região Anterior do Pescoço';
 }
