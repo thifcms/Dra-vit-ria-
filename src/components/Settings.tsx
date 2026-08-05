@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc, deleteDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { ClinicSettings, ConsentTemplate } from '../types';
+import { ClinicSettings, ConsentTemplate, PrescriptionTemplate } from '../types';
 import { APP_VERSION } from '../version';
 import { User, EmailAuthProvider, reauthenticateWithCredential, updatePassword } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
@@ -24,7 +24,8 @@ import {
   Lock,
   CreditCard,
   Download,
-  KeyRound
+  KeyRound,
+  Pill
 } from 'lucide-react';
 import { showToast } from '../lib/toast';
 import { hashPin, isValidPinFormat } from '../lib/pin';
@@ -101,6 +102,8 @@ export default function Settings({ user }: { user: User }) {
   const [saving, setSaving] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<ConsentTemplate | null>(null);
   const [isAddingTemplate, setIsAddingTemplate] = useState(false);
+  const [editingRxTemplate, setEditingRxTemplate] = useState<PrescriptionTemplate | null>(null);
+  const [isAddingRxTemplate, setIsAddingRxTemplate] = useState(false);
   const [newProcedureName, setNewProcedureName] = useState('');
   const [newProcedurePrice, setNewProcedurePrice] = useState('');
   const [newSubstance, setNewSubstance] = useState<{ name: string; unit: 'ml' | 'unidade'; procedureIds: string[] }>({ name: '', unit: 'ml', procedureIds: [] });
@@ -168,9 +171,27 @@ export default function Settings({ user }: { user: User }) {
     showToast('Modelo de termo salvo');
   };
 
+  const handleSaveRxTemplate = (template: PrescriptionTemplate) => {
+    const templates = settings.prescriptionTemplates || [];
+    const exists = templates.some(t => t.id === template.id);
+    const next = exists
+      ? templates.map(t => t.id === template.id ? template : t)
+      : [...templates, { ...template, id: crypto.randomUUID() }];
+    persist({ ...settings, prescriptionTemplates: next });
+    setEditingRxTemplate(null);
+    setIsAddingRxTemplate(false);
+    showToast('Modelo de receita salvo');
+  };
+
   const handleDeleteTemplate = (id: string) => {
     if (!window.confirm('Excluir este modelo de termo?')) return;
     persist({ ...settings, consentTemplates: (settings.consentTemplates || []).filter(t => t.id !== id) });
+    showToast('Modelo removido');
+  };
+
+  const handleDeleteRxTemplate = (id: string) => {
+    if (!window.confirm('Excluir este modelo de receita?')) return;
+    persist({ ...settings, prescriptionTemplates: (settings.prescriptionTemplates || []).filter(t => t.id !== id) });
     showToast('Modelo removido');
   };
 
@@ -620,6 +641,47 @@ export default function Settings({ user }: { user: User }) {
               )}
             </div>
           </section>
+
+          <section className="bg-white rounded-[40px] p-10 border border-[#F5F2F0] shadow-sm">
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-[#FDFBF9] rounded-2xl text-[#9CA3AF]">
+                  <Pill size={24} />
+                </div>
+                <h3 className="text-xl font-light text-[#4A433D] serif">Modelos de Receita</h3>
+              </div>
+              <button 
+                onClick={() => setIsAddingRxTemplate(true)}
+                className="text-[#EADFD4] text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 hover:text-[#9CA3AF] transition-colors"
+              >
+                <Plus size={16} /> Adicionar Modelo
+              </button>
+            </div>
+            <p className="text-xs text-[#9CA3AF] font-light mb-6 -mt-4">
+              Receitas prontas pra reaproveitar — ao criar um novo receituário, dá pra escolher um desses
+              modelos e já vem tudo preenchido, só ajustando o que for preciso.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {(settings.prescriptionTemplates || []).map(template => (
+                <div key={template.id} className="p-6 bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl flex items-center justify-between group">
+                  <div className="flex items-center gap-3">
+                    <Pill size={18} className="text-[#9CA3AF]" />
+                    <div>
+                      <span className="text-sm font-medium text-[#4A433D]">{template.name}</span>
+                      <p className="text-[10px] text-[#9CA3AF]">{template.medicines.length} medicamento(s)</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                    <button onClick={() => setEditingRxTemplate(template)} className="p-2 text-[#9CA3AF] hover:text-[#4A433D]"><Edit2 size={16} /></button>
+                    <button onClick={() => handleDeleteRxTemplate(template.id!)} className="p-2 text-[#9CA3AF] hover:text-red-400"><Trash2 size={16} /></button>
+                  </div>
+                </div>
+              ))}
+              {(!settings.prescriptionTemplates || settings.prescriptionTemplates.length === 0) && (
+                <p className="col-span-2 text-center py-10 text-sm text-[#9CA3AF] font-light italic">Nenhum modelo de receita cadastrado.</p>
+              )}
+            </div>
+          </section>
         </div>
 
         {/* Sidebar Actions */}
@@ -852,6 +914,30 @@ export default function Settings({ user }: { user: User }) {
         )}
       </AnimatePresence>
 
+      <AnimatePresence>
+        {(isAddingRxTemplate || editingRxTemplate) && (
+          <div className="fixed inset-0 bg-[#4A433D]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+            <motion.div
+              initial={{ y: 30, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 30, opacity: 0 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="bg-white w-full max-w-2xl rounded-[40px] p-10 shadow-2xl max-h-[85vh] overflow-y-auto"
+            >
+              <div className="flex items-center justify-between mb-8">
+                <h2 className="serif text-2xl text-[#4A433D]">{editingRxTemplate ? 'Editar Modelo de Receita' : 'Novo Modelo de Receita'}</h2>
+                <button onClick={() => { setIsAddingRxTemplate(false); setEditingRxTemplate(null); }} className="text-[#9CA3AF] hover:text-[#4A433D]"><X size={24} /></button>
+              </div>
+              <RxTemplateForm
+                template={editingRxTemplate}
+                onSave={handleSaveRxTemplate}
+                onCancel={() => { setIsAddingRxTemplate(false); setEditingRxTemplate(null); }}
+              />
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {showPinModal && (
         <div className="fixed inset-0 bg-[#4A433D]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
           <motion.div
@@ -928,6 +1014,90 @@ function ToggleButton({ active, onClick, label, icon }: any) {
         <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${active ? 'right-1' : 'left-1'}`} />
       </div>
     </button>
+  );
+}
+
+function RxTemplateForm({ template, onSave, onCancel }: { template: PrescriptionTemplate | null; onSave: (t: PrescriptionTemplate) => void; onCancel: () => void }) {
+  const [name, setName] = useState(template?.name || '');
+  const [medicines, setMedicines] = useState<{ name: string; dosage: string; instructions: string }[]>(
+    template?.medicines?.length ? template.medicines : [{ name: '', dosage: '', instructions: '' }]
+  );
+
+  const updateMedicine = (i: number, field: string, value: string) => {
+    const next = [...medicines];
+    (next[i] as any)[field] = value;
+    setMedicines(next);
+  };
+
+  const handleSubmit = () => {
+    if (!name.trim()) {
+      showToast('Preencha o nome do modelo', 'error');
+      return;
+    }
+    const validMedicines = medicines.filter(m => m.name.trim());
+    if (validMedicines.length === 0) {
+      showToast('Adicione ao menos um medicamento', 'error');
+      return;
+    }
+    onSave({ id: template?.id, name: name.trim(), medicines: validMedicines });
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Nome do Modelo</label>
+        <input
+          className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all font-light text-[#4A433D]"
+          value={name}
+          onChange={e => setName(e.target.value)}
+          placeholder="ex: Protocolo Pós-Toxina"
+        />
+      </div>
+
+      <div className="space-y-4">
+        <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest ml-1">Medicamentos</label>
+        {medicines.map((m, i) => (
+          <div key={i} className="p-4 bg-[#FDFBF9] rounded-2xl space-y-2 relative">
+            {medicines.length > 1 && (
+              <button onClick={() => setMedicines(medicines.filter((_, idx) => idx !== i))} className="absolute top-3 right-3 text-[#9CA3AF] hover:text-red-400">
+                <Trash2 size={14} />
+              </button>
+            )}
+            <input
+              className="w-full bg-white border border-[#F5F2F0] rounded-xl p-3 outline-none text-sm"
+              value={m.name}
+              onChange={e => updateMedicine(i, 'name', e.target.value)}
+              placeholder="Nome do medicamento"
+            />
+            <input
+              className="w-full bg-white border border-[#F5F2F0] rounded-xl p-3 outline-none text-sm"
+              value={m.dosage}
+              onChange={e => updateMedicine(i, 'dosage', e.target.value)}
+              placeholder="Dosagem (ex: 500mg, 1 comprimido)"
+            />
+            <input
+              className="w-full bg-white border border-[#F5F2F0] rounded-xl p-3 outline-none text-sm"
+              value={m.instructions}
+              onChange={e => updateMedicine(i, 'instructions', e.target.value)}
+              placeholder="Instruções (ex: a cada 8 horas por 5 dias)"
+            />
+          </div>
+        ))}
+        <button
+          onClick={() => setMedicines([...medicines, { name: '', dosage: '', instructions: '' }])}
+          className="text-[#EADFD4] text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 hover:text-[#9CA3AF]"
+        >
+          <Plus size={14} /> Adicionar Medicamento
+        </button>
+      </div>
+
+      <div className="flex gap-4 pt-4">
+        <button onClick={onCancel} className="flex-1 py-4 text-[#9CA3AF] font-bold text-[10px] uppercase">Cancelar</button>
+        <button onClick={handleSubmit} className="flex-1 py-4 bg-[#EADFD4] text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-[#DFCFBF] transition-all">
+          Salvar Modelo
+        </button>
+      </div>
+    </div>
   );
 }
 

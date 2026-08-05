@@ -35,7 +35,8 @@ import {
   FileDown,
   Pill,
   Printer,
-  ExternalLink
+  ExternalLink,
+  RotateCcw
 } from 'lucide-react';
 import SignaturePad from 'react-signature-canvas';
 import { showToast } from '../lib/toast';
@@ -2837,6 +2838,7 @@ function PrescriptionModule({ user, patient }: { user: User, patient: Patient })
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [clinicSettings, setClinicSettings] = useState<ClinicSettings | null>(null);
+  const rxSigPad = useRef<any>(null);
 
   useEffect(() => {
     (async () => {
@@ -2856,13 +2858,29 @@ function PrescriptionModule({ user, patient }: { user: User, patient: Patient })
 
   const handleSave = async () => {
     if (saving) return;
+    const validMedicines = medicines.filter(m => m.name.trim());
+    if (validMedicines.length === 0) {
+      showToast('Adicione ao menos um medicamento', 'error');
+      return;
+    }
+    if (!rxSigPad.current || rxSigPad.current.isEmpty()) {
+      showToast('A assinatura digital é obrigatória', 'error');
+      return;
+    }
     setSaving(true);
     try {
+      const signatureBlob = await fetch(rxSigPad.current.toDataURL()).then(res => res.blob());
+      const path = `patients/${user.uid}/${patient.id}/prescriptions/${Date.now()}_sig.png`;
+      const sRef = ref(storage, path);
+      await uploadBytes(sRef, signatureBlob);
+      const signatureUrl = await getDownloadURL(sRef);
+
       const newPrescription = {
         id: Date.now().toString(),
         date: new Date().toISOString(),
-        medicines: medicines.filter(m => m.name.trim()),
-        content: notes
+        medicines: validMedicines,
+        content: notes,
+        signatureUrl,
       };
       const updated = [newPrescription, ...(patient.prescriptions || [])];
       await updateDoc(doc(db, 'patients', patient.id!), { 
@@ -2872,6 +2890,7 @@ function PrescriptionModule({ user, patient }: { user: User, patient: Patient })
       setIsAdding(false);
       setMedicines([{ name: '', dosage: '', instructions: '' }]);
       setNotes('');
+      rxSigPad.current?.clear();
       showToast('Receituário salvo');
     } catch (err) {
       showToast('Erro ao salvar', 'error');
@@ -2907,6 +2926,23 @@ function PrescriptionModule({ user, patient }: { user: User, patient: Patient })
     URL.revokeObjectURL(url);
   };
 
+  // Manda um resumo em texto da receita por WhatsApp — nome do medicamento, dosagem e
+  // instruções de cada item, já formatado. Não é o documento com o carimbo/assinatura
+  // (isso continua sendo "Visualizar" ou "Baixar"); é só uma forma rápida do paciente já
+  // ter a informação em mãos no celular, sem precisar abrir nada.
+  const handleSendPrescriptionWhatsApp = (prescription: any) => {
+    if (!patient.phone) {
+      showToast('Este paciente não tem telefone cadastrado', 'error');
+      return;
+    }
+    const clinicName = clinicSettings?.clinicName || clinicSettings?.professionalName || 'Clínica';
+    const medicinesText = prescription.medicines
+      .map((m: any, i: number) => `${i + 1}. ${m.name} — ${m.dosage}${m.instructions ? `\n   ${m.instructions}` : ''}`)
+      .join('\n');
+    const message = `Olá, ${patient.name}! Segue sua receita de ${clinicName}:\n\n${medicinesText}${prescription.content ? `\n\nOrientações: ${prescription.content}` : ''}`;
+    window.open(whatsappLink(patient.phone, message), '_blank');
+  };
+
   const handleViewPrescription = (prescription: any) => {
     const clinicName = clinicSettings?.clinicName || clinicSettings?.professionalName || 'Clínica';
     const professionalName = clinicSettings?.professionalName || '';
@@ -2924,11 +2960,20 @@ function PrescriptionModule({ user, patient }: { user: User, patient: Patient })
       </div>
       ${prescription.content ? `<div class="box"><div class="box-label">Orientações Gerais</div><p>${prescription.content}</p></div>` : ''}
       <div class="box" style="text-align: center;">
-        <p style="margin: 40px 0 6px;">
-          <span style="display: inline-block; border-top: 1px solid #4A433D; padding-top: 8px; min-width: 280px;">
-            ${professionalName ? `${professionalName}<br/>` : ''}Assinatura e Carimbo Profissional
-          </span>
-        </p>
+        ${prescription.signatureUrl ? `
+          <img src="${prescription.signatureUrl}" alt="Assinatura" style="max-height: 90px; margin: 20px auto 6px; display: block; mix-blend-mode: multiply;" />
+          <p style="margin: 0 0 6px;">
+            <span style="display: inline-block; border-top: 1px solid #4A433D; padding-top: 8px; min-width: 280px;">
+              ${professionalName ? `${professionalName}<br/>` : ''}Assinatura Digital
+            </span>
+          </p>
+        ` : `
+          <p style="margin: 40px 0 6px;">
+            <span style="display: inline-block; border-top: 1px solid #4A433D; padding-top: 8px; min-width: 280px;">
+              ${professionalName ? `${professionalName}<br/>` : ''}Assinatura e Carimbo Profissional
+            </span>
+          </p>
+        `}
       </div>
     `;
     const footerHtml = `
@@ -2990,6 +3035,25 @@ function PrescriptionModule({ user, patient }: { user: User, patient: Patient })
               </button>
             </div>
 
+            {(clinicSettings?.prescriptionTemplates?.length || 0) > 0 && (
+              <div>
+                <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Usar Modelo Pronto</label>
+                <select
+                  value=""
+                  onChange={e => {
+                    const tpl = clinicSettings?.prescriptionTemplates?.find(t => t.id === e.target.value);
+                    if (tpl) setMedicines(tpl.medicines.map(m => ({ ...m })));
+                  }}
+                  className="w-full bg-white border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm text-[#4A433D]"
+                >
+                  <option value="">Selecionar modelo (preenche os campos abaixo)...</option>
+                  {clinicSettings?.prescriptionTemplates?.map(t => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div className="space-y-6">
               {medicines.map((med, i) => (
                 <div key={i} className="bg-white p-8 rounded-3xl border border-[#F5F2F0] relative group shadow-sm">
@@ -3020,6 +3084,16 @@ function PrescriptionModule({ user, patient }: { user: User, patient: Patient })
             </div>
 
             <FormField label="Orientações Gerais" value={notes} onChange={setNotes} textarea />
+
+            <div>
+              <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-3 ml-1">Assinatura Digital (obrigatória)</label>
+              <div className="bg-white rounded-2xl border-2 border-[#F5F2F0] overflow-hidden relative">
+                <SignaturePad ref={rxSigPad} canvasProps={{ className: 'w-full h-32' }} backgroundColor="#FFFFFF" />
+                <button onClick={() => rxSigPad.current?.clear()} className="absolute top-3 right-3 p-2 bg-[#FDFBF9] rounded-full text-[#9CA3AF] hover:text-[#4A433D] shadow-sm">
+                  <RotateCcw size={16} />
+                </button>
+              </div>
+            </div>
 
             <div className="flex gap-4 pt-4">
               <button onClick={() => setIsAdding(false)} className="flex-1 py-4 text-[#9CA3AF] font-bold text-[10px] uppercase">Cancelar</button>
@@ -3074,6 +3148,12 @@ function PrescriptionModule({ user, patient }: { user: User, patient: Patient })
                 className="flex items-center gap-2 px-6 py-4 bg-[#FDFBF9] text-[#9CA3AF] rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-[#EADFD4] hover:text-white transition-all shadow-sm"
               >
                 <Download size={18} /> Baixar
+              </button>
+              <button 
+                onClick={() => handleSendPrescriptionWhatsApp(p)}
+                className="flex items-center gap-2 px-6 py-4 bg-[#FDFBF9] text-[#9CA3AF] rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-[#8BA888] hover:text-white transition-all shadow-sm"
+              >
+                <MessageCircle size={18} /> WhatsApp
               </button>
             </div>
           </div>

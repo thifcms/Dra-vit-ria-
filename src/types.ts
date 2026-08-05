@@ -295,8 +295,19 @@ export interface Patient {
     date: string;
     content: string;
     medicines: { name: string, dosage: string, instructions: string }[];
+    signatureUrl?: string;
   }[];
   updatedAt?: string;
+}
+
+// Modelo de receita pronto, cadastrado uma vez em Configurações e reaproveitado toda
+// vez que a mesma combinação de medicamentos é prescrita com frequência (ex: protocolo
+// pós-procedimento padrão) — evita digitar tudo de novo cada vez.
+export interface PrescriptionTemplate {
+  id?: string;
+  name: string;
+  medicines: { name: string, dosage: string, instructions: string }[];
+  notes?: string;
 }
 
 export interface Appointment {
@@ -410,6 +421,7 @@ export interface ClinicSettings {
     pricePerUnit?: number;
     ampouleSize?: number;
   }[];
+  prescriptionTemplates?: PrescriptionTemplate[];
 }
 
 // Documento público (legível por qualquer um, sem login) usado pela página de agendamento
