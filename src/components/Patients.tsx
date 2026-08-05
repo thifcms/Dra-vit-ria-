@@ -692,9 +692,12 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
       URL.revokeObjectURL(url);
 
       // Cópia central no Storage — histórico completo, nunca sobrescreve (nome inclui
-      // data/hora), acessível só por administrador de qualquer aparelho
+      // data/hora), acessível só por administrador de qualquer aparelho. Nome do
+      // paciente vem primeiro no arquivo (não a data), pra ficar fácil de identificar
+      // de relance numa lista com vários backups de pacientes diferentes.
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const storagePath = `backups/${updatedPatientData.id}/${timestamp}-${fileName}`;
+      const nameWithoutExtension = fileName.replace(/\.pdf$/, '');
+      const storagePath = `backups/${updatedPatientData.id}/${nameWithoutExtension}-${timestamp}.pdf`;
       await uploadBytes(ref(storage, storagePath), blob).catch(() => {});
     } catch {
       // Melhor esforço — não trava a liberação em si se o backup falhar por algum motivo

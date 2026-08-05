@@ -23,6 +23,7 @@ export default function Inventory({ user }: { user: User }) {
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [movements, setMovements] = useState<InventoryMovement[]>([]);
   const [isAdding, setIsAdding] = useState(false);
+  const [consumingItem, setConsumingItem] = useState<InventoryItem | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -221,7 +222,7 @@ export default function Inventory({ user }: { user: User }) {
                     </td>
                     <td className="p-6">
                       <div className="flex items-center gap-3">
-                        <span className="text-lg font-light serif text-[#4A433D]">{item.quantity}</span>
+                        <span className="text-lg font-light serif text-[#4A433D]">{Number(item.quantity.toFixed(2))}</span>
                         <span className="text-[10px] text-[#9CA3AF] font-medium">{item.unit}</span>
                         {item.quantity <= item.minThreshold && (
                           <span className="px-2 py-0.5 bg-red-50 text-red-400 text-[8px] font-bold uppercase tracking-widest rounded-full">Crítico</span>
@@ -240,9 +241,9 @@ export default function Inventory({ user }: { user: User }) {
                     <td className="p-6">
                       <div className="flex items-center gap-2">
                         <button 
-                          onClick={() => handleUpdateStock(item, 1, 'consumption')}
+                          onClick={() => setConsumingItem(item)}
                           className="p-2 text-[#9CA3AF] hover:text-red-400 hover:bg-red-50 rounded-xl transition-all"
-                          title="Registrar Consumo (-1)"
+                          title="Registrar Consumo"
                         >
                           <ArrowDownLeft size={18} />
                         </button>
@@ -312,6 +313,13 @@ export default function Inventory({ user }: { user: User }) {
         {isAdding && (
           <AddMaterialModal user={user} onClose={() => setIsAdding(false)} />
         )}
+        {consumingItem && (
+          <ConsumeStockModal
+            item={consumingItem}
+            onConsume={(ampoules) => { handleUpdateStock(consumingItem, ampoules, 'consumption'); setConsumingItem(null); }}
+            onClose={() => setConsumingItem(null)}
+          />
+        )}
       </AnimatePresence>
     </div>
   );
@@ -330,12 +338,101 @@ function InventoryStatCard({ icon, label, value, sub, alert }: any) {
   );
 }
 
+// Registra consumo em ampola OU em ml — a compra sempre entra por ampola inteira, mas o
+// uso num procedimento pode ser parcial (ex: usou 1,5ml de uma ampola de 2ml). Se o
+// registro for em ml, converte pra fração de ampola automaticamente (usando o
+// ampouleSize cadastrado no material), já que o controle de estoque sempre conta por
+// ampola — nunca fica "solto" em ml.
+function ConsumeStockModal({ item, onConsume, onClose }: { item: InventoryItem; onConsume: (ampoules: number) => void; onClose: () => void }) {
+  const hasAmpouleSize = item.unit === 'Ampolas' && !!item.ampouleSize;
+  const [mode, setMode] = useState<'ampola' | 'ml'>('ampola');
+  const [amount, setAmount] = useState('');
+
+  const parsedAmount = parseFloat(amount.replace(',', '.')) || 0;
+  const ampoulesToConsume = mode === 'ml' && item.ampouleSize ? parsedAmount / item.ampouleSize : parsedAmount;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!parsedAmount || parsedAmount <= 0) return;
+    if (ampoulesToConsume > item.quantity) {
+      showToast('Quantidade insuficiente em estoque', 'error');
+      return;
+    }
+    onConsume(ampoulesToConsume);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-[#4A433D]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+      <motion.div
+        initial={{ y: 30, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 30, opacity: 0 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+        className="bg-white w-full max-w-md rounded-[40px] p-10 shadow-2xl"
+      >
+        <h2 className="serif text-2xl text-[#4A433D] mb-2">Registrar Consumo</h2>
+        <p className="text-xs text-[#9CA3AF] font-light mb-8">{item.name} — {Number(item.quantity.toFixed(2))} {item.unit.toLowerCase()} em estoque</p>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {hasAmpouleSize && (
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setMode('ampola')}
+                className={`py-3 rounded-2xl text-xs font-bold uppercase tracking-widest border transition-all ${
+                  mode === 'ampola' ? 'bg-[#EADFD4] border-[#EADFD4] text-white' : 'bg-[#FDFBF9] border-[#F5F2F0] text-[#9CA3AF]'
+                }`}
+              >
+                Em Ampolas
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode('ml')}
+                className={`py-3 rounded-2xl text-xs font-bold uppercase tracking-widest border transition-all ${
+                  mode === 'ml' ? 'bg-[#EADFD4] border-[#EADFD4] text-white' : 'bg-[#FDFBF9] border-[#F5F2F0] text-[#9CA3AF]'
+                }`}
+              >
+                Em Ml/UI
+              </button>
+            </div>
+          )}
+
+          <FormField
+            label={mode === 'ml' ? 'Quantidade usada (ml/UI)' : `Quantidade usada (${item.unit.toLowerCase()})`}
+            value={amount}
+            onChange={setAmount}
+            placeholder="0"
+            type="number"
+          />
+
+          {mode === 'ml' && item.ampouleSize && parsedAmount > 0 && (
+            <p className="text-xs text-[#9CA3AF] -mt-3 ml-1">
+              = {ampoulesToConsume.toFixed(2).replace('.', ',')} ampola(s) descontada(s) do estoque (ampola com {item.ampouleSize} ml/UI)
+            </p>
+          )}
+
+          <div className="flex gap-4 pt-4">
+            <button type="button" onClick={onClose} className="flex-1 py-4 text-[#9CA3AF] font-bold text-[10px] uppercase">Cancelar</button>
+            <button
+              type="submit"
+              className="flex-1 py-4 bg-[#EADFD4] text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-[#DFCFBF] transition-all"
+            >
+              Registrar Consumo
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </div>
+  );
+}
+
 function AddMaterialModal({ user, onClose }: any) {
   const [name, setName] = useState('');
   const [category, setCategory] = useState('');
   const [quantity, setQuantity] = useState('');
   const [minThreshold, setMinThreshold] = useState('');
   const [unit, setUnit] = useState('Unidades');
+  const [ampouleSize, setAmpouleSize] = useState('');
   const [saving, setSaving] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -343,6 +440,7 @@ function AddMaterialModal({ user, onClose }: any) {
     if (saving) return;
     setSaving(true);
     try {
+      const parsedAmpouleSize = ampouleSize ? parseFloat(ampouleSize) : undefined;
       await addDoc(collection(db, 'inventory'), {
         userId: user.uid,
         name,
@@ -350,6 +448,7 @@ function AddMaterialModal({ user, onClose }: any) {
         quantity: parseFloat(quantity) || 0,
         minThreshold: parseFloat(minThreshold) || 0,
         unit,
+        ...(unit === 'Ampolas' && parsedAmpouleSize && parsedAmpouleSize > 0 ? { ampouleSize: parsedAmpouleSize } : {}),
         updatedAt: new Date().toISOString()
       });
       showToast('Material cadastrado com sucesso');
@@ -382,16 +481,25 @@ function AddMaterialModal({ user, onClose }: any) {
                 value={unit}
                 onChange={e => setUnit(e.target.value)}
               >
+                <option value="Ampolas">Ampolas/Frascos (amp)</option>
                 <option value="Unidades">Unidades (un)</option>
                 <option value="Caixas">Caixas (cx)</option>
                 <option value="Ml">Mililitros (ml)</option>
-                <option value="Frascos">Frascos (fr)</option>
                 <option value="Pares">Pares (pr)</option>
               </select>
             </div>
           </div>
+          {unit === 'Ampolas' && (
+            <FormField
+              label="Quantos ml/UI tem cada ampola? (opcional)"
+              value={ampouleSize}
+              onChange={setAmpouleSize}
+              placeholder="ex: 2 (pra converter consumo em ml automaticamente)"
+              type="number"
+            />
+          )}
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="Quantidade Atual" value={quantity} onChange={setQuantity} placeholder="0" type="number" />
+            <FormField label="Quantidade Atual (em ampolas)" value={quantity} onChange={setQuantity} placeholder="0" type="number" />
             <FormField label="Aviso de Estoque Baixo" value={minThreshold} onChange={setMinThreshold} placeholder="ex: 5" type="number" />
           </div>
           

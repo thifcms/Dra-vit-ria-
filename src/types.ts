@@ -326,12 +326,17 @@ export interface InventoryItem {
   code?: string;
   name: string;
   category: string;
-  quantity: number;
+  quantity: number; // sempre em ampolas/frascos pra itens com ampouleSize — a compra é
+                     // sempre por ampola inteira, mesmo que o uso seja parcial (em ml)
   minThreshold: number;
   unit: string;
   supplier?: string;
   lastRestockDate?: string;
   expiryDate?: string;
+  // Quantos ml/UI vêm em 1 ampola/frasco — só faz sentido pra itens com unit='Ampolas'.
+  // Usado pra converter um consumo registrado em ml pra uma fração de ampola, já que o
+  // controle de estoque sempre conta por ampola, não por ml solto.
+  ampouleSize?: number;
 }
 
 // Histórico de consumo/reposição de estoque (feature adicionada depois, direto no AI Studio)
