@@ -15,6 +15,28 @@ const MARK_COLORS = [
   { color: '#D4A24C', label: 'Outro' },
 ];
 
+// Nomenclatura anatômica padrão das regiões da face, usada como sugestão ao rotular
+// cada ponto marcado — mesmos nomes/grafia de referências de harmonização facial.
+const FACIAL_REGIONS = [
+  'Glabela',
+  'Região Frontal',
+  'Região Temporal',
+  'Fossa Temporal',
+  'Região Supraorbital',
+  'Região Orbital',
+  'Região Nasal',
+  'Região Infraorbital',
+  'Região Zigomática',
+  'Região Geniana (bochecha)',
+  'Região Oral',
+  'Região Mentual',
+  'Região Anterior do Pescoço',
+  'Região Submandibular',
+  'Região Parotídea',
+  'Sulco Nasogeniano',
+  'Sulco Labiomentual',
+];
+
 export default function FaceMarkingTab({ patient, user }: { patient: Patient; user: User }) {
   const [editing, setEditing] = useState(false);
   const [viewingSession, setViewingSession] = useState<FaceMarkingSession | null>(null);
@@ -173,6 +195,9 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
 
   return (
     <div className="space-y-8">
+      <datalist id="facial-regions">
+        {FACIAL_REGIONS.map(r => <option key={r} value={r} />)}
+      </datalist>
       <div className="flex items-center justify-between pb-6 border-b border-[#F5F2F0]">
         <h3 className="serif text-2xl text-[#4A433D]">Mapa de Aplicação</h3>
         <button
@@ -291,40 +316,13 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
                         value={p.label}
                         onChange={e => updatePointLabel(i, e.target.value)}
                         placeholder="Ex: 4U, região frontal"
+                        list="facial-regions"
                         className="flex-1 text-xs bg-transparent outline-none text-[#4A433D]"
                       />
                       <button onClick={() => removePoint(i)} className="text-[#9CA3AF] hover:text-red-400 shrink-0">
                         <Trash2 size={14} />
                       </button>
                     </div>
-                    {inventoryItems.length > 0 && (
-                      <div className="flex items-center gap-1.5 pl-8">
-                        <Package size={12} className="text-[#9CA3AF] shrink-0" />
-                        <select
-                          value={p.inventoryItemId || ''}
-                          onChange={e => {
-                            const item = inventoryItems.find(it => it.id === e.target.value);
-                            updatePointInventory(i, item?.id, item?.name, p.inventoryQuantity || 1);
-                          }}
-                          className="flex-1 text-[10px] bg-white border border-[#F5F2F0] rounded-lg px-2 py-1 outline-none text-[#4A433D]"
-                        >
-                          <option value="">Sem baixa de estoque</option>
-                          {inventoryItems.map(item => (
-                            <option key={item.id} value={item.id}>{item.name} ({item.quantity} {item.unit})</option>
-                          ))}
-                        </select>
-                        {p.inventoryItemId && (
-                          <input
-                            type="number"
-                            min={0}
-                            step="0.1"
-                            value={p.inventoryQuantity ?? 1}
-                            onChange={e => updatePointInventory(i, p.inventoryItemId, p.inventoryItemName, parseFloat(e.target.value) || 0)}
-                            className="w-14 text-[10px] bg-white border border-[#F5F2F0] rounded-lg px-2 py-1 outline-none text-[#4A433D]"
-                          />
-                        )}
-                      </div>
-                    )}
                     {substances.length > 0 && (
                       <div className="flex items-center gap-1.5 pl-8 mt-1.5">
                         <DollarSign size={12} className="text-[#9CA3AF] shrink-0" />

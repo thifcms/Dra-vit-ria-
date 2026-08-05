@@ -459,6 +459,56 @@ function AddPatientModal({ user, onClose }: { user: User, onClose: () => void })
   );
 }
 
+// Monta o texto completo da Ficha Clínica preenchida pelo paciente — todas as respostas,
+// inclusive as negativas — pra guardar como um termo assinado de verdade na aba de
+// Termos, não só espalhado pela anamnese.
+function buildIntakeFullText(s: any): string {
+  const yn = (v: boolean) => (v ? 'Sim' : 'Não');
+  const lines: string[] = [];
+  lines.push('DADOS PESSOAIS');
+  if (s.birthDate) lines.push(`Data de Nascimento: ${s.birthDate}`);
+  if (s.address) lines.push(`Endereço: ${s.address}`);
+  if (s.email) lines.push(`E-mail: ${s.email}`);
+  if (s.profession) lines.push(`Profissão: ${s.profession}`);
+  if (s.maritalStatus) lines.push(`Estado Civil: ${s.maritalStatus}`);
+  if (s.howHeardAboutClinic) lines.push(`Por onde conheceu a clínica: ${s.howHeardAboutClinic}`);
+  if (s.emergencyContactName || s.emergencyContactPhone) lines.push(`Contato de Emergência: ${s.emergencyContactName || '—'} · ${s.emergencyContactPhone || '—'}`);
+
+  lines.push('', 'QUESTIONÁRIO DE SAÚDE');
+  lines.push(`Já utilizou toxina botulínica? ${yn(s.usedToxinBefore)}${s.usedToxinBefore ? ` (última aplicação: ${s.lastToxinDate || '—'}, vezes: ${s.toxinTimes || '—'})` : ''}`);
+  lines.push(`Já fez procedimento com PMMA? ${yn(s.usedPMMA)}`);
+  lines.push(`Intercorrências passadas (nódulo/ETIPE)? ${yn(s.hadPastComplications)}${s.hadPastComplications ? ` — ${s.pastComplicationsDetail || ''}` : ''}`);
+  lines.push(`Possui alergia a algum alimento? ${yn(s.hasFoodAllergy)}${s.hasFoodAllergy ? ` — ${s.foodAllergyDetail || ''}` : ''}`);
+  lines.push(`Possui alergia a picada de inseto? ${yn(s.hasInsectAllergy)}${s.hasInsectAllergy ? ` — ${s.insectAllergyDetail || ''}` : ''}`);
+  lines.push(`Já realizou preenchimento facial? ${yn(s.hadFillerBefore)}${s.hadFillerBefore ? ` — ${s.fillerProduct || ''}` : ''}`);
+  lines.push(`(Mulheres) Está amamentando? ${yn(s.isBreastfeeding)}`);
+  lines.push(`(Mulheres) Está grávida? ${yn(s.isPregnant)}`);
+  const conditionLabels: Record<string, string> = {
+    diabetes: 'Diabetes', hypertension: 'Hipertensão', heartProblems: 'Problemas Cardíacos',
+    autoimmune: 'Doença Autoimune', cancerHistory: 'Histórico de Câncer', keloid: 'Queloide',
+    herpes: 'Herpes', epilepsy: 'Epilepsia', hivHepatitis: 'HIV/Hepatite', pacemaker: 'Marca-passo',
+    anticoagulant: 'Anticoagulante', isotretinoin: 'Isotretinoína (Roacutan)',
+  };
+  const markedConditions = s.medicalConditions ? Object.entries(s.medicalConditions).filter(([, v]) => v).map(([k]) => conditionLabels[k] || k) : [];
+  lines.push(`Tem alguma condição médica? ${yn(s.hasMedicalConditions)}${markedConditions.length ? ` — ${markedConditions.join(', ')}` : ''}`);
+  lines.push(`Doença que interfira na coagulação? ${yn(s.hasCoagulationDisease)}${s.hasCoagulationDisease ? ` — ${s.coagulationDiseaseDetail || ''}` : ''}`);
+  lines.push(`Sangra muito depois de ferido? ${yn(s.bleedsEasily)}`);
+  lines.push(`Já teve hemorragia ou herpes? ${yn(s.hadHemorrhageOrHerpes)}${s.hadHemorrhageOrHerpes ? ` — ${s.hemorrhageOrHerpesDetail || ''}` : ''}`);
+  lines.push(`Anemia? ${yn(s.hasAnemia)}`);
+  lines.push(`Já teve reação alérgica a medicamento/substância? ${yn(s.hasMedicationAllergy)}${s.hasMedicationAllergy ? ` — ${s.medicationAllergyDetail || ''}` : ''}`);
+  lines.push(`Faz uso de medicação contínua? ${yn(s.usesContinuousMedication)}${s.usesContinuousMedication ? ` — ${s.continuousMedicationDetail || ''}` : ''}`);
+
+  if (s.lifestyle) {
+    const lifestyleLabels: Record<string, string> = { smoking: 'Fuma', alcohol: 'Consome álcool', exercise: 'Pratica exercícios', sunExposure: 'Exposição solar frequente', sunscreen: 'Usa protetor solar' };
+    const marked = Object.entries(s.lifestyle).filter(([, v]) => v).map(([k]) => lifestyleLabels[k] || k);
+    lines.push('', 'ESTILO DE VIDA', marked.length ? marked.join(', ') : 'Nenhum hábito marcado');
+  }
+
+  lines.push('', 'QUEIXA PRINCIPAL', s.mainComplaint || '—');
+  lines.push('', 'Atesto que são verdadeiras as informações acima fornecidas.');
+  return lines.join('\n');
+}
+
 function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient, onBack: () => void }) {
   const [activeTab, setActiveTab] = useState<'anamnesis' | 'evolution' | 'photos' | 'files' | 'exams' | 'atestado' | 'consent' | 'prescriptions' | 'facemap' | 'budget'>('anamnesis');
   const [phoneDraft, setPhoneDraft] = useState(patient.phone || '');
@@ -2330,6 +2380,13 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
           emergencyContactPhone: patient.emergencyContactPhone || s.emergencyContactPhone || '',
           consentTerms: [
             ...(patient.consentTerms || []),
+            {
+              templateId: 'intake-full-form',
+              templateTitle: 'Ficha Clínica do Paciente (Completa)',
+              content: buildIntakeFullText(s),
+              signedAt: s.submittedAt,
+              signatureUrl: s.signatureUrl,
+            },
             {
               templateId: 'intake-photo-consent',
               templateTitle: 'Autorização de Documentação Fotográfica (Ficha Clínica)',
