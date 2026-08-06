@@ -274,6 +274,24 @@ export interface Patient {
     fileUrl: string;
     fileName: string;
   }[];
+  // Atestados & Declarações — mesmo padrão de rascunho/liberado da Anamnese e Evolução:
+  // rascunho ainda editável, liberado trava pra sempre e vai pro histórico
+  atestados?: {
+    id: string;
+    date: string;
+    docType: string;
+    documentTitle: string;
+    bodyText: string;
+  }[];
+  atestadosHistory?: {
+    id: string;
+    date: string;
+    docType: string;
+    documentTitle: string;
+    bodyText: string;
+    releasedAt: string;
+    releasedBy: string;
+  }[];
   evolution?: {
     date: string;
     procedure: string;

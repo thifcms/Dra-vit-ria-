@@ -1856,7 +1856,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
 
             {activeTab === 'atestado' && (
               <motion.div key="atestado" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                <AtestadoModule user={user} patient={patient} />
+                <AtestadoModule user={user} patient={patient} getReleaserName={getReleaserName} />
               </motion.div>
             )}
 
@@ -2407,7 +2407,7 @@ const ATESTADO_DOC_LABELS: Record<AtestadoDocType, string> = {
   livre: 'Texto Livre (personalizado)',
 };
 
-function AtestadoModule({ user, patient }: { user: User, patient: Patient }) {
+function AtestadoModule({ user, patient, getReleaserName }: { user: User, patient: Patient, getReleaserName: () => Promise<string> }) {
   const [clinicSettings, setClinicSettings] = useState<ClinicSettings | null>(null);
   const [docType, setDocType] = useState<AtestadoDocType>('atestado');
   const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split('T')[0]);
@@ -2424,6 +2424,10 @@ function AtestadoModule({ user, patient }: { user: User, patient: Patient }) {
   const [companionName, setCompanionName] = useState('');
   const [companionDoc, setCompanionDoc] = useState('');
   const [freeText, setFreeText] = useState('');
+  const [savingAtestado, setSavingAtestado] = useState(false);
+  const [releasingAtestadoId, setReleasingAtestadoId] = useState<string | null>(null);
+  const [editingAtestadoId, setEditingAtestadoId] = useState<string | null>(null);
+  const [showAtestadoHistory, setShowAtestadoHistory] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -2464,7 +2468,9 @@ function AtestadoModule({ user, patient }: { user: User, patient: Patient }) {
     ? 'Documento'
     : docType.startsWith('declaracao') ? (docType === 'declaracao_comparecimento' ? 'Declaração de Comparecimento' : 'Declaração de Acompanhamento') : 'Atestado Odontológico';
 
-  const handlePrint = () => {
+  const handlePrint = (titleOverride?: string, textOverride?: string) => {
+    const printTitle = titleOverride ?? documentTitle;
+    const printText = textOverride ?? bodyText;
     const clinicName = clinicSettings?.clinicName || clinicSettings?.professionalName || 'Clínica';
     const professionalName = clinicSettings?.professionalName || '';
     const now = new Date();
@@ -2476,7 +2482,7 @@ function AtestadoModule({ user, patient }: { user: User, patient: Patient }) {
         <p>${patient.name}</p>
       </div>
       <div class="box">
-        <p>${bodyText}</p>
+        <p>${printText}</p>
       </div>
       <div class="box" style="text-align: center;">
         <p style="margin: 40px 0 6px;">
@@ -2492,7 +2498,7 @@ function AtestadoModule({ user, patient }: { user: User, patient: Patient }) {
         <img class="footer-mark" src="/logo/logo-mark-v2.png" alt="" />
       </div>
     `;
-    const html = buildLetterheadHtml({ title: documentTitle, clinicName, bodyHtml, footerHtml, documentLabel: `${documentTitle} — ${patient.name}` });
+    const html = buildLetterheadHtml({ title: printTitle, clinicName, bodyHtml, footerHtml, documentLabel: `${printTitle} — ${patient.name}` });
     const printWindow = window.open('', '_blank');
     if (printWindow) {
       printWindow.document.write(html);
@@ -2501,16 +2507,116 @@ function AtestadoModule({ user, patient }: { user: User, patient: Patient }) {
     }
   };
 
+  const resetAtestadoForm = () => {
+    setDocType('atestado');
+    setAttendanceDate(new Date().toISOString().split('T')[0]);
+    setTimeFrom(new Date().toTimeString().slice(0, 5));
+    setTimeTo('');
+    setRestAmount('');
+    setRestUnit('horas');
+    setCid('');
+    setRg('');
+    setGuardianName('');
+    setGuardianDoc('');
+    setCompanionName('');
+    setCompanionDoc('');
+    setFreeText('');
+    setEditingAtestadoId(null);
+  };
+
+  const handleSaveAtestadoDraft = async () => {
+    if (!bodyText.trim()) {
+      showToast('Não há conteúdo pra salvar', 'error');
+      return;
+    }
+    setSavingAtestado(true);
+    try {
+      const entry = {
+        id: editingAtestadoId || crypto.randomUUID(),
+        date: new Date().toISOString(),
+        docType,
+        documentTitle,
+        bodyText,
+      };
+      const current = patient.atestados || [];
+      const updated = editingAtestadoId
+        ? current.map(a => a.id === editingAtestadoId ? entry : a)
+        : [entry, ...current];
+      await updateDoc(doc(db, 'patients', patient.id!), { atestados: updated });
+      showToast('Rascunho salvo');
+      resetAtestadoForm();
+    } catch (err) {
+      showToast('Erro ao salvar', 'error');
+    }
+    setSavingAtestado(false);
+  };
+
+  const handleReleaseAtestadoDraft = async (id: string) => {
+    if (!confirm('Depois de liberado, esse documento não poderá mais ser editado por ninguém — nem por administrador. Confirma?')) return;
+    setReleasingAtestadoId(id);
+    try {
+      const draft = (patient.atestados || []).find(a => a.id === id);
+      if (!draft) return;
+      const releaserName = await getReleaserName();
+      const historyEntry = { ...draft, releasedAt: new Date().toISOString(), releasedBy: releaserName };
+      const remainingDrafts = (patient.atestados || []).filter(a => a.id !== id);
+      await updateDoc(doc(db, 'patients', patient.id!), {
+        atestados: remainingDrafts,
+        atestadosHistory: [...(patient.atestadosHistory || []), historyEntry],
+      });
+      showToast('Documento liberado — trancado no histórico do paciente');
+    } catch (err) {
+      showToast('Erro ao liberar', 'error');
+    }
+    setReleasingAtestadoId(null);
+  };
+
+  const handleDeleteAtestadoDraft = async (id: string) => {
+    if (!confirm('Excluir este rascunho?')) return;
+    try {
+      const updated = (patient.atestados || []).filter(a => a.id !== id);
+      await updateDoc(doc(db, 'patients', patient.id!), { atestados: updated });
+      showToast('Rascunho excluído');
+    } catch (err) {
+      showToast('Erro ao excluir', 'error');
+    }
+  };
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-6 border-b border-[#F5F2F0]">
         <h3 className="serif text-2xl text-[#4A433D]">Atestados & Declarações</h3>
-        <button
-          onClick={handlePrint}
-          className="bg-[#EADFD4] text-white px-8 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest shadow-md hover:bg-[#DFCFBF] transition-all flex items-center gap-2"
-        >
-          <Printer size={16} /> Imprimir
-        </button>
+        <div className="flex flex-wrap gap-3">
+          {(patient.atestadosHistory?.length || 0) > 0 && (
+            <button
+              onClick={() => setShowAtestadoHistory(true)}
+              className="text-[#9CA3AF] hover:text-[#4A433D] flex items-center gap-2 px-6 py-3 rounded-2xl transition-all font-bold text-[10px] uppercase tracking-widest border border-[#F5F2F0]"
+            >
+              <History size={16} /> Histórico ({patient.atestadosHistory!.length})
+            </button>
+          )}
+          {editingAtestadoId && (
+            <button
+              onClick={resetAtestadoForm}
+              className="text-[#9CA3AF] hover:text-[#4A433D] flex items-center gap-2 px-6 py-3 rounded-2xl transition-all font-bold text-[10px] uppercase tracking-widest border border-[#F5F2F0]"
+            >
+              <Plus size={16} /> Novo
+            </button>
+          )}
+          <button
+            onClick={handleSaveAtestadoDraft}
+            disabled={savingAtestado}
+            className="bg-[#F0F7F0] text-[#8BA888] px-6 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 shadow-sm hover:bg-[#E5EFE5] transition-all disabled:opacity-50"
+          >
+            <Save size={16} /> {savingAtestado ? 'Salvando...' : editingAtestadoId ? 'Atualizar Rascunho' : 'Salvar Rascunho'}
+          </button>
+          <button
+            onClick={() => handlePrint()}
+            className="bg-[#EADFD4] text-white px-8 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest shadow-md hover:bg-[#DFCFBF] transition-all flex items-center gap-2"
+          >
+            <Printer size={16} /> Imprimir
+          </button>
+        </div>
       </div>
 
       <div>
@@ -2607,6 +2713,84 @@ function AtestadoModule({ user, patient }: { user: User, patient: Patient }) {
           {bodyText}
         </div>
       </div>
+
+      {(patient.atestados?.length || 0) > 0 && (
+        <div>
+          <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-3 ml-1">Rascunhos Salvos</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {(patient.atestados || []).map(draft => (
+              <div key={draft.id} className="p-6 bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <p className="text-sm font-semibold text-[#4A433D]">{draft.documentTitle}</p>
+                    <p className="text-[10px] text-[#9CA3AF] uppercase font-bold tracking-widest mt-1">
+                      {new Date(draft.date).toLocaleDateString('pt-BR')}
+                    </p>
+                  </div>
+                  <button onClick={() => handleDeleteAtestadoDraft(draft.id)} className="p-2 text-[#9CA3AF] hover:text-red-400 transition-all">
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => handlePrint(draft.documentTitle, draft.bodyText)}
+                    className="flex items-center gap-1.5 text-[10px] font-bold text-[#9CA3AF] hover:text-[#4A433D] uppercase tracking-widest"
+                  >
+                    <Printer size={12} /> Imprimir
+                  </button>
+                  <button
+                    onClick={() => handleReleaseAtestadoDraft(draft.id)}
+                    disabled={releasingAtestadoId === draft.id}
+                    className="flex items-center gap-1.5 text-[10px] font-bold text-[#B8846E] hover:text-[#A6735E] uppercase tracking-widest disabled:opacity-50"
+                  >
+                    <Lock size={12} /> {releasingAtestadoId === draft.id ? 'Liberando...' : 'Liberar'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {showAtestadoHistory && (
+        <div className="fixed inset-0 bg-[#4A433D]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+          <motion.div
+            initial={{ y: 30, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            className="bg-white w-full max-w-2xl max-h-[85vh] rounded-[40px] p-10 shadow-2xl overflow-y-auto"
+          >
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="serif text-2xl text-[#4A433D]">Histórico de Documentos Liberados</h3>
+              <button onClick={() => setShowAtestadoHistory(false)} className="text-[#9CA3AF] hover:text-[#4A433D]"><X size={24} /></button>
+            </div>
+            <div className="space-y-4">
+              {[...(patient.atestadosHistory || [])].reverse().map((entry, i) => (
+                <details key={i} className="bg-[#FDFBF9] rounded-3xl border border-[#F5F2F0] overflow-hidden">
+                  <summary className="p-6 cursor-pointer flex items-center justify-between text-sm font-semibold text-[#4A433D]">
+                    <span className="flex items-center gap-2">
+                      <Lock size={13} className="text-[#B8846E]" />
+                      {entry.documentTitle} — {new Date(entry.date).toLocaleDateString('pt-BR')}
+                    </span>
+                    <span className="text-[10px] text-[#9CA3AF] font-normal uppercase tracking-widest">{entry.releasedBy}</span>
+                  </summary>
+                  <div className="p-6 pt-0 space-y-3 text-xs text-[#4A433D] font-light">
+                    <p className="italic leading-relaxed">{entry.bodyText}</p>
+                    <div className="flex items-center justify-between pt-3 border-t border-[#F5F2F0]">
+                      <p className="text-[10px] text-[#9CA3AF]">Liberado em {new Date(entry.releasedAt).toLocaleString('pt-BR')}</p>
+                      <button
+                        onClick={() => handlePrint(entry.documentTitle, entry.bodyText)}
+                        className="flex items-center gap-1.5 text-[10px] font-bold text-[#B8846E] hover:text-[#A6735E] uppercase tracking-widest"
+                      >
+                        <Printer size={12} /> Imprimir
+                      </button>
+                    </div>
+                  </div>
+                </details>
+              ))}
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }
