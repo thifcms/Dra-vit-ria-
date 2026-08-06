@@ -390,6 +390,14 @@ service cloud.firestore {
       allow delete: if isFinanceAuthorized();
     }
 
+    // Custos fixos mensais da clínica (aluguel, telefone, funcionário) — totalmente
+    // restrito aos mesmos 2 e-mails autorizados pro financeiro, em toda operação. Não
+    // tem o mesmo relaxamento de "create" que transactions tem, porque não existe
+    // motivo clínico legítimo pra qualquer usuário criar um custo fixo.
+    match /fixedCosts/{costId} {
+      allow read, write: if isFinanceAuthorized();
+    }
+
     // Marca horários como ocupados — coleção pública (só clinicId/data/hora, ZERO dado de
     // paciente) que a página de agendamento usa pra saber quais horários esconder. Qualquer um
     // pode ler (é assim que o calendário público sabe o que está livre). A criação exige que o

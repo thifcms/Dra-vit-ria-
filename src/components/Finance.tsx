@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, where, orderBy, Timestamp, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { getClinicOwnerId, parseCurrencyInput } from '../lib/slots';
-import { Transaction, Appointment } from '../types';
+import { Transaction, Appointment, FixedCost } from '../types';
 import { User } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -40,6 +40,88 @@ export default function Finance({ user }: { user: User }) {
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [filter, setFilter] = useState<'all' | 'income' | 'expense'>('all');
   const [loading, setLoading] = useState(true);
+  const [isAdminUser, setIsAdminUser] = useState(false);
+  const [showFixedCosts, setShowFixedCosts] = useState(false);
+  const [fixedCosts, setFixedCosts] = useState<FixedCost[]>([]);
+  const [isAddingFixedCost, setIsAddingFixedCost] = useState(false);
+  const [editingFixedCost, setEditingFixedCost] = useState<FixedCost | null>(null);
+  const [fixedCostDescription, setFixedCostDescription] = useState('');
+  const [fixedCostAmount, setFixedCostAmount] = useState('');
+
+  useEffect(() => {
+    if (!user.email) return;
+    getDoc(doc(db, 'system', 'authorized_admins')).then(snap => {
+      const emails: string[] = snap.exists() ? (snap.data().emails || []) : [];
+      setIsAdminUser(emails.includes(user.email!));
+    }).catch(() => {});
+  }, [user.email]);
+
+  useEffect(() => {
+    if (!isAdminUser) return;
+    const q = query(collection(db, 'fixedCosts'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setFixedCosts(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as FixedCost)));
+    });
+    return () => unsubscribe();
+  }, [isAdminUser]);
+
+  const activeFixedCostsTotal = useMemo(
+    () => fixedCosts.filter(c => c.active).reduce((sum, c) => sum + c.amount, 0),
+    [fixedCosts]
+  );
+
+  const resetFixedCostForm = () => {
+    setFixedCostDescription('');
+    setFixedCostAmount('');
+    setIsAddingFixedCost(false);
+    setEditingFixedCost(null);
+  };
+
+  const handleSaveFixedCost = async () => {
+    const amount = parseCurrencyInput(fixedCostAmount);
+    if (!fixedCostDescription.trim() || amount <= 0) {
+      showToast('Preencha a descrição e um valor válido', 'error');
+      return;
+    }
+    try {
+      if (editingFixedCost) {
+        await updateDoc(doc(db, 'fixedCosts', editingFixedCost.id!), {
+          description: fixedCostDescription.trim(),
+          amount,
+        });
+        showToast('Custo fixo atualizado');
+      } else {
+        await addDoc(collection(db, 'fixedCosts'), {
+          userId: user.uid,
+          description: fixedCostDescription.trim(),
+          amount,
+          active: true,
+        });
+        showToast('Custo fixo adicionado');
+      }
+      resetFixedCostForm();
+    } catch (err) {
+      showToast('Erro ao salvar custo fixo', 'error');
+    }
+  };
+
+  const handleToggleFixedCost = async (cost: FixedCost) => {
+    try {
+      await updateDoc(doc(db, 'fixedCosts', cost.id!), { active: !cost.active });
+    } catch (err) {
+      showToast('Erro ao atualizar', 'error');
+    }
+  };
+
+  const handleDeleteFixedCost = async (id: string) => {
+    if (!window.confirm('Excluir este custo fixo?')) return;
+    try {
+      await deleteDoc(doc(db, 'fixedCosts', id));
+      showToast('Custo fixo excluído');
+    } catch (err) {
+      showToast('Erro ao excluir', 'error');
+    }
+  };
 
   useEffect(() => {
     const q = query(
@@ -79,7 +161,9 @@ export default function Finance({ user }: { user: User }) {
 
   const { totalIncome, totalExpense, chartData, categoryTotals } = useMemo(() => {
     const income = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
-    const expense = transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
+    // Custos fixos (aluguel, telefone, funcionário) entram como saída somada ao que já
+    // existe em lançamentos manuais — sem precisar recriar um lançamento todo mês.
+    const expense = transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0) + activeFixedCostsTotal;
 
     // Totais por categoria (para o relatório), separados por tipo
     const catMap = new Map<string, { income: number, expense: number }>();
@@ -88,6 +172,11 @@ export default function Finance({ user }: { user: User }) {
       if (t.type === 'income') entry.income += t.amount; else entry.expense += t.amount;
       catMap.set(t.category, entry);
     });
+    if (activeFixedCostsTotal > 0) {
+      const entry = catMap.get('Custos Fixos') || { income: 0, expense: 0 };
+      entry.expense += activeFixedCostsTotal;
+      catMap.set('Custos Fixos', entry);
+    }
     const categoryTotals = Array.from(catMap.entries())
       .map(([category, v]) => ({ category, ...v, total: v.income + v.expense }))
       .sort((a, b) => b.total - a.total);
@@ -108,12 +197,17 @@ export default function Finance({ user }: { user: User }) {
         })
         .reduce((sum, item) => sum + item.amount, 0);
 
-      const mExpense = transactions
+      let mExpense = transactions
         .filter(t => {
           const dt = new Date(t.date);
           return dt.getMonth() === m && dt.getFullYear() === y && t.type === 'expense';
         })
         .reduce((sum, item) => sum + item.amount, 0);
+
+      // Custos fixos só fazem sentido somar no mês atual (i === 0) — não faz sentido
+      // aplicar retroativamente em meses passados que já fecharam antes desses custos
+      // existirem cadastrados no sistema
+      if (i === 0) mExpense += activeFixedCostsTotal;
 
       lastSix.push({
         name: months[m],
@@ -128,7 +222,7 @@ export default function Finance({ user }: { user: User }) {
       chartData: lastSix,
       categoryTotals
     };
-  }, [transactions]);
+  }, [transactions, activeFixedCostsTotal]);
 
   const balance = totalIncome - totalExpense;
 
@@ -240,6 +334,116 @@ export default function Finance({ user }: { user: User }) {
   };
 
   return (
+    <>
+      {isAdminUser && (
+        <div className="flex gap-3 mb-8 max-w-[1800px] mx-auto">
+          <button
+            onClick={() => setShowFixedCosts(false)}
+            className={`px-6 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all ${!showFixedCosts ? 'bg-[#EADFD4] text-white shadow-md' : 'bg-white text-[#9CA3AF] border border-[#F5F2F0]'}`}
+          >
+            Visão Geral
+          </button>
+          <button
+            onClick={() => setShowFixedCosts(true)}
+            className={`px-6 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all ${showFixedCosts ? 'bg-[#EADFD4] text-white shadow-md' : 'bg-white text-[#9CA3AF] border border-[#F5F2F0]'}`}
+          >
+            Custos Fixos
+          </button>
+        </div>
+      )}
+
+      {showFixedCosts && isAdminUser ? (
+        <div className="max-w-[1800px] mx-auto space-y-8">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h3 className="serif text-2xl text-[#4A433D]">Custos Fixos Mensais</h3>
+              <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest mt-1">
+                Aluguel, telefone, funcionários e outros custos recorrentes — somados como saída na Visão Geral
+              </p>
+            </div>
+            {!isAddingFixedCost && !editingFixedCost && (
+              <button
+                onClick={() => setIsAddingFixedCost(true)}
+                className="bg-[#EADFD4] text-white px-8 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 shadow-md hover:bg-[#DFCFBF] transition-all shrink-0"
+              >
+                <Plus size={18} /> Novo Custo Fixo
+              </button>
+            )}
+          </div>
+
+          <div className="p-6 bg-red-50 rounded-2xl border border-red-100 text-sm text-red-500 font-medium">
+            Total ativo: R$ {activeFixedCostsTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / mês
+          </div>
+
+          {(isAddingFixedCost || editingFixedCost) && (
+            <div className="p-8 bg-[#FDFBF9] border border-[#F5F2F0] rounded-[32px] space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Descrição</label>
+                  <input
+                    value={fixedCostDescription}
+                    onChange={e => setFixedCostDescription(e.target.value)}
+                    placeholder="Ex: Aluguel, Telefone, Funcionário"
+                    className="w-full bg-white border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Valor Mensal</label>
+                  <input
+                    value={fixedCostAmount}
+                    onChange={e => setFixedCostAmount(e.target.value)}
+                    placeholder="R$"
+                    className="w-full bg-white border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-4">
+                <button onClick={resetFixedCostForm} className="flex-1 py-4 text-[#9CA3AF] font-bold text-[10px] uppercase">Cancelar</button>
+                <button
+                  onClick={handleSaveFixedCost}
+                  className="flex-1 py-4 bg-[#EADFD4] text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-[#DFCFBF] transition-all"
+                >
+                  {editingFixedCost ? 'Salvar Alterações' : 'Adicionar Custo Fixo'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-3">
+            {fixedCosts.map(cost => (
+              <div key={cost.id} className={`flex items-center justify-between p-5 bg-white border border-[#F5F2F0] rounded-2xl ${!cost.active ? 'opacity-50' : ''}`}>
+                <div className="flex items-center gap-4">
+                  <button onClick={() => handleToggleFixedCost(cost)} title={cost.active ? 'Ativo (clique pra desativar)' : 'Inativo (clique pra ativar)'}>
+                    <CheckCircle2 size={20} className={cost.active ? 'text-[#8BA888]' : 'text-[#F5F2F0]'} />
+                  </button>
+                  <div>
+                    <p className="text-sm font-semibold text-[#4A433D]">{cost.description}</p>
+                    <p className="text-[10px] text-[#9CA3AF] uppercase font-bold tracking-widest mt-0.5">
+                      R$ {cost.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / mês {!cost.active && '— inativo'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => { setEditingFixedCost(cost); setFixedCostDescription(cost.description); setFixedCostAmount(String(cost.amount)); setIsAddingFixedCost(false); }}
+                    className="p-2 text-[#9CA3AF] hover:text-[#EADFD4] transition-all"
+                  >
+                    <Pencil size={18} />
+                  </button>
+                  <button onClick={() => handleDeleteFixedCost(cost.id!)} className="p-2 text-[#9CA3AF] hover:text-red-400 transition-all">
+                    <Trash2 size={18} />
+                  </button>
+                </div>
+              </div>
+            ))}
+            {fixedCosts.length === 0 && !isAddingFixedCost && (
+              <div className="p-16 text-center text-[#9CA3AF] font-light italic border-2 border-dashed border-[#F5F2F0] rounded-[32px]">
+                Nenhum custo fixo cadastrado ainda.
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
     <div className="max-w-[1800px] mx-auto space-y-10">
       {/* Header & Balance Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -520,6 +724,8 @@ export default function Finance({ user }: { user: User }) {
         )}
       </AnimatePresence>
     </div>
+      )}
+    </>
   );
 }
 
