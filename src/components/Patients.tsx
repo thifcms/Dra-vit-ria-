@@ -512,8 +512,13 @@ function buildIntakeFullText(s: any): string {
 }
 
 function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient, onBack: () => void }) {
-  const [activeTab, setActiveTab] = useState<'anamnesis' | 'evolution' | 'photos' | 'files' | 'exams' | 'atestado' | 'consent' | 'prescriptions' | 'facemap' | 'budget' | 'invoices'>('anamnesis');
+  const [activeTab, setActiveTab] = useState<'info' | 'anamnesis' | 'evolution' | 'photos' | 'files' | 'exams' | 'atestado' | 'consent' | 'prescriptions' | 'facemap' | 'budget' | 'invoices'>('anamnesis');
   const [phoneDraft, setPhoneDraft] = useState(patient.phone || '');
+  // Sem isso, se o telefone chegasse gravado um pouco depois de a tela já ter aberto
+  // (ex: o prontuário carrega antes da atualização em tempo real do Firestore refletir
+  // um cadastro recém-feito), o campo continuava mostrando vazio pra sempre — o valor
+  // inicial do useState só é lido uma vez, na montagem do componente.
+  useEffect(() => { setPhoneDraft(patient.phone || ''); }, [patient.phone]);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deletingPatient, setDeletingPatient] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
@@ -840,7 +845,21 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
     setShowNewAnamnesisConfirm(false);
     setStartingNewAnamnesis(true);
     try {
-      const freshAnamnesis = normalizeAnamnesis({});
+      // Só reseta o que é específico dessa consulta (queixa, avaliações, conduta,
+      // procedimentos planejados) — mantém o perfil de saúde do paciente (condições,
+      // alergias, medicação, hábitos, histórico familiar, fototipo), que veio do
+      // questionário e continua válido, não precisa ser preenchido de novo do zero.
+      const freshAnamnesis = {
+        ...anamnesis,
+        mainComplaint: '',
+        expectations: '',
+        skinEvaluation: '',
+        faceEvaluation: '',
+        conduct: '',
+        plannedProcedures: [],
+        plannedSubstances: {},
+        launchedProcedures: [],
+      };
       await updateDoc(doc(db, 'patients', patient.id!), {
         anamnesis: freshAnamnesis,
         anamnesisReleased: false,
@@ -1232,17 +1251,18 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
           </div>
 
           <nav className="space-y-2">
+            <TabButton active={activeTab === 'info'} onClick={() => setActiveTab('info')} icon={<UserIcon size={20} />} label="Informações do Paciente" />
             <TabButton active={activeTab === 'anamnesis'} onClick={() => setActiveTab('anamnesis')} icon={<FileText size={20} />} label="Anamnese" />
             <TabButton active={activeTab === 'facemap'} onClick={() => setActiveTab('facemap')} icon={<MapPin size={20} />} label="Mapa de Aplicação" />
             <TabButton active={activeTab === 'budget'} onClick={() => setActiveTab('budget')} icon={<FileDown size={20} />} label="Orçamento" />
             <TabButton active={activeTab === 'evolution'} onClick={() => setActiveTab('evolution')} icon={<History size={20} />} label="Evolução Clínica" />
             <TabButton active={activeTab === 'exams'} onClick={() => setActiveTab('exams')} icon={<Microscope size={20} />} label="Exames" />
-            <TabButton active={activeTab === 'invoices'} onClick={() => setActiveTab('invoices')} icon={<Receipt size={20} />} label="Nota Fiscal" />
             <TabButton active={activeTab === 'prescriptions'} onClick={() => setActiveTab('prescriptions')} icon={<Pill size={20} />} label="Receituários" />
             <TabButton active={activeTab === 'atestado'} onClick={() => setActiveTab('atestado')} icon={<Stamp size={20} />} label="Atestados & Declarações" />
             <TabButton active={activeTab === 'consent'} onClick={() => setActiveTab('consent')} icon={<CheckCircle2 size={20} />} label="Termos & Assinaturas" />
             <TabButton active={activeTab === 'photos'} onClick={() => setActiveTab('photos')} icon={<Camera size={20} />} label="Galeria de Fotos" />
             <TabButton active={activeTab === 'files'} onClick={() => setActiveTab('files')} icon={<Paperclip size={20} />} label="Anexos" />
+            <TabButton active={activeTab === 'invoices'} onClick={() => setActiveTab('invoices')} icon={<Receipt size={20} />} label="Nota Fiscal" />
           </nav>
 
           <button
@@ -1336,6 +1356,36 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
                 <BudgetGenerator patient={patient} user={user} liveAnamnesis={anamnesis} availableProcedures={procedures} />
               </motion.div>
             )}
+            {activeTab === 'info' && (
+              <motion.div key="info" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
+                <div className="pb-6 border-b border-[#F5F2F0]">
+                  <h3 className="serif text-2xl text-[#4A433D]">Informações do Paciente</h3>
+                  <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest mt-1">Dados cadastrais preenchidos pelo paciente</p>
+                </div>
+                <div className="bg-[#FDFBF9] p-5 md:p-8 rounded-[32px] border border-[#F5F2F0] grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6">
+                  {[
+                    { label: 'Nome Completo', value: patient.name },
+                    { label: 'CPF', value: patient.cpf },
+                    { label: 'Telefone', value: patient.phone },
+                    { label: 'E-mail', value: patient.email },
+                    { label: 'Data de Nascimento', value: patient.birthDate },
+                    { label: 'Sexo', value: patient.sex === 'F' ? 'Feminino' : patient.sex === 'M' ? 'Masculino' : patient.sex === 'N' ? 'Prefiro não informar' : undefined },
+                    { label: 'Endereço', value: patient.address },
+                    { label: 'Profissão', value: patient.profession },
+                    { label: 'Estado Civil', value: patient.maritalStatus },
+                    { label: 'Por onde conheceu a clínica', value: patient.howHeardAboutClinic },
+                    { label: 'Contato de Emergência', value: patient.emergencyContactName },
+                    { label: 'Telefone de Emergência', value: patient.emergencyContactPhone },
+                  ].map((field, i) => (
+                    <div key={i}>
+                      <p className="text-[9px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-1.5">{field.label}</p>
+                      <p className="text-sm text-[#4A433D]">{field.value || '—'}</p>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+
             {activeTab === 'anamnesis' && (
               <motion.div key="anamnesis" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6 md:space-y-10">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-6 border-b border-[#F5F2F0]">
