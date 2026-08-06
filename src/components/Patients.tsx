@@ -834,8 +834,10 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
   // nova consulta. O Orçamento já se sincroniza sozinho com a Conduta da anamnese atual —
   // como a nova anamnese começa sem nenhum procedimento marcado, o orçamento também
   // aparece limpo automaticamente, sem precisar zerar nada à parte.
+  const [showNewAnamnesisConfirm, setShowNewAnamnesisConfirm] = useState(false);
+
   const handleNewAnamnesis = async () => {
-    if (!confirm('Isso abre uma nova anamnese em branco pra esse paciente, pra um novo tratamento. A anamnese anterior já está guardada no histórico e continua acessível lá. Confirma?')) return;
+    setShowNewAnamnesisConfirm(false);
     setStartingNewAnamnesis(true);
     try {
       const freshAnamnesis = normalizeAnamnesis({});
@@ -1356,7 +1358,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
                     )}
                     {patient.anamnesisReleased && (
                       <button
-                        onClick={handleNewAnamnesis}
+                        onClick={() => setShowNewAnamnesisConfirm(true)}
                         disabled={startingNewAnamnesis}
                         className="bg-[#EADFD4] text-white flex items-center gap-2 hover:bg-[#DFCFBF] px-6 py-3 rounded-2xl transition-all font-bold text-[10px] uppercase tracking-widest shadow-md disabled:opacity-50"
                       >
@@ -2228,6 +2230,40 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
                 </details>
                 );
               })}
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {showNewAnamnesisConfirm && (
+        <div className="fixed inset-0 bg-[#4A433D]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+          <motion.div
+            initial={{ y: 30, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            className="bg-white w-full max-w-md rounded-[40px] p-10 shadow-2xl"
+          >
+            <div className="w-14 h-14 bg-[#FDFBF9] rounded-2xl flex items-center justify-center text-[#EADFD4] mb-6">
+              <Plus size={24} />
+            </div>
+            <h3 className="serif text-2xl text-[#4A433D] mb-3">Iniciar Nova Anamnese?</h3>
+            <p className="text-sm text-[#9CA3AF] font-light leading-relaxed mb-8">
+              Isso abre uma nova anamnese em branco pra esse paciente, pra um novo tratamento. A anamnese
+              anterior já está guardada no histórico e continua acessível de lá.
+            </p>
+            <div className="flex gap-4">
+              <button
+                onClick={() => setShowNewAnamnesisConfirm(false)}
+                className="flex-1 py-4 text-[#9CA3AF] font-bold text-[10px] uppercase"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleNewAnamnesis}
+                disabled={startingNewAnamnesis}
+                className="flex-1 py-4 bg-[#EADFD4] text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-[#DFCFBF] transition-all disabled:opacity-50"
+              >
+                {startingNewAnamnesis ? 'Iniciando...' : 'Confirmar'}
+              </button>
             </div>
           </motion.div>
         </div>
