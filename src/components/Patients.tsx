@@ -2424,9 +2424,7 @@ function AtestadoModule({ user, patient, getReleaserName }: { user: User, patien
   const [companionName, setCompanionName] = useState('');
   const [companionDoc, setCompanionDoc] = useState('');
   const [freeText, setFreeText] = useState('');
-  const [savingAtestado, setSavingAtestado] = useState(false);
   const [releasingAtestadoId, setReleasingAtestadoId] = useState<string | null>(null);
-  const [editingAtestadoId, setEditingAtestadoId] = useState<string | null>(null);
   const [showAtestadoHistory, setShowAtestadoHistory] = useState(false);
 
   useEffect(() => {
@@ -2521,65 +2519,38 @@ function AtestadoModule({ user, patient, getReleaserName }: { user: User, patien
     setCompanionName('');
     setCompanionDoc('');
     setFreeText('');
-    setEditingAtestadoId(null);
   };
 
-  const handleSaveAtestadoDraft = async () => {
+  // Sem edição campo a campo possível depois de gerado (o documento salvo guarda só o
+  // texto final, não os campos individuais que o formaram), então não faz sentido ter
+  // uma etapa de "rascunho" no meio — libera direto, já trancado no histórico.
+  const handleReleaseAtestado = async () => {
     if (!bodyText.trim()) {
-      showToast('Não há conteúdo pra salvar', 'error');
+      showToast('Não há conteúdo pra liberar', 'error');
       return;
     }
-    setSavingAtestado(true);
+    if (!confirm('Depois de liberado, esse documento não poderá mais ser editado por ninguém — nem por administrador. Confirma?')) return;
+    setReleasingAtestadoId('current');
     try {
-      const entry = {
-        id: editingAtestadoId || crypto.randomUUID(),
+      const releaserName = await getReleaserName();
+      const historyEntry = {
+        id: crypto.randomUUID(),
         date: new Date().toISOString(),
         docType,
         documentTitle,
         bodyText,
+        releasedAt: new Date().toISOString(),
+        releasedBy: releaserName,
       };
-      const current = patient.atestados || [];
-      const updated = editingAtestadoId
-        ? current.map(a => a.id === editingAtestadoId ? entry : a)
-        : [entry, ...current];
-      await updateDoc(doc(db, 'patients', patient.id!), { atestados: updated });
-      showToast('Rascunho salvo');
-      resetAtestadoForm();
-    } catch (err) {
-      showToast('Erro ao salvar', 'error');
-    }
-    setSavingAtestado(false);
-  };
-
-  const handleReleaseAtestadoDraft = async (id: string) => {
-    if (!confirm('Depois de liberado, esse documento não poderá mais ser editado por ninguém — nem por administrador. Confirma?')) return;
-    setReleasingAtestadoId(id);
-    try {
-      const draft = (patient.atestados || []).find(a => a.id === id);
-      if (!draft) return;
-      const releaserName = await getReleaserName();
-      const historyEntry = { ...draft, releasedAt: new Date().toISOString(), releasedBy: releaserName };
-      const remainingDrafts = (patient.atestados || []).filter(a => a.id !== id);
       await updateDoc(doc(db, 'patients', patient.id!), {
-        atestados: remainingDrafts,
         atestadosHistory: [...(patient.atestadosHistory || []), historyEntry],
       });
       showToast('Documento liberado — trancado no histórico do paciente');
+      resetAtestadoForm();
     } catch (err) {
       showToast('Erro ao liberar', 'error');
     }
     setReleasingAtestadoId(null);
-  };
-
-  const handleDeleteAtestadoDraft = async (id: string) => {
-    if (!confirm('Excluir este rascunho?')) return;
-    try {
-      const updated = (patient.atestados || []).filter(a => a.id !== id);
-      await updateDoc(doc(db, 'patients', patient.id!), { atestados: updated });
-      showToast('Rascunho excluído');
-    } catch (err) {
-      showToast('Erro ao excluir', 'error');
-    }
   };
 
   return (
@@ -2595,20 +2566,12 @@ function AtestadoModule({ user, patient, getReleaserName }: { user: User, patien
               <History size={16} /> Histórico ({patient.atestadosHistory!.length})
             </button>
           )}
-          {editingAtestadoId && (
-            <button
-              onClick={resetAtestadoForm}
-              className="text-[#9CA3AF] hover:text-[#4A433D] flex items-center gap-2 px-6 py-3 rounded-2xl transition-all font-bold text-[10px] uppercase tracking-widest border border-[#F5F2F0]"
-            >
-              <Plus size={16} /> Novo
-            </button>
-          )}
           <button
-            onClick={handleSaveAtestadoDraft}
-            disabled={savingAtestado}
-            className="bg-[#F0F7F0] text-[#8BA888] px-6 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 shadow-sm hover:bg-[#E5EFE5] transition-all disabled:opacity-50"
+            onClick={handleReleaseAtestado}
+            disabled={releasingAtestadoId === 'current'}
+            className="bg-[#B8846E] text-white px-6 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 shadow-sm hover:bg-[#A6735E] transition-all disabled:opacity-50"
           >
-            <Save size={16} /> {savingAtestado ? 'Salvando...' : editingAtestadoId ? 'Atualizar Rascunho' : 'Salvar Rascunho'}
+            <Lock size={16} /> {releasingAtestadoId === 'current' ? 'Liberando...' : 'Liberar'}
           </button>
           <button
             onClick={() => handlePrint()}
@@ -2713,44 +2676,6 @@ function AtestadoModule({ user, patient, getReleaserName }: { user: User, patien
           {bodyText}
         </div>
       </div>
-
-      {(patient.atestados?.length || 0) > 0 && (
-        <div>
-          <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-3 ml-1">Rascunhos Salvos</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {(patient.atestados || []).map(draft => (
-              <div key={draft.id} className="p-6 bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl">
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <p className="text-sm font-semibold text-[#4A433D]">{draft.documentTitle}</p>
-                    <p className="text-[10px] text-[#9CA3AF] uppercase font-bold tracking-widest mt-1">
-                      {new Date(draft.date).toLocaleDateString('pt-BR')}
-                    </p>
-                  </div>
-                  <button onClick={() => handleDeleteAtestadoDraft(draft.id)} className="p-2 text-[#9CA3AF] hover:text-red-400 transition-all">
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => handlePrint(draft.documentTitle, draft.bodyText)}
-                    className="flex items-center gap-1.5 text-[10px] font-bold text-[#9CA3AF] hover:text-[#4A433D] uppercase tracking-widest"
-                  >
-                    <Printer size={12} /> Imprimir
-                  </button>
-                  <button
-                    onClick={() => handleReleaseAtestadoDraft(draft.id)}
-                    disabled={releasingAtestadoId === draft.id}
-                    className="flex items-center gap-1.5 text-[10px] font-bold text-[#B8846E] hover:text-[#A6735E] uppercase tracking-widest disabled:opacity-50"
-                  >
-                    <Lock size={12} /> {releasingAtestadoId === draft.id ? 'Liberando...' : 'Liberar'}
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {showAtestadoHistory && (
         <div className="fixed inset-0 bg-[#4A433D]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">

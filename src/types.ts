@@ -274,15 +274,9 @@ export interface Patient {
     fileUrl: string;
     fileName: string;
   }[];
-  // Atestados & Declarações — mesmo padrão de rascunho/liberado da Anamnese e Evolução:
-  // rascunho ainda editável, liberado trava pra sempre e vai pro histórico
-  atestados?: {
-    id: string;
-    date: string;
-    docType: string;
-    documentTitle: string;
-    bodyText: string;
-  }[];
+  // Atestados & Declarações — sem rascunho intermediário (o texto final é gerado a
+  // partir de vários campos que não são reeditáveis depois, então não fazia sentido ter
+  // uma etapa de "salvar rascunho"): libera direto, trava pra sempre no histórico
   atestadosHistory?: {
     id: string;
     date: string;
