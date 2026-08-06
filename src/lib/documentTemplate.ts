@@ -102,15 +102,19 @@ export function buildLetterheadHtml({
           top: 50%;
           left: 50%;
           transform: translate(-50%, -50%);
-          width: 127%;
-          max-width: 930px;
+          width: 108%;
+          max-width: 790px;
           opacity: 0.06;
           z-index: 5;
           pointer-events: none;
         }
-        .logo, .title-bar, .content {
+        .logo, .content {
           position: relative;
           z-index: 1;
+        }
+        .title-bar {
+          position: relative;
+          z-index: 6;
         }
         @media print {
           .print-btn { display: none; }

@@ -226,7 +226,7 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
       // último de propósito, já que no jsPDF quem desenha depois fica visualmente em
       // cima (não existe z-index; a ordem de desenho é o que decide)
       if (watermarkLogoUrl && watermarkLogoProps) {
-        const wmWidth = pageWidth * 1.125; // 0.75 original × 1.5
+        const wmWidth = pageWidth * 0.95625; // 0.75 original × 1.5 × 0.85 (redução de 15%)
         const wmHeight = (wmWidth * watermarkLogoProps.height) / watermarkLogoProps.width;
         docPdf.saveGraphicsState();
         (docPdf as any).setGState(new (docPdf as any).GState({ opacity: 0.06 }));
