@@ -25,7 +25,8 @@ import {
   CreditCard,
   Download,
   KeyRound,
-  Pill
+  Pill,
+  Receipt
 } from 'lucide-react';
 import { showToast } from '../lib/toast';
 import { hashPin, isValidPinFormat } from '../lib/pin';
@@ -590,6 +591,13 @@ export default function Settings({ user }: { user: User }) {
                 onChange={v => setSettings({...settings, whatsappNumber: v})}
                 icon={<Phone size={18} />}
                 placeholder="Ex: 11999999999"
+              />
+              <SettingField 
+                label="Link do Site de Emissão de Nota Fiscal" 
+                value={settings.invoiceEmissionLink || ''} 
+                onChange={v => setSettings({...settings, invoiceEmissionLink: v})}
+                icon={<Receipt size={18} />}
+                placeholder="Ex: https://minhaprefeitura.gov.br/nfse"
               />
             </div>
           </section>

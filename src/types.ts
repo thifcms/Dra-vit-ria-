@@ -263,6 +263,17 @@ export interface Patient {
     fileUrl?: string;
     fileName?: string;
   }[];
+  // Notas fiscais emitidas em site externo (o app não emite nota fiscal de verdade —
+  // isso exige integração com prefeitura/certificado digital — só guarda o PDF já
+  // emitido, anexado aqui pra ficar organizado por paciente)
+  invoices?: {
+    id: string;
+    date: string; // data em que foi anexada
+    value?: number;
+    notes?: string;
+    fileUrl: string;
+    fileName: string;
+  }[];
   evolution?: {
     date: string;
     procedure: string;
@@ -422,6 +433,10 @@ export interface ClinicSettings {
     ampouleSize?: number;
   }[];
   prescriptionTemplates?: PrescriptionTemplate[];
+  // Link do site/plataforma que a clínica usa pra emitir nota fiscal — configurável
+  // porque o app em si não emite (isso exige integração com prefeitura/certificado
+  // digital); só abre esse link e depois guarda o PDF já emitido no prontuário.
+  invoiceEmissionLink?: string;
 }
 
 // Documento público (legível por qualquer um, sem login) usado pela página de agendamento

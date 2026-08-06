@@ -36,7 +36,8 @@ import {
   Pill,
   Printer,
   ExternalLink,
-  RotateCcw
+  RotateCcw,
+  Receipt
 } from 'lucide-react';
 import SignaturePad from 'react-signature-canvas';
 import { showToast } from '../lib/toast';
@@ -511,7 +512,7 @@ function buildIntakeFullText(s: any): string {
 }
 
 function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient, onBack: () => void }) {
-  const [activeTab, setActiveTab] = useState<'anamnesis' | 'evolution' | 'photos' | 'files' | 'exams' | 'atestado' | 'consent' | 'prescriptions' | 'facemap' | 'budget'>('anamnesis');
+  const [activeTab, setActiveTab] = useState<'anamnesis' | 'evolution' | 'photos' | 'files' | 'exams' | 'atestado' | 'consent' | 'prescriptions' | 'facemap' | 'budget' | 'invoices'>('anamnesis');
   const [phoneDraft, setPhoneDraft] = useState(patient.phone || '');
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deletingPatient, setDeletingPatient] = useState(false);
@@ -634,6 +635,66 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
   const [newExam, setNewExam] = useState({ examType: '', examDate: '', notes: '' });
   const [examFile, setExamFile] = useState<File | null>(null);
   const [savingExam, setSavingExam] = useState(false);
+  const [isAddingInvoice, setIsAddingInvoice] = useState(false);
+  const [newInvoice, setNewInvoice] = useState({ value: '', notes: '' });
+  const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
+  const [savingInvoice, setSavingInvoice] = useState(false);
+  const [clinicSettingsForInvoice, setClinicSettingsForInvoice] = useState<ClinicSettings | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const ownerId = await getClinicOwnerId(db).catch(() => user.uid);
+      const snap = await getDoc(doc(db, 'settings', ownerId));
+      if (snap.exists()) setClinicSettingsForInvoice(snap.data() as ClinicSettings);
+    })();
+  }, [user.uid]);
+
+  const handleSaveInvoice = async () => {
+    if (!invoiceFile) {
+      showToast('Selecione o arquivo da nota fiscal', 'error');
+      return;
+    }
+    setSavingInvoice(true);
+    try {
+      const path = `patients/${user.uid}/${patient.id}/invoices/${Date.now()}_${invoiceFile.name}`;
+      const sRef = ref(storage, path);
+      await uploadBytes(sRef, invoiceFile);
+      const fileUrl = await getDownloadURL(sRef);
+      const entry = {
+        id: crypto.randomUUID(),
+        date: new Date().toISOString(),
+        value: newInvoice.value ? parseFloat(newInvoice.value.replace(',', '.')) : undefined,
+        notes: newInvoice.notes || undefined,
+        fileUrl,
+        fileName: invoiceFile.name,
+      };
+      const updated = [entry, ...(patient.invoices || [])];
+      await updateDoc(doc(db, 'patients', patient.id!), { invoices: updated });
+      showToast('Nota fiscal anexada');
+      setIsAddingInvoice(false);
+      setNewInvoice({ value: '', notes: '' });
+      setInvoiceFile(null);
+    } catch (err) {
+      showToast('Erro ao anexar nota fiscal', 'error');
+    }
+    setSavingInvoice(false);
+  };
+
+  const handleDeleteInvoice = async (id: string) => {
+    if (!window.confirm('Excluir esta nota fiscal?')) return;
+    const invoice = patient.invoices?.find(i => i.id === id);
+    try {
+      if (invoice?.fileUrl?.includes('firebasestorage')) {
+        await deleteObject(ref(storage, invoice.fileUrl)).catch(() => {});
+      }
+      const updated = (patient.invoices || []).filter(i => i.id !== id);
+      await updateDoc(doc(db, 'patients', patient.id!), { invoices: updated });
+      showToast('Nota fiscal removida');
+    } catch (err) {
+      showToast('Erro ao remover', 'error');
+    }
+  };
+
   const [extractingText, setExtractingText] = useState(false);
   const [extractProgress, setExtractProgress] = useState(0);
   const [newEvolution, setNewEvolution] = useState({ procedure: '', notes: '', bucoMaxiloNotes: '', numericValue: '' });
@@ -1153,6 +1214,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
             <TabButton active={activeTab === 'budget'} onClick={() => setActiveTab('budget')} icon={<FileDown size={20} />} label="Orçamento" />
             <TabButton active={activeTab === 'evolution'} onClick={() => setActiveTab('evolution')} icon={<History size={20} />} label="Evolução Clínica" />
             <TabButton active={activeTab === 'exams'} onClick={() => setActiveTab('exams')} icon={<Microscope size={20} />} label="Exames" />
+            <TabButton active={activeTab === 'invoices'} onClick={() => setActiveTab('invoices')} icon={<Receipt size={20} />} label="Nota Fiscal" />
             <TabButton active={activeTab === 'prescriptions'} onClick={() => setActiveTab('prescriptions')} icon={<Pill size={20} />} label="Receituários" />
             <TabButton active={activeTab === 'atestado'} onClick={() => setActiveTab('atestado')} icon={<Stamp size={20} />} label="Atestados & Declarações" />
             <TabButton active={activeTab === 'consent'} onClick={() => setActiveTab('consent')} icon={<CheckCircle2 size={20} />} label="Termos & Assinaturas" />
@@ -1933,6 +1995,110 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
                   {(!patient.exams || patient.exams.length === 0) && !isAddingExam && (
                     <div className="col-span-full p-20 text-center text-[#9CA3AF] font-light italic border-2 border-dashed border-[#F5F2F0] rounded-[40px] bg-[#FDFBF9]/30">
                       Nenhum exame registrado ainda.
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'invoices' && (
+              <motion.div key="invoices" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-6 border-b border-[#F5F2F0]">
+                  <h3 className="serif text-2xl text-[#4A433D]">Nota Fiscal</h3>
+                  <div className="flex flex-wrap gap-3">
+                    {clinicSettingsForInvoice?.invoiceEmissionLink ? (
+                      <a
+                        href={clinicSettingsForInvoice.invoiceEmissionLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-white text-[#EADFD4] border border-[#F5F2F0] px-6 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 hover:bg-[#FDFBF9] transition-all shadow-sm"
+                      >
+                        <ExternalLink size={18} /> Emitir Nota Fiscal
+                      </a>
+                    ) : (
+                      <p className="text-[10px] text-[#9CA3AF] font-light italic max-w-xs">
+                        Cadastre o link do site de emissão em Configurações → Gestão pra esse botão aparecer aqui.
+                      </p>
+                    )}
+                    {!isAddingInvoice && (
+                      <button
+                        onClick={() => setIsAddingInvoice(true)}
+                        className="bg-[#F0F7F0] text-[#8BA888] px-8 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 shadow-sm hover:bg-[#E5EFE5] transition-all"
+                      >
+                        <Receipt size={18} /> Anexar Nota Emitida
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <p className="text-xs text-[#9CA3AF] font-light -mt-4">
+                  O app não emite a nota fiscal em si (isso depende de integração com a prefeitura/certificado
+                  digital) — emita no site acima e depois anexe o PDF aqui pra ficar organizado no prontuário.
+                </p>
+
+                {isAddingInvoice && (
+                  <div className="p-8 bg-[#FDFBF9] border border-[#F5F2F0] rounded-[32px] space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <FormField label="Valor (opcional)" value={newInvoice.value} onChange={v => setNewInvoice({ ...newInvoice, value: v })} />
+                      <FormField label="Observações (opcional)" value={newInvoice.notes} onChange={v => setNewInvoice({ ...newInvoice, notes: v })} />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Arquivo da Nota Fiscal (PDF)</label>
+                      <input
+                        type="file"
+                        accept="application/pdf,image/*"
+                        onChange={e => setInvoiceFile(e.target.files?.[0] || null)}
+                        className="text-sm"
+                      />
+                    </div>
+                    <div className="flex gap-4 pt-2">
+                      <button
+                        onClick={() => { setIsAddingInvoice(false); setNewInvoice({ value: '', notes: '' }); setInvoiceFile(null); }}
+                        className="flex-1 py-4 text-[#9CA3AF] font-bold text-[10px] uppercase"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={handleSaveInvoice}
+                        disabled={savingInvoice}
+                        className="flex-1 py-4 bg-[#EADFD4] text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-[#DFCFBF] transition-all disabled:opacity-50"
+                      >
+                        {savingInvoice ? 'Salvando...' : 'Salvar Nota Fiscal'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {patient.invoices?.map(invoice => (
+                    <div key={invoice.id} className="p-8 bg-white border border-[#F5F2F0] rounded-[32px] hover:border-[#EADFD4]/30 hover:shadow-lg transition-all group">
+                      <div className="flex items-start justify-between mb-4">
+                        <div>
+                          <p className="text-sm font-semibold text-[#4A433D]">
+                            {invoice.value ? `R$ ${invoice.value.toFixed(2).replace('.', ',')}` : 'Nota Fiscal'}
+                          </p>
+                          <p className="text-[10px] text-[#9CA3AF] uppercase font-bold tracking-widest mt-1">
+                            Anexada em {new Date(invoice.date).toLocaleDateString('pt-BR')}
+                          </p>
+                        </div>
+                        <button onClick={() => handleDeleteInvoice(invoice.id)} className="p-2 text-[#9CA3AF] hover:text-red-400 transition-all">
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                      {invoice.notes && <p className="text-xs text-[#4A433D]/70 font-light leading-relaxed mb-4">{invoice.notes}</p>}
+                      <a
+                        href={invoice.fileUrl}
+                        download={invoice.fileName}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-2 text-[10px] font-bold text-[#B8846E] uppercase tracking-widest hover:text-[#A6735E] transition-all"
+                      >
+                        <Download size={14} /> {invoice.fileName}
+                      </a>
+                    </div>
+                  ))}
+                  {(!patient.invoices || patient.invoices.length === 0) && !isAddingInvoice && (
+                    <div className="col-span-full p-20 text-center text-[#9CA3AF] font-light italic border-2 border-dashed border-[#F5F2F0] rounded-[40px] bg-[#FDFBF9]/30">
+                      Nenhuma nota fiscal anexada ainda.
                     </div>
                   )}
                 </div>
