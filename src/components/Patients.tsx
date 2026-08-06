@@ -4,7 +4,7 @@ import { ref, uploadBytes, getDownloadURL, deleteObject, listAll } from 'firebas
 import { compressImage } from '../lib/imageCompress';
 import { db, storage } from '../lib/firebase';
 import { Patient, ClinicSettings } from '../types';
-import { phoneIndexKey, cpfIndexKey, getClinicOwnerId, todayLocalStr, remoteSignLink, intakeInviteLink } from '../lib/slots';
+import { phoneIndexKey, cpfIndexKey, getClinicOwnerId, todayLocalStr, remoteSignLink, intakeInviteLink, parseCurrencyInput } from '../lib/slots';
 import { whatsappLink } from '../lib/reminders';
 import { buildLetterheadHtml } from '../lib/documentTemplate';
 import { User } from 'firebase/auth';
@@ -691,7 +691,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
       const entry = {
         id: crypto.randomUUID(),
         date: new Date().toISOString(),
-        value: newInvoice.value ? parseFloat(newInvoice.value.replace(',', '.')) : undefined,
+        value: newInvoice.value ? parseCurrencyInput(newInvoice.value) : undefined,
         notes: newInvoice.notes || undefined,
         fileUrl,
         fileName: invoiceFile.name,
@@ -734,7 +734,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
     const clinicName = clinicSettingsForInvoice?.clinicName || clinicSettingsForInvoice?.professionalName || 'Clínica';
     const professionalName = clinicSettingsForInvoice?.professionalName || '';
     const registrationNumber = clinicSettingsForInvoice?.registrationNumber || '';
-    const numericValue = parseFloat(receiptValue.replace(/\./g, '').replace(',', '.')) || 0;
+    const numericValue = parseCurrencyInput(receiptValue);
     const formattedValue = numericValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     const payerName = receiptPayerName.trim() || patient.name;
     const todayLabel = new Date().toLocaleDateString('pt-BR');
@@ -941,7 +941,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
         updated[editingEvolutionIndex] = {
           ...updated[editingEvolutionIndex],
           ...newEvolution,
-          numericValue: newEvolution.numericValue ? parseFloat(newEvolution.numericValue) : undefined,
+          numericValue: newEvolution.numericValue ? parseCurrencyInput(newEvolution.numericValue) : undefined,
         };
         await updateDoc(doc(db, 'patients', patient.id!), {
           evolution: updated,
@@ -951,7 +951,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
       } else {
         const entry = { 
           ...newEvolution, 
-          numericValue: newEvolution.numericValue ? parseFloat(newEvolution.numericValue) : undefined,
+          numericValue: newEvolution.numericValue ? parseCurrencyInput(newEvolution.numericValue) : undefined,
           date: new Date().toISOString(),
           released: false,
         };

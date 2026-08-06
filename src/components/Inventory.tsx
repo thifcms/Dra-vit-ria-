@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, where, orderBy, limit } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { parseCurrencyInput } from '../lib/slots';
 import { InventoryItem, InventoryMovement } from '../types';
 import { User } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
@@ -348,7 +349,7 @@ function ConsumeStockModal({ item, onConsume, onClose }: { item: InventoryItem; 
   const [mode, setMode] = useState<'ampola' | 'ml'>('ampola');
   const [amount, setAmount] = useState('');
 
-  const parsedAmount = parseFloat(amount.replace(',', '.')) || 0;
+  const parsedAmount = parseCurrencyInput(amount);
   const ampoulesToConsume = mode === 'ml' && item.ampouleSize ? parsedAmount / item.ampouleSize : parsedAmount;
 
   const handleSubmit = (e: React.FormEvent) => {

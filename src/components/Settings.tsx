@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 import { showToast } from '../lib/toast';
 import { hashPin, isValidPinFormat } from '../lib/pin';
-import { getClinicOwnerId } from '../lib/slots';
+import { getClinicOwnerId, parseCurrencyInput } from '../lib/slots';
 import { isPlatformAuthenticatorAvailable, registerBiometric } from '../lib/webauthn';
 import AdminPanel from './AdminPanel';
 import ProfessionalScheduleManager from './ProfessionalScheduleManager';
@@ -753,7 +753,7 @@ export default function Settings({ user }: { user: User }) {
           />
           <button
             onClick={() => {
-              const price = parseFloat(newProcedurePrice.replace(',', '.'));
+              const price = parseCurrencyInput(newProcedurePrice);
               if (!newProcedureName.trim() || !price || price <= 0) {
                 showToast('Preencha nome e um valor válido', 'error');
                 return;

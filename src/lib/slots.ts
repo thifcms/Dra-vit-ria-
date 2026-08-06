@@ -130,3 +130,23 @@ export async function getClinicOwnerId(db: Firestore): Promise<string> {
 // Enquanto estiver com o valor de exemplo abaixo, o envio automático de e-mail fica
 // silenciosamente desativado (falha graciosamente, sem quebrar o agendamento).
 export const EMAIL_SERVICE_URL = 'https://clinica-email-service.vercel.app';
+
+// Converte um valor em reais digitado livremente pra número, aceitando tanto o padrão
+// brasileiro (vírgula decimal, ponto de milhar: "1.234,56") quanto alguém digitando com
+// ponto decimal por hábito de teclado numérico ("350.50") — sem isso, "350.50" acabava
+// sendo lido como "35050" (interpretando o ponto como separador de milhar por engano).
+// Regra: se tem vírgula, ela é o separador decimal e qualquer ponto antes dela é milhar.
+// Se não tem vírgula, o último ponto (se só um) é tratado como decimal.
+export function parseCurrencyInput(raw: string): number {
+  const trimmed = raw.trim();
+  if (!trimmed) return 0;
+  let normalized: string;
+  if (trimmed.includes(',')) {
+    normalized = trimmed.replace(/\./g, '').replace(',', '.');
+  } else {
+    const dotCount = (trimmed.match(/\./g) || []).length;
+    normalized = dotCount > 1 ? trimmed.replace(/\./g, '') : trimmed;
+  }
+  const value = parseFloat(normalized);
+  return isNaN(value) ? 0 : value;
+}

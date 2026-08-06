@@ -5,7 +5,7 @@ import { Patient, ClinicSettings } from '../types';
 import { User } from 'firebase/auth';
 import { Plus, Trash2, FileDown } from 'lucide-react';
 import { showToast } from '../lib/toast';
-import { getClinicOwnerId } from '../lib/slots';
+import { getClinicOwnerId, parseCurrencyInput } from '../lib/slots';
 
 interface BudgetItem {
   description: string;
@@ -73,10 +73,10 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
     setItems(prev => prev.map((it, i) => (i === idx ? { ...it, [field]: value } : it)));
   };
 
-  const total = items.reduce((sum, it) => sum + (parseFloat(it.value.replace(',', '.')) || 0), 0);
+  const total = items.reduce((sum, it) => sum + parseCurrencyInput(it.value), 0);
 
   const handleGenerate = async () => {
-    const validItems = items.filter(it => it.description.trim() && parseFloat(it.value.replace(',', '.')) > 0);
+    const validItems = items.filter(it => it.description.trim() && parseCurrencyInput(it.value) > 0);
     if (validItems.length === 0) {
       showToast('Adicione ao menos um item com descrição e valor', 'error');
       return;
@@ -160,7 +160,7 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
       docPdf.setFontSize(11);
       docPdf.setTextColor(92, 84, 78);
       validItems.forEach(it => {
-        const value = parseFloat(it.value.replace(',', '.')) || 0;
+        const value = parseCurrencyInput(it.value);
         docPdf.text(it.description, margin + 2, y);
         docPdf.text(`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, pageWidth - margin - 2, y, { align: 'right' });
         y += 8;

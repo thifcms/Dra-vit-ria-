@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, where, orderBy, Timestamp, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { getClinicOwnerId } from '../lib/slots';
+import { getClinicOwnerId, parseCurrencyInput } from '../lib/slots';
 import { Transaction, Appointment } from '../types';
 import { User } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
@@ -585,7 +585,7 @@ function AddTransactionModal({ user, onClose, editingTransaction }: any) {
     e.preventDefault();
     if (saving) return;
     setSaving(true);
-    const numericAmount = parseFloat(amount.replace(',', '.'));
+    const numericAmount = parseCurrencyInput(amount);
     try {
       if (editingTransaction) {
         await updateDoc(doc(db, 'transactions', editingTransaction.id), {
