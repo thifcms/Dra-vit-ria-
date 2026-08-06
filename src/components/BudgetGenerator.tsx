@@ -3,7 +3,7 @@ import { doc, getDoc, addDoc, updateDoc, collection, query, where, getDocs } fro
 import { db } from '../lib/firebase';
 import { Patient, ClinicSettings, InventoryItem } from '../types';
 import { User } from 'firebase/auth';
-import { Plus, Trash2, FileDown, CheckCircle2, Package, AlertTriangle, MessageCircle, History, X, Eye } from 'lucide-react';
+import { Plus, Trash2, FileDown, CheckCircle2, MessageCircle, History, X, Eye } from 'lucide-react';
 import { showToast } from '../lib/toast';
 import { getClinicOwnerId, parseCurrencyInput, remoteSignLink } from '../lib/slots';
 import { whatsappLink, genericEmailLink } from '../lib/reminders';
@@ -62,9 +62,11 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
         if (alreadyPresent.has(name)) return;
         const proc = availableProcedures.find(p => p.name === name);
         if (!proc) return;
-        const substanceName = liveAnamnesis.plannedSubstances?.[name];
+        // Só o nome do procedimento e o valor aparecem no orçamento — substância e
+        // insumos do kit continuam guardados no item (usados no débito de estoque ao
+        // confirmar), mas não aparecem pro paciente ver no orçamento.
         next.push({
-          description: substanceName ? `${name} — ${substanceName}` : name,
+          description: name,
           value: proc.price.toFixed(2).replace('.', ','),
           fromAnamnesis: true,
           procedureId: proc.id,
@@ -172,12 +174,9 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
   // e a validade.
   const buildBudgetSignContent = () => {
     const validItems = items.filter(it => it.description.trim() && parseCurrencyInput(it.value) > 0);
-    const lines = validItems.map(it => {
-      const materials = it.insumoKit && it.insumoKit.length > 0
-        ? ` (inclui: ${it.insumoKit.map(k => k.itemName).join(', ')})`
-        : '';
-      return `${it.description}${materials} — R$ ${parseCurrencyInput(it.value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
-    });
+    const lines = validItems.map(it =>
+      `${it.description} — R$ ${parseCurrencyInput(it.value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+    );
     return [
       ...lines,
       '',
@@ -455,15 +454,6 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
                 <Trash2 size={16} />
               </button>
             </div>
-            {item.insumoKit && item.insumoKit.length > 0 && (
-              <div className="flex items-start gap-2 mt-2 ml-1 p-3 bg-[#FDFBF9] rounded-xl">
-                <Package size={14} className="text-[#9CA3AF] shrink-0 mt-0.5" />
-                <p className="text-[11px] text-[#9CA3AF] font-light leading-relaxed">
-                  <span className="font-bold uppercase tracking-widest text-[9px]">Materiais inclusos: </span>
-                  {item.insumoKit.map(k => `${k.itemName} (${k.quantity})`).join(', ')}
-                </p>
-              </div>
-            )}
           </div>
         ))}
       </div>
