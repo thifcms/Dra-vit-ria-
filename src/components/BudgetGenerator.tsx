@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { doc, getDoc, addDoc, updateDoc, collection } from 'firebase/firestore';
+import { doc, getDoc, addDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Patient, ClinicSettings, InventoryItem } from '../types';
 import { User } from 'firebase/auth';
-import { Plus, Trash2, FileDown, CheckCircle2, Package, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, FileDown, CheckCircle2, Package, AlertTriangle, MessageCircle, History, X } from 'lucide-react';
 import { showToast } from '../lib/toast';
-import { getClinicOwnerId, parseCurrencyInput } from '../lib/slots';
+import { getClinicOwnerId, parseCurrencyInput, remoteSignLink } from '../lib/slots';
+import { whatsappLink, genericEmailLink } from '../lib/reminders';
 
 interface BudgetItem {
   description: string;
@@ -34,6 +35,9 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
   const [generating, setGenerating] = useState(false);
   const [showConfirmLaunch, setShowConfirmLaunch] = useState(false);
   const [launchingToFinance, setLaunchingToFinance] = useState(false);
+  const [showBudgetSignSend, setShowBudgetSignSend] = useState(false);
+  const [sendingBudgetSign, setSendingBudgetSign] = useState(false);
+  const [showBudgetHistory, setShowBudgetHistory] = useState(false);
 
   useEffect(() => {
     getClinicOwnerId(db).then(ownerId => getDoc(doc(db, 'settings', ownerId))).then(snap => {
@@ -162,6 +166,113 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
     }
     setLaunchingToFinance(false);
   };
+
+  // Texto legível do orçamento atual, pra mostrar ao paciente na tela de assinatura
+  // remota — lista os itens (sem preço separado por material, só a descrição), o total
+  // e a validade.
+  const buildBudgetSignContent = () => {
+    const validItems = items.filter(it => it.description.trim() && parseCurrencyInput(it.value) > 0);
+    const lines = validItems.map(it => {
+      const materials = it.insumoKit && it.insumoKit.length > 0
+        ? ` (inclui: ${it.insumoKit.map(k => k.itemName).join(', ')})`
+        : '';
+      return `${it.description}${materials} — R$ ${parseCurrencyInput(it.value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+    });
+    return [
+      ...lines,
+      '',
+      `Valor Total: R$ ${total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+      `Validade: ${validityDays} dias a partir da data de emissão.`,
+      notes ? `Observações: ${notes}` : '',
+      '',
+      'Ao assinar abaixo, declaro estar de acordo com os valores e procedimentos descritos neste orçamento.',
+    ].filter(Boolean).join('\n');
+  };
+
+  const handleSendBudgetForSignature = async (via: 'whatsapp' | 'email') => {
+    const validItems = items.filter(it => it.description.trim() && parseCurrencyInput(it.value) > 0);
+    if (validItems.length === 0) {
+      showToast('Adicione ao menos um item com descrição e valor antes de enviar', 'error');
+      return;
+    }
+    const sentTo = via === 'whatsapp' ? patient.phone : patient.email;
+    if (!sentTo) {
+      showToast(`Cadastre um ${via === 'whatsapp' ? 'telefone' : 'e-mail'} pro paciente antes de enviar`, 'error');
+      return;
+    }
+    setSendingBudgetSign(true);
+    try {
+      const ownerId = await getClinicOwnerId(db).catch(() => user.uid);
+      const requestData = {
+        userId: user.uid,
+        patientId: patient.id,
+        patientName: patient.name,
+        patientCpf: patient.cpf || '',
+        templateId: 'budget',
+        templateTitle: 'Orçamento',
+        templateContent: buildBudgetSignContent(),
+        status: 'pending' as const,
+        createdAt: new Date().toISOString(),
+        createdBy: user.email || user.uid,
+        ownerId,
+        docType: 'budget' as const,
+        sentVia: via,
+        sentTo,
+      };
+      const docRef = await addDoc(collection(db, 'signRequests'), requestData);
+      const link = remoteSignLink(docRef.id);
+      const message = `Olá, ${patient.name}! Segue o link pra revisar e assinar seu orçamento:\n${link}`;
+      if (via === 'whatsapp') {
+        window.open(whatsappLink(sentTo, message), '_blank');
+      } else {
+        window.open(genericEmailLink(sentTo, 'Assinatura: Orçamento', message), '_blank');
+      }
+      setShowBudgetSignSend(false);
+      showToast(`Link gerado — confirme o envio no ${via === 'whatsapp' ? 'WhatsApp' : 'e-mail'}`);
+    } catch (err) {
+      showToast('Erro ao gerar o link', 'error');
+    }
+    setSendingBudgetSign(false);
+  };
+
+  // Assinatura remota do orçamento: diferente de anamnese/termo, o orçamento não tinha
+  // nenhum lugar pra ficar guardado permanentemente — agora, ao ser assinado, cria uma
+  // entrada nova em budgetHistory, sem apagar orçamentos assinados anteriormente.
+  useEffect(() => {
+    (async () => {
+      try {
+        const q = query(
+          collection(db, 'signRequests'),
+          where('patientId', '==', patient.id),
+          where('status', '==', 'signed')
+        );
+        const snap = await getDocs(q);
+        const toMerge = snap.docs.filter(d => !d.data().mergedIntoRecord && d.data().docType === 'budget');
+        if (toMerge.length === 0) return;
+        const validItems = items.filter(it => it.description.trim() && parseCurrencyInput(it.value) > 0);
+        const newEntries = toMerge.map(d => {
+          const data = d.data();
+          return {
+            id: crypto.randomUUID(),
+            date: new Date().toISOString(),
+            items: validItems.map(it => ({ description: it.description, value: it.value })),
+            total,
+            validityDays,
+            notes,
+            signedAt: data.signedAt,
+            signatureUrl: data.signatureUrl,
+            sentVia: data.sentVia,
+            sentTo: data.sentTo,
+          };
+        });
+        await updateDoc(doc(db, 'patients', patient.id!), {
+          budgetHistory: [...(patient.budgetHistory || []), ...newEntries],
+        });
+        await Promise.all(toMerge.map(d => updateDoc(doc(db, 'signRequests', d.id), { mergedIntoRecord: true })));
+        showToast('Orçamento assinado remotamente — guardado no prontuário');
+      } catch { /* melhor esforço */ }
+    })();
+  }, [patient.id]);
 
   const handleGenerate = async () => {
     const validItems = items.filter(it => it.description.trim() && parseCurrencyInput(it.value) > 0);
@@ -413,6 +524,24 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
         {generating ? 'Gerando...' : 'Gerar PDF do Orçamento'}
       </button>
 
+      <div className="flex gap-3">
+        <button
+          onClick={() => setShowBudgetSignSend(true)}
+          disabled={total <= 0}
+          className="flex-1 py-4 bg-white border border-[#F5F2F0] text-[#4A433D] rounded-2xl font-bold text-[10px] uppercase tracking-widest hover:border-[#EADFD4] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+        >
+          <MessageCircle size={16} /> Assinatura Remota
+        </button>
+        {(patient.budgetHistory?.length || 0) > 0 && (
+          <button
+            onClick={() => setShowBudgetHistory(true)}
+            className="flex-1 py-4 bg-white border border-[#F5F2F0] text-[#9CA3AF] rounded-2xl font-bold text-[10px] uppercase tracking-widest hover:text-[#4A433D] transition-all flex items-center justify-center gap-2"
+          >
+            <History size={16} /> Histórico ({patient.budgetHistory!.length})
+          </button>
+        )}
+      </div>
+
       <div className="pt-2 border-t border-[#F5F2F0]">
         <p className="text-[10px] text-[#9CA3AF] font-light text-center mb-3 mt-4">
           Gerar o orçamento é só o documento — nada entra no financeiro até o pagamento ser confirmado.
@@ -426,6 +555,73 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
           Confirmar Lançamento
         </button>
       </div>
+
+      {showBudgetSignSend && (
+        <div className="fixed inset-0 bg-[#4A433D]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+          <div className="bg-white w-full max-w-md rounded-[40px] p-10 shadow-2xl">
+            <div className="w-14 h-14 bg-[#FDFBF9] rounded-2xl flex items-center justify-center text-[#EADFD4] mb-6">
+              <MessageCircle size={24} />
+            </div>
+            <h3 className="serif text-2xl text-[#4A433D] mb-3">Enviar Orçamento pra Assinatura</h3>
+            <p className="text-sm text-[#9CA3AF] font-light leading-relaxed mb-8">
+              O paciente vai receber um link pra revisar e assinar o orçamento do próprio celular. A assinatura
+              fica guardada permanentemente no prontuário, junto com qualquer orçamento assinado antes.
+            </p>
+            <div className="flex gap-4">
+              <button onClick={() => setShowBudgetSignSend(false)} className="flex-1 py-4 text-[#9CA3AF] font-bold text-[10px] uppercase">Cancelar</button>
+              <button
+                onClick={() => handleSendBudgetForSignature('whatsapp')}
+                disabled={sendingBudgetSign}
+                className="flex-1 py-4 bg-[#8BA888] text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-[#7A9877] transition-all disabled:opacity-50"
+              >
+                WhatsApp
+              </button>
+              <button
+                onClick={() => handleSendBudgetForSignature('email')}
+                disabled={sendingBudgetSign}
+                className="flex-1 py-4 bg-[#B8846E] text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-[#A6735E] transition-all disabled:opacity-50"
+              >
+                E-mail
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showBudgetHistory && (
+        <div className="fixed inset-0 bg-[#4A433D]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+          <div className="bg-white w-full max-w-2xl max-h-[85vh] rounded-[40px] p-10 shadow-2xl overflow-y-auto">
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="serif text-2xl text-[#4A433D]">Histórico de Orçamentos Assinados</h3>
+              <button onClick={() => setShowBudgetHistory(false)} className="text-[#9CA3AF] hover:text-[#4A433D]"><X size={24} /></button>
+            </div>
+            <div className="space-y-4">
+              {[...(patient.budgetHistory || [])].reverse().map((entry, i) => (
+                <details key={i} className="bg-[#FDFBF9] rounded-3xl border border-[#F5F2F0] overflow-hidden">
+                  <summary className="p-6 cursor-pointer flex items-center justify-between text-sm font-semibold text-[#4A433D]">
+                    <span>{new Date(entry.date).toLocaleDateString('pt-BR')} — R$ {entry.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  </summary>
+                  <div className="p-6 pt-0 space-y-3 text-xs text-[#4A433D] font-light">
+                    {entry.items.map((it, idx) => (
+                      <p key={idx}>{it.description} — R$ {parseCurrencyInput(it.value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                    ))}
+                    {entry.notes && <p className="italic pt-2">{entry.notes}</p>}
+                    <div className="pt-3 border-t border-[#F5F2F0] text-center">
+                      <img src={entry.signatureUrl} alt="Assinatura" style={{ maxHeight: 70, margin: '0 auto', mixBlendMode: 'multiply' }} />
+                      {entry.sentVia && (
+                        <p className="text-[10px] text-[#9CA3AF] mt-1">
+                          Assinado remotamente — link enviado por {entry.sentVia === 'whatsapp' ? 'WhatsApp' : 'e-mail'} para {entry.sentTo}
+                        </p>
+                      )}
+                      <p className="text-[10px] text-[#9CA3AF] mt-1">Assinado em {new Date(entry.signedAt).toLocaleString('pt-BR')}</p>
+                    </div>
+                  </div>
+                </details>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {showConfirmLaunch && (
         <div className="fixed inset-0 bg-[#4A433D]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">

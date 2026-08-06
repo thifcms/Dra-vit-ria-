@@ -44,3 +44,9 @@ export function emailLink(email: string, clinicName: string, message: string): s
   const subject = `Lembrete de consulta — ${clinicName}`;
   return `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
 }
+
+// Versão genérica, com assunto customizável — usada pra enviar links de assinatura
+// remota (termo, anamnese, orçamento), que não são lembretes de consulta.
+export function genericEmailLink(email: string, subject: string, message: string): string {
+  return `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
+}

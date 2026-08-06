@@ -109,10 +109,13 @@ service cloud.firestore {
       let incomingEvolutionHistory = ('evolutionHistory' in incoming()) ? incoming().evolutionHistory : [];
       let existingAtestadosHistory = ('atestadosHistory' in resource.data) ? resource.data.atestadosHistory : [];
       let incomingAtestadosHistory = ('atestadosHistory' in incoming()) ? incoming().atestadosHistory : [];
+      let existingBudgetHistory = ('budgetHistory' in resource.data) ? resource.data.budgetHistory : [];
+      let incomingBudgetHistory = ('budgetHistory' in incoming()) ? incoming().budgetHistory : [];
       let anamnesisWasReleased = ('anamnesisReleased' in resource.data) && resource.data.anamnesisReleased == true;
       return isAppendOnly(existingAnamnesisHistory, incomingAnamnesisHistory)
         && isAppendOnly(existingEvolutionHistory, incomingEvolutionHistory)
         && isAppendOnly(existingAtestadosHistory, incomingAtestadosHistory)
+        && isAppendOnly(existingBudgetHistory, incomingBudgetHistory)
         // Depois de liberada, o conteúdo da anamnese atual não pode mudar E CONTINUAR
         // marcado como liberado — mas dá pra abrir uma "Nova Anamnese" (paciente
         // voltando pra outro tratamento), desde que a anamnese que está entrando seja

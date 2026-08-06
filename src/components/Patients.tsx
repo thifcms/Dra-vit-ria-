@@ -5,7 +5,7 @@ import { compressImage } from '../lib/imageCompress';
 import { db, storage } from '../lib/firebase';
 import { Patient, ClinicSettings } from '../types';
 import { phoneIndexKey, cpfIndexKey, getClinicOwnerId, todayLocalStr, remoteSignLink, intakeInviteLink, parseCurrencyInput } from '../lib/slots';
-import { whatsappLink } from '../lib/reminders';
+import { whatsappLink, genericEmailLink } from '../lib/reminders';
 import { buildLetterheadHtml } from '../lib/documentTemplate';
 import { User } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
@@ -961,6 +961,119 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
     setReleasingAnamnesis(false);
   };
 
+  // Texto legível da anamnese atual, pra mostrar ao paciente na tela de assinatura
+  // remota — não é o objeto técnico interno, é um resumo em português corrido.
+  const buildAnamnesisSignContent = () => {
+    const activeConditions = Object.entries(anamnesis.conditions || {}).filter(([, v]) => v).map(([k]) => k);
+    const activeHabits = Object.entries(anamnesis.habits || {}).filter(([k, v]) => k !== 'diet' && v).map(([k]) => k);
+    const lines = [
+      `Queixa Principal: ${anamnesis.mainComplaint || '—'}`,
+      `Expectativas: ${anamnesis.expectations || '—'}`,
+      `Condições Médicas: ${activeConditions.length ? activeConditions.join(', ') : 'Nenhuma marcada'}`,
+      anamnesis.otherConditions ? `Outras Condições: ${anamnesis.otherConditions}` : '',
+      `Alergias: ${anamnesis.hasAllergies ? (anamnesis.allergiesDetails || 'Sim') : 'Não'}`,
+      `Medicação Contínua: ${anamnesis.hasContinuousMedication ? (anamnesis.medicationsDetails || 'Sim') : 'Não'}`,
+      anamnesis.familyHistory ? `Histórico Familiar: ${anamnesis.familyHistory}` : '',
+      `Estilo de Vida: ${activeHabits.length ? activeHabits.join(', ') : 'Nenhum marcado'}`,
+      `Avaliação da Pele: ${anamnesis.skinEvaluation || '—'}`,
+      `Avaliação Facial: ${anamnesis.faceEvaluation || '—'}`,
+      `Conduta / Plano de Tratamento: ${anamnesis.conduct || '—'}`,
+      (anamnesis.plannedProcedures || []).length > 0 ? `Procedimentos Planejados: ${anamnesis.plannedProcedures.join(', ')}` : '',
+      '',
+      'Ao assinar abaixo, declaro que as informações acima são verdadeiras e estou ciente do plano de tratamento proposto.',
+    ];
+    return lines.filter(Boolean).join('\n\n');
+  };
+
+  const [showAnamnesisSignSend, setShowAnamnesisSignSend] = useState(false);
+  const [sendingAnamnesisSign, setSendingAnamnesisSign] = useState(false);
+
+  const handleSendAnamnesisForSignature = async (via: 'whatsapp' | 'email') => {
+    const hasAnamnesisContent = !!(anamnesis.mainComplaint || anamnesis.conduct || (anamnesis.plannedProcedures || []).length);
+    if (!hasAnamnesisContent) {
+      showToast('Preencha ao menos a queixa, a conduta ou um procedimento antes de enviar', 'error');
+      return;
+    }
+    const sentTo = via === 'whatsapp' ? patient.phone : patient.email;
+    if (!sentTo) {
+      showToast(`Cadastre um ${via === 'whatsapp' ? 'telefone' : 'e-mail'} pro paciente antes de enviar`, 'error');
+      return;
+    }
+    setSendingAnamnesisSign(true);
+    try {
+      const ownerId = await getClinicOwnerId(db).catch(() => user.uid);
+      const requestData = {
+        userId: user.uid,
+        patientId: patient.id,
+        patientName: patient.name,
+        patientCpf: patient.cpf || '',
+        templateId: 'anamnesis',
+        templateTitle: 'Anamnese e Plano de Tratamento',
+        templateContent: buildAnamnesisSignContent(),
+        status: 'pending' as const,
+        createdAt: new Date().toISOString(),
+        createdBy: user.email || user.uid,
+        ownerId,
+        docType: 'anamnesis' as const,
+        sentVia: via,
+        sentTo,
+      };
+      const docRef = await addDoc(collection(db, 'signRequests'), requestData);
+      const link = remoteSignLink(docRef.id);
+      const message = `Olá, ${patient.name}! Segue o link pra revisar e assinar sua anamnese e plano de tratamento:\n${link}`;
+      if (via === 'whatsapp') {
+        window.open(whatsappLink(sentTo, message), '_blank');
+      } else {
+        window.open(genericEmailLink(sentTo, 'Assinatura: Anamnese e Plano de Tratamento', message), '_blank');
+      }
+      setShowAnamnesisSignSend(false);
+      showToast(`Link gerado — confirme o envio no ${via === 'whatsapp' ? 'WhatsApp' : 'e-mail'}`);
+    } catch (err) {
+      showToast('Erro ao gerar o link', 'error');
+    }
+    setSendingAnamnesisSign(false);
+  };
+
+  // Assinaturas remotas de anamnese: quando o paciente assina do próprio celular, isso
+  // libera (tranca) a anamnese automaticamente — mesmo efeito de clicar em "Liberar" 
+  // presencialmente, só que registrando a assinatura de verdade e prova de envio.
+  useEffect(() => {
+    (async () => {
+      if (patient.anamnesisReleased) return;
+      try {
+        const q = query(
+          collection(db, 'signRequests'),
+          where('patientId', '==', patient.id),
+          where('status', '==', 'signed')
+        );
+        const snap = await getDocs(q);
+        const toMerge = snap.docs.filter(d => !d.data().mergedIntoRecord && d.data().docType === 'anamnesis');
+        if (toMerge.length === 0) return;
+        const latest = toMerge[toMerge.length - 1];
+        const data = latest.data();
+        const releasedAt = data.signedAt || new Date().toISOString();
+        const historyEntry = {
+          snapshot: anamnesis,
+          releasedAt,
+          releasedBy: 'Paciente (assinatura remota)',
+          signatureUrl: data.signatureUrl,
+          sentVia: data.sentVia,
+          sentTo: data.sentTo,
+        };
+        await updateDoc(doc(db, 'patients', patient.id!), {
+          anamnesis,
+          anamnesisReleased: true,
+          anamnesisReleasedAt: releasedAt,
+          anamnesisReleasedBy: 'Paciente (assinatura remota)',
+          anamnesisHistory: [...(patient.anamnesisHistory || []), historyEntry],
+          updatedAt: releasedAt,
+        });
+        await Promise.all(toMerge.map(d => updateDoc(doc(db, 'signRequests', d.id), { mergedIntoRecord: true })));
+        showToast('Assinatura remota da anamnese recebida — anamnese liberada');
+      } catch { /* melhor esforço */ }
+    })();
+  }, [patient.id, patient.anamnesisReleased]);
+
   const [startingNewAnamnesis, setStartingNewAnamnesis] = useState(false);
 
   // Paciente que volta pedindo um tratamento novo — a anamnese anterior já está travada
@@ -1666,6 +1779,14 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
                       >
                         <Lock size={16} />
                         {releasingAnamnesis ? 'Liberando...' : 'Liberar'}
+                      </button>
+                      <button 
+                        onClick={() => setShowAnamnesisSignSend(true)} 
+                        disabled={savingAnamnesis || releasingAnamnesis}
+                        className="text-[#9CA3AF] hover:text-[#4A433D] flex items-center gap-2 px-6 py-3 rounded-2xl transition-all font-bold text-[10px] uppercase tracking-widest border border-[#F5F2F0] disabled:opacity-50"
+                      >
+                        <MessageCircle size={16} />
+                        Assinatura Remota
                       </button>
                     </>
                     )}
@@ -2549,10 +2670,56 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
                     <p><strong>Avaliação Facial:</strong> {s.faceEvaluation || '—'}</p>
                     <p><strong>Conduta:</strong> {s.conduct || '—'}</p>
                     {(s.plannedProcedures || []).length > 0 && <p><strong>Procedimentos Planejados:</strong> {s.plannedProcedures.join(', ')}</p>}
+                    {(entry as any).signatureUrl && (
+                      <div className="pt-3 border-t border-[#F5F2F0] text-center">
+                        <img src={(entry as any).signatureUrl} alt="Assinatura" style={{ maxHeight: 70, margin: '0 auto', mixBlendMode: 'multiply' as any }} />
+                        {(entry as any).sentVia && (
+                          <p className="text-[10px] text-[#9CA3AF] mt-1">
+                            Assinado remotamente — link enviado por {(entry as any).sentVia === 'whatsapp' ? 'WhatsApp' : 'e-mail'} para {(entry as any).sentTo}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </details>
                 );
               })}
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {showAnamnesisSignSend && (
+        <div className="fixed inset-0 bg-[#4A433D]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+          <motion.div
+            initial={{ y: 30, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            className="bg-white w-full max-w-md rounded-[40px] p-10 shadow-2xl"
+          >
+            <div className="w-14 h-14 bg-[#FDFBF9] rounded-2xl flex items-center justify-center text-[#EADFD4] mb-6">
+              <MessageCircle size={24} />
+            </div>
+            <h3 className="serif text-2xl text-[#4A433D] mb-3">Enviar Anamnese pra Assinatura</h3>
+            <p className="text-sm text-[#9CA3AF] font-light leading-relaxed mb-8">
+              O paciente vai receber um link pra revisar e assinar a anamnese do próprio celular. Ao assinar, a
+              anamnese é liberada (travada) automaticamente, com a assinatura registrada no prontuário.
+            </p>
+            <div className="flex gap-4">
+              <button onClick={() => setShowAnamnesisSignSend(false)} className="flex-1 py-4 text-[#9CA3AF] font-bold text-[10px] uppercase">Cancelar</button>
+              <button
+                onClick={() => handleSendAnamnesisForSignature('whatsapp')}
+                disabled={sendingAnamnesisSign}
+                className="flex-1 py-4 bg-[#8BA888] text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-[#7A9877] transition-all disabled:opacity-50"
+              >
+                WhatsApp
+              </button>
+              <button
+                onClick={() => handleSendAnamnesisForSignature('email')}
+                disabled={sendingAnamnesisSign}
+                className="flex-1 py-4 bg-[#B8846E] text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-[#A6735E] transition-all disabled:opacity-50"
+              >
+                E-mail
+              </button>
             </div>
           </motion.div>
         </div>
@@ -3054,6 +3221,7 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
       <div class="box" style="text-align: center;">
         <div class="box-label">Assinatura</div>
         <img src="${term.signatureUrl}" alt="Assinatura" style="max-height: 100px; margin: 10px auto; display: block; mix-blend-mode: multiply;" />
+        ${term.sentVia ? `<p style="font-size: 11px; color: #9CA3AF; margin-top: 6px;">Assinado remotamente — link enviado por ${term.sentVia === 'whatsapp' ? 'WhatsApp' : 'e-mail'} para ${term.sentTo}</p>` : ''}
       </div>
     `;
     const footerHtml = `
@@ -3124,7 +3292,7 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
           where('status', '==', 'signed')
         );
         const snap = await getDocs(q);
-        const toMerge = snap.docs.filter(d => !d.data().mergedIntoRecord);
+        const toMerge = snap.docs.filter(d => !d.data().mergedIntoRecord && (!d.data().docType || d.data().docType === 'consent'));
         if (toMerge.length === 0) return;
 
         const newTerms = toMerge.map(d => {
@@ -3135,6 +3303,8 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
             content: data.templateContent || '',
             signedAt: data.signedAt,
             signatureUrl: data.signatureUrl,
+            sentVia: data.sentVia,
+            sentTo: data.sentTo,
           };
         });
         await updateDoc(doc(db, 'patients', patient.id!), {
@@ -3289,8 +3459,13 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
     setEditableContent(fillTemplate(template.content));
   };
 
-  const handleSaveAndSendWhatsApp = async () => {
+  const handleSaveAndSendWhatsApp = async (via: 'whatsapp' | 'email' = 'whatsapp') => {
     if (!preparingWhatsAppTemplate || !editableContent.trim()) return;
+    const sentTo = via === 'whatsapp' ? patient.phone : patient.email;
+    if (!sentTo) {
+      showToast(`Cadastre um ${via === 'whatsapp' ? 'telefone' : 'e-mail'} pro paciente antes de enviar`, 'error');
+      return;
+    }
     setSendingWhatsApp(true);
     try {
       const ownerId = await getClinicOwnerId(db).catch(() => user.uid);
@@ -3308,19 +3483,22 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
         createdAt: new Date().toISOString(),
         createdBy: user.email || user.uid,
         ownerId,
+        docType: 'consent' as const,
+        sentVia: via,
+        sentTo,
       };
       const docRef = await addDoc(collection(db, 'signRequests'), requestData);
       const link = remoteSignLink(docRef.id);
-      const phoneDigits = patient.phone!.replace(/\D/g, '');
-      const whatsappPhone = phoneDigits.startsWith('55') ? phoneDigits : `55${phoneDigits}`;
-      const message = encodeURIComponent(
-        `Olá, ${patient.name}! Segue o link pra assinar o documento "${preparingWhatsAppTemplate.title}" da sua consulta:\n${link}`
-      );
-      window.open(`https://wa.me/${whatsappPhone}?text=${message}`, '_blank');
+      const message = `Olá, ${patient.name}! Segue o link pra assinar o documento "${preparingWhatsAppTemplate.title}" da sua consulta:\n${link}`;
+      if (via === 'whatsapp') {
+        window.open(whatsappLink(sentTo, message), '_blank');
+      } else {
+        window.open(genericEmailLink(sentTo, `Assinatura: ${preparingWhatsAppTemplate.title}`, message), '_blank');
+      }
       setPreparingWhatsAppTemplate(null);
       setEditableContent('');
       setIsSigning(false);
-      showToast('Documento salvo e link gerado — confirme o envio no WhatsApp');
+      showToast(`Documento salvo e link gerado — confirme o envio no ${via === 'whatsapp' ? 'WhatsApp' : 'e-mail'}`);
     } catch (err: any) {
       console.error('Erro ao salvar/enviar termo:', err);
       const detail = err?.code === 'permission-denied'
@@ -3532,11 +3710,18 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
                   Cancelar
                 </button>
                 <button
-                  onClick={handleSaveAndSendWhatsApp}
+                  onClick={() => handleSaveAndSendWhatsApp('whatsapp')}
                   disabled={sendingWhatsApp || !editableContent.trim()}
                   className="flex-1 py-5 bg-[#8BA888] text-white rounded-[24px] font-bold text-[10px] uppercase tracking-widest shadow-xl hover:bg-[#7A9877] transition-all disabled:opacity-50"
                 >
-                  {sendingWhatsApp ? 'Salvando...' : 'Salvar e Enviar por WhatsApp'}
+                  {sendingWhatsApp ? 'Salvando...' : 'WhatsApp'}
+                </button>
+                <button
+                  onClick={() => handleSaveAndSendWhatsApp('email')}
+                  disabled={sendingWhatsApp || !editableContent.trim()}
+                  className="flex-1 py-5 bg-[#B8846E] text-white rounded-[24px] font-bold text-[10px] uppercase tracking-widest shadow-xl hover:bg-[#A6735E] transition-all disabled:opacity-50"
+                >
+                  {sendingWhatsApp ? 'Salvando...' : 'E-mail'}
                 </button>
               </div>
             </motion.div>

@@ -115,6 +115,13 @@ export interface SignRequest {
   signedAt?: string;
   signatureUrl?: string;
   mergedIntoRecord?: boolean; // marca que já foi puxado pro prontuário do paciente
+  // Qual tipo de documento esse pedido representa — decide pra onde a assinatura vai
+  // quando mesclada no prontuário. Ausente = 'consent' (pedidos antigos, antes desse campo existir).
+  docType?: 'consent' | 'anamnesis' | 'budget';
+  // Prova de que foi o próprio paciente que assinou: pra qual contato (dele, já
+  // cadastrado) o link foi enviado — mostrado ao lado da assinatura no prontuário.
+  sentVia?: 'whatsapp' | 'email';
+  sentTo?: string;
 }
 
 export interface Patient {
@@ -244,7 +251,28 @@ export interface Patient {
   anamnesisHistory?: {
     snapshot: Patient['anamnesis'];
     releasedAt: string;
-    releasedBy: string;
+    releasedBy: string; // quem liberou — nome do profissional (presencial) ou "Paciente"
+                         // quando liberado por assinatura remota
+    // Preenchidos só quando liberado via assinatura remota (paciente assinou do próprio
+    // celular) — prova de que foi ele, mostrando pra qual contato dele o link foi enviado.
+    signatureUrl?: string;
+    sentVia?: 'whatsapp' | 'email';
+    sentTo?: string;
+  }[];
+  // Orçamentos assinados pelo paciente — o Orçamento em si não persiste nada por padrão
+  // (é só um documento gerado), mas quando enviado pra assinatura remota e assinado,
+  // fica guardado aqui permanentemente, sem apagar orçamentos assinados anteriormente.
+  budgetHistory?: {
+    id: string;
+    date: string;
+    items: { description: string; value: string }[];
+    total: number;
+    validityDays: string;
+    notes?: string;
+    signedAt: string;
+    signatureUrl: string;
+    sentVia?: 'whatsapp' | 'email';
+    sentTo?: string;
   }[];
   photoHistory?: string[];
   files?: {
@@ -312,6 +340,11 @@ export interface Patient {
     content?: string; // texto completo assinado — sem isso, dava pra ver só o título e a assinatura, nunca o termo por inteiro
     signedAt: string;
     signatureUrl: string; // Base64 or URL
+    // Prova de autenticidade quando assinado remotamente — pra qual contato do próprio
+    // paciente (já cadastrado, não digitado na hora) o link foi enviado. Ausente =
+    // assinado presencialmente no app, sem envio remoto.
+    sentVia?: 'whatsapp' | 'email';
+    sentTo?: string;
   }[];
   prescriptions?: {
     id: string;
