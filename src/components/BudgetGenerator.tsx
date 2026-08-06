@@ -622,6 +622,7 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
                     ))}
                     {entry.notes && <p className="italic pt-2">{entry.notes}</p>}
                     <div className="pt-3 border-t border-[#F5F2F0] text-center">
+                      <p className="text-[9px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-1">Assinatura do Paciente</p>
                       <img src={entry.signatureUrl} alt="Assinatura" style={{ maxHeight: 70, margin: '0 auto', mixBlendMode: 'multiply' }} />
                       {entry.sentVia && (
                         <p className="text-[10px] text-[#9CA3AF] mt-1">
@@ -630,6 +631,15 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
                       )}
                       <p className="text-[10px] text-[#9CA3AF] mt-1">Assinado em {new Date(entry.signedAt).toLocaleString('pt-BR')}</p>
                     </div>
+                    {settings?.professionalSignatureUrl && (
+                      <div className="pt-3 border-t border-[#F5F2F0] text-center">
+                        <p className="text-[9px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-1">Assinatura do Profissional</p>
+                        <img src={settings.professionalSignatureUrl} alt="Assinatura do Profissional" style={{ maxHeight: 60, margin: '0 auto', mixBlendMode: 'multiply' }} />
+                        <p className="text-[10px] text-[#4A433D] mt-1">
+                          {settings?.professionalName || ''}{settings?.registrationNumber ? ` — CRO nº ${settings.registrationNumber}` : ''}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </details>
               ))}

@@ -1110,6 +1110,69 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
   // como realizada na agenda, tudo de uma vez, sem precisar passar aba por aba fazendo
   // isso manualmente. Só libera anamnese se ela tiver algum conteúdo de verdade (queixa,
   // conduta ou procedimento planejado) — não faz sentido travar uma anamnese vazia.
+  // Documento impresso da anamnese liberada — mostra a assinatura do paciente (quando
+  // liberada por assinatura remota) e a assinatura do profissional já cadastrada no
+  // perfil, automaticamente, sem precisar assinar de novo com o mouse.
+  const handlePrintAnamnesisHistory = (entry: any) => {
+    const s = entry.snapshot || {};
+    const clinicName = clinicSettingsForInvoice?.clinicName || clinicSettingsForInvoice?.professionalName || 'Clínica';
+    const activeConditions = Object.entries(s.conditions || {}).filter(([, v]) => v).map(([k]) => k);
+    const activeHabits = Object.entries(s.habits || {}).filter(([k, v]) => k !== 'diet' && v).map(([k]) => k);
+    const bodyHtml = `
+      <div class="box">
+        <div class="box-label">Paciente</div>
+        <p>${patient.name}</p>
+      </div>
+      <div class="box">
+        <div class="box-label">Anamnese</div>
+        <p><strong>Queixa Principal:</strong> ${s.mainComplaint || '—'}</p>
+        <p><strong>Expectativas:</strong> ${s.expectations || '—'}</p>
+        <p><strong>Condições Médicas:</strong> ${activeConditions.length ? activeConditions.join(', ') : 'Nenhuma marcada'}</p>
+        ${s.otherConditions ? `<p><strong>Outras Condições:</strong> ${s.otherConditions}</p>` : ''}
+        <p><strong>Alergias:</strong> ${s.hasAllergies ? (s.allergiesDetails || 'Sim') : 'Não'}</p>
+        <p><strong>Medicação Contínua:</strong> ${s.hasContinuousMedication ? (s.medicationsDetails || 'Sim') : 'Não'}</p>
+        ${s.familyHistory ? `<p><strong>Histórico Familiar:</strong> ${s.familyHistory}</p>` : ''}
+        <p><strong>Estilo de Vida:</strong> ${activeHabits.length ? activeHabits.join(', ') : 'Nenhum marcado'}</p>
+        ${s.fitzpatrickType ? `<p><strong>Fototipo:</strong> ${s.fitzpatrickType}</p>` : ''}
+        <p><strong>Avaliação da Pele:</strong> ${s.skinEvaluation || '—'}</p>
+        <p><strong>Avaliação Facial:</strong> ${s.faceEvaluation || '—'}</p>
+        <p><strong>Conduta:</strong> ${s.conduct || '—'}</p>
+        ${(s.plannedProcedures || []).length > 0 ? `<p><strong>Procedimentos Planejados:</strong> ${s.plannedProcedures.join(', ')}</p>` : ''}
+      </div>
+      ${entry.signatureUrl ? `
+      <div class="box" style="text-align: center;">
+        <div class="box-label">Assinatura do Paciente</div>
+        <img src="${entry.signatureUrl}" alt="Assinatura do Paciente" style="max-height: 80px; margin: 10px auto; display: block; mix-blend-mode: multiply;" />
+        ${entry.sentVia ? `<p style="font-size: 11px; color: #9CA3AF; margin-top: 6px;">Assinado remotamente — link enviado por ${entry.sentVia === 'whatsapp' ? 'WhatsApp' : 'e-mail'} para ${entry.sentTo}</p>` : ''}
+      </div>
+      ` : ''}
+      ${clinicSettingsForInvoice?.professionalSignatureUrl ? `
+      <div class="box" style="text-align: center;">
+        <div class="box-label">Assinatura do Profissional</div>
+        <img src="${clinicSettingsForInvoice.professionalSignatureUrl}" alt="Assinatura do Profissional" style="max-height: 80px; margin: 10px auto; display: block; mix-blend-mode: multiply;" />
+        <p style="font-size: 12px; color: #4A433D; margin-top: 4px;">
+          ${clinicSettingsForInvoice?.professionalName || ''}${clinicSettingsForInvoice?.registrationNumber ? ` — CRO nº ${clinicSettingsForInvoice.registrationNumber}` : ''}
+        </p>
+      </div>
+      ` : ''}
+    `;
+    const footerHtml = `
+      <p style="text-align: center; font-size: 11px; color: #9CA3AF; margin-bottom: 12px;">
+        ${[clinicName, clinicSettingsForInvoice?.clinicAddress, clinicSettingsForInvoice?.whatsappNumber].filter(Boolean).join(' · ')}
+      </p>
+      <div class="footer-row">
+        <span>Liberado em ${new Date(entry.releasedAt).toLocaleString('pt-BR')} — ${entry.releasedBy}</span>
+      </div>
+    `;
+    const html = buildLetterheadHtml({ title: 'Anamnese e Plano de Tratamento', clinicName, bodyHtml, footerHtml, documentLabel: `Anamnese — ${patient.name}` });
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.onload = () => printWindow.print();
+    }
+  };
+
   const handleFinishConsultation = async () => {
     setShowFinishConsultConfirm(false);
     setFinishingConsultation(true);
@@ -2699,6 +2762,12 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
                         )}
                       </div>
                     )}
+                    <button
+                      onClick={() => handlePrintAnamnesisHistory(entry)}
+                      className="flex items-center gap-1.5 text-[10px] font-bold text-[#B8846E] hover:text-[#A6735E] uppercase tracking-widest pt-2"
+                    >
+                      <Printer size={12} /> Imprimir (com as duas assinaturas)
+                    </button>
                   </div>
                 </details>
                 );
@@ -3239,10 +3308,19 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
         <p>${(term.content || 'Texto completo não disponível para este termo (assinado antes desse recurso existir).').replace(/\n/g, '<br/>')}</p>
       </div>
       <div class="box" style="text-align: center;">
-        <div class="box-label">Assinatura</div>
+        <div class="box-label">Assinatura do Paciente</div>
         <img src="${term.signatureUrl}" alt="Assinatura" style="max-height: 100px; margin: 10px auto; display: block; mix-blend-mode: multiply;" />
         ${term.sentVia ? `<p style="font-size: 11px; color: #9CA3AF; margin-top: 6px;">Assinado remotamente — link enviado por ${term.sentVia === 'whatsapp' ? 'WhatsApp' : 'e-mail'} para ${term.sentTo}</p>` : ''}
       </div>
+      ${clinicSettings?.professionalSignatureUrl ? `
+      <div class="box" style="text-align: center;">
+        <div class="box-label">Assinatura do Profissional</div>
+        <img src="${clinicSettings.professionalSignatureUrl}" alt="Assinatura do Profissional" style="max-height: 80px; margin: 10px auto; display: block; mix-blend-mode: multiply;" />
+        <p style="font-size: 12px; color: #4A433D; margin-top: 4px;">
+          ${clinicSettings?.professionalName || ''}${clinicSettings?.registrationNumber ? ` — CRO nº ${clinicSettings.registrationNumber}` : ''}
+        </p>
+      </div>
+      ` : ''}
     `;
     const footerHtml = `
       <p style="text-align: center; font-size: 11px; color: #9CA3AF; margin-bottom: 12px;">
