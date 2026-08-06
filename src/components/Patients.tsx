@@ -664,6 +664,10 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
   const [savingInvoice, setSavingInvoice] = useState(false);
   const [clinicSettingsForInvoice, setClinicSettingsForInvoice] = useState<ClinicSettings | null>(null);
+  const [showReceiptForm, setShowReceiptForm] = useState(false);
+  const [receiptValue, setReceiptValue] = useState('');
+  const [receiptReference, setReceiptReference] = useState('');
+  const [receiptPayerName, setReceiptPayerName] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -717,6 +721,60 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
     } catch (err) {
       showToast('Erro ao remover', 'error');
     }
+  };
+
+  // Recibo simples — documento de "recebi a quantia de" com o mesmo visual dos outros
+  // documentos impressos, pra quando não faz sentido emitir nota fiscal de verdade
+  // (ex: adiantamento, sinal) mas o paciente precisa de um comprovante na hora.
+  const handlePrintReceipt = () => {
+    if (!receiptValue.trim()) {
+      showToast('Preencha o valor do recibo', 'error');
+      return;
+    }
+    const clinicName = clinicSettingsForInvoice?.clinicName || clinicSettingsForInvoice?.professionalName || 'Clínica';
+    const professionalName = clinicSettingsForInvoice?.professionalName || '';
+    const registrationNumber = clinicSettingsForInvoice?.registrationNumber || '';
+    const numericValue = parseFloat(receiptValue.replace(/\./g, '').replace(',', '.')) || 0;
+    const formattedValue = numericValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    const payerName = receiptPayerName.trim() || patient.name;
+    const todayLabel = new Date().toLocaleDateString('pt-BR');
+    const bodyHtml = `
+      <div class="box">
+        <p style="font-size: 15px; line-height: 1.9;">
+          Recebi de <strong>${payerName}</strong>${patient.cpf ? `, CPF nº ${patient.cpf},` : ''}
+          a quantia de <strong>${formattedValue}</strong>
+          ${receiptReference ? `referente a <strong>${receiptReference}</strong>` : 'referente a serviços prestados'},
+          para os devidos fins.
+        </p>
+      </div>
+      <div class="box" style="text-align: center;">
+        <p style="margin: 0 0 4px; font-size: 13px; color: #9CA3AF;">${clinicName} — ${todayLabel}</p>
+        <p style="margin: 40px 0 6px;">
+          <span style="display: inline-block; border-top: 1px solid #4A433D; padding-top: 8px; min-width: 280px;">
+            ${professionalName ? `${professionalName}<br/>` : ''}${registrationNumber ? `CRO nº ${registrationNumber}` : clinicName}
+          </span>
+        </p>
+      </div>
+    `;
+    const footerHtml = `
+      <p style="text-align: center; font-size: 11px; color: #9CA3AF; margin-bottom: 12px;">
+        ${[clinicName, clinicSettingsForInvoice?.clinicAddress, clinicSettingsForInvoice?.whatsappNumber].filter(Boolean).join(' · ')}
+      </p>
+      <div class="footer-row">
+        <span>${todayLabel}</span>
+      </div>
+    `;
+    const html = buildLetterheadHtml({ title: 'Recibo', clinicName, bodyHtml, footerHtml, documentLabel: `Recibo — ${patient.name}` });
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.onload = () => printWindow.print();
+    }
+    setShowReceiptForm(false);
+    setReceiptValue('');
+    setReceiptReference('');
+    setReceiptPayerName('');
   };
 
   const [extractingText, setExtractingText] = useState(false);
@@ -1262,7 +1320,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
             <TabButton active={activeTab === 'consent'} onClick={() => setActiveTab('consent')} icon={<CheckCircle2 size={20} />} label="Termos & Assinaturas" />
             <TabButton active={activeTab === 'photos'} onClick={() => setActiveTab('photos')} icon={<Camera size={20} />} label="Galeria de Fotos" />
             <TabButton active={activeTab === 'files'} onClick={() => setActiveTab('files')} icon={<Paperclip size={20} />} label="Anexos" />
-            <TabButton active={activeTab === 'invoices'} onClick={() => setActiveTab('invoices')} icon={<Receipt size={20} />} label="Nota Fiscal" />
+            <TabButton active={activeTab === 'invoices'} onClick={() => setActiveTab('invoices')} icon={<Receipt size={20} />} label="Nota Fiscal e Recibo" />
           </nav>
 
           <button
@@ -2085,7 +2143,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
             {activeTab === 'invoices' && (
               <motion.div key="invoices" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-6 border-b border-[#F5F2F0]">
-                  <h3 className="serif text-2xl text-[#4A433D]">Nota Fiscal</h3>
+                  <h3 className="serif text-2xl text-[#4A433D]">Nota Fiscal e Recibo</h3>
                   <div className="flex flex-wrap gap-3">
                     {clinicSettingsForInvoice?.invoiceEmissionLink ? (
                       <a
@@ -2107,6 +2165,14 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
                         className="bg-[#F0F7F0] text-[#8BA888] px-8 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 shadow-sm hover:bg-[#E5EFE5] transition-all"
                       >
                         <Receipt size={18} /> Anexar Nota Emitida
+                      </button>
+                    )}
+                    {!showReceiptForm && (
+                      <button
+                        onClick={() => setShowReceiptForm(true)}
+                        className="bg-[#EADFD4] text-white px-8 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 shadow-md hover:bg-[#DFCFBF] transition-all"
+                      >
+                        <Printer size={18} /> Gerar Recibo Simples
                       </button>
                     )}
                   </div>
@@ -2144,6 +2210,30 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
                         className="flex-1 py-4 bg-[#EADFD4] text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-[#DFCFBF] transition-all disabled:opacity-50"
                       >
                         {savingInvoice ? 'Salvando...' : 'Salvar Nota Fiscal'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {showReceiptForm && (
+                  <div className="p-8 bg-[#FDFBF9] border border-[#F5F2F0] rounded-[32px] space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <FormField label="Valor Recebido" value={receiptValue} onChange={setReceiptValue} />
+                      <FormField label="Pagador (opcional — usa o nome do paciente se vazio)" value={receiptPayerName} onChange={setReceiptPayerName} />
+                    </div>
+                    <FormField label="Referente a (opcional)" value={receiptReference} onChange={setReceiptReference} />
+                    <div className="flex gap-4 pt-2">
+                      <button
+                        onClick={() => { setShowReceiptForm(false); setReceiptValue(''); setReceiptReference(''); setReceiptPayerName(''); }}
+                        className="flex-1 py-4 text-[#9CA3AF] font-bold text-[10px] uppercase"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={handlePrintReceipt}
+                        className="flex-1 py-4 bg-[#EADFD4] text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-[#DFCFBF] transition-all flex items-center justify-center gap-2"
+                      >
+                        <Printer size={16} /> Gerar e Imprimir Recibo
                       </button>
                     </div>
                   </div>
@@ -3037,7 +3127,7 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
         const newTerm = {
           templateId: selectedTemplate.id,
           templateTitle: selectedTemplate.title,
-          content: selectedTemplate.content || '',
+          content: fillTemplate(selectedTemplate.content) || '',
           signedAt: new Date().toISOString(),
           signatureUrl
         };
@@ -3461,6 +3551,9 @@ function PrescriptionModule({ user, patient }: { user: User, patient: Patient })
       </div>
     `;
     const footerHtml = `
+      <p style="text-align: center; font-size: 11px; color: #9CA3AF; margin-bottom: 12px;">
+        ${[clinicName, clinicSettings?.clinicAddress, clinicSettings?.whatsappNumber].filter(Boolean).join(' · ')}
+      </p>
       <div class="footer-row">
         <span>${new Date().toLocaleDateString('pt-BR')}</span>
       </div>
