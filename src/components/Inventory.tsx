@@ -119,6 +119,24 @@ export default function Inventory({ user }: { user: User }) {
     }
   };
 
+  // Excluir uma movimentação feita por engano não pode só apagar a linha do histórico —
+  // isso deixaria a quantidade em estoque errada pra sempre (refletindo um lançamento que
+  // não existe mais). Reverte o efeito na quantidade do item antes de apagar o registro.
+  const handleDeleteMovement = async (m: InventoryMovement) => {
+    if (!confirm(`Excluir esta movimentação de "${m.itemName}"? A quantidade em estoque será ajustada de volta.`)) return;
+    try {
+      const item = items.find(i => i.id === m.itemId);
+      if (item) {
+        const revertedQty = m.type === 'restock' ? item.quantity - m.quantity : item.quantity + m.quantity;
+        await updateDoc(doc(db, 'inventory', m.itemId), { quantity: Math.max(0, revertedQty) });
+      }
+      await deleteDoc(doc(db, 'inventory_movements', m.id!));
+      showToast(item ? 'Movimentação excluída e estoque ajustado' : 'Movimentação excluída (item não existe mais, estoque não foi ajustado)');
+    } catch (err) {
+      showToast('Erro ao excluir movimentação', 'error');
+    }
+  };
+
   return (
     <div className="max-w-[1800px] mx-auto space-y-8">
       <div className="flex items-center justify-between flex-wrap gap-4">
@@ -299,9 +317,17 @@ export default function Inventory({ user }: { user: User }) {
                   </p>
                 </div>
               </div>
-              <span className={`text-sm font-bold serif ${m.type === 'restock' ? 'text-[#8BA888]' : 'text-red-400'}`}>
-                {m.type === 'restock' ? '+' : '-'}{m.quantity}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className={`text-sm font-bold serif ${m.type === 'restock' ? 'text-[#8BA888]' : 'text-red-400'}`}>
+                  {m.type === 'restock' ? '+' : '-'}{m.quantity}
+                </span>
+                <button
+                  onClick={() => handleDeleteMovement(m)}
+                  className="p-2 text-[#9CA3AF] hover:text-red-400 transition-all"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
             </div>
           ))}
           {movements.length === 0 && (

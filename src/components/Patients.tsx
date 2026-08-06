@@ -519,6 +519,78 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
   // um cadastro recém-feito), o campo continuava mostrando vazio pra sempre — o valor
   // inicial do useState só é lido uma vez, na montagem do componente.
   useEffect(() => { setPhoneDraft(patient.phone || ''); }, [patient.phone]);
+  const [isEditingInfo, setIsEditingInfo] = useState(false);
+  const [savingInfo, setSavingInfo] = useState(false);
+  const [infoDraft, setInfoDraft] = useState({
+    name: patient.name || '',
+    cpf: patient.cpf || '',
+    phone: patient.phone || '',
+    email: patient.email || '',
+    birthDate: patient.birthDate || '',
+    sex: patient.sex || '',
+    address: patient.address || '',
+    profession: patient.profession || '',
+    maritalStatus: patient.maritalStatus || '',
+    howHeardAboutClinic: patient.howHeardAboutClinic || '',
+    emergencyContactName: patient.emergencyContactName || '',
+    emergencyContactPhone: patient.emergencyContactPhone || '',
+  });
+
+  const handleStartEditInfo = () => {
+    setInfoDraft({
+      name: patient.name || '',
+      cpf: patient.cpf || '',
+      phone: patient.phone || '',
+      email: patient.email || '',
+      birthDate: patient.birthDate || '',
+      sex: patient.sex || '',
+      address: patient.address || '',
+      profession: patient.profession || '',
+      maritalStatus: patient.maritalStatus || '',
+      howHeardAboutClinic: patient.howHeardAboutClinic || '',
+      emergencyContactName: patient.emergencyContactName || '',
+      emergencyContactPhone: patient.emergencyContactPhone || '',
+    });
+    setIsEditingInfo(true);
+  };
+
+  // Se CPF ou telefone mudarem, os índices usados pra impedir cadastro duplicado
+  // (patientCpfIndex / patientPhoneIndex) precisam acompanhar — senão o índice antigo
+  // fica apontando pro CPF/telefone errado e um novo paciente com o valor antigo
+  // conseguiria cadastrar de novo sem ser barrado, e o valor novo não ficaria protegido.
+  const handleSaveInfo = async () => {
+    if (!infoDraft.name.trim()) {
+      showToast('O nome não pode ficar em branco', 'error');
+      return;
+    }
+    setSavingInfo(true);
+    try {
+      const ownerId = await getClinicOwnerId(db).catch(() => user.uid);
+      const updates: any = { ...infoDraft, updatedAt: new Date().toISOString() };
+      // isValidPatient só aceita sex como 'F'/'M'/'N' quando o campo está presente —
+      // mandar sex: '' (sem seleção) quebraria a regra de segurança. Se não escolheu
+      // nada, simplesmente não manda esse campo na atualização.
+      if (!updates.sex) delete updates.sex;
+
+      if (infoDraft.cpf !== (patient.cpf || '')) {
+        if (patient.cpf) await deleteDoc(doc(db, 'patientCpfIndex', cpfIndexKey(ownerId, patient.cpf))).catch(() => {});
+        if (infoDraft.cpf) await setDoc(doc(db, 'patientCpfIndex', cpfIndexKey(ownerId, infoDraft.cpf)), { clinicId: ownerId, patientId: patient.id, name: infoDraft.name }).catch(() => {});
+      }
+      if (infoDraft.phone !== (patient.phone || '')) {
+        if (patient.phone) await deleteDoc(doc(db, 'patientPhoneIndex', phoneIndexKey(ownerId, patient.phone))).catch(() => {});
+        if (infoDraft.phone) await setDoc(doc(db, 'patientPhoneIndex', phoneIndexKey(ownerId, infoDraft.phone)), { clinicId: ownerId, patientId: patient.id, name: infoDraft.name }).catch(() => {});
+      }
+
+      await updateDoc(doc(db, 'patients', patient.id!), updates);
+      setPhoneDraft(infoDraft.phone);
+      showToast('Informações do paciente atualizadas');
+      setIsEditingInfo(false);
+    } catch (err) {
+      showToast('Erro ao salvar', 'error');
+    }
+    setSavingInfo(false);
+  };
+
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deletingPatient, setDeletingPatient] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
@@ -898,6 +970,52 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
   // como a nova anamnese começa sem nenhum procedimento marcado, o orçamento também
   // aparece limpo automaticamente, sem precisar zerar nada à parte.
   const [showNewAnamnesisConfirm, setShowNewAnamnesisConfirm] = useState(false);
+  const [showFinishConsultConfirm, setShowFinishConsultConfirm] = useState(false);
+  const [finishingConsultation, setFinishingConsultation] = useState(false);
+
+  // Ao voltar da tela do paciente, pergunta se a consulta terminou — se sim, libera
+  // (tranca) qualquer anamnese ou evolução ainda em rascunho e marca a consulta de hoje
+  // como realizada na agenda, tudo de uma vez, sem precisar passar aba por aba fazendo
+  // isso manualmente. Só libera anamnese se ela tiver algum conteúdo de verdade (queixa,
+  // conduta ou procedimento planejado) — não faz sentido travar uma anamnese vazia.
+  const handleFinishConsultation = async () => {
+    setShowFinishConsultConfirm(false);
+    setFinishingConsultation(true);
+    try {
+      const updates: any = { updatedAt: new Date().toISOString() };
+      const hasAnamnesisContent = !!(anamnesis.mainComplaint || anamnesis.conduct || (anamnesis.plannedProcedures || []).length);
+
+      if (!patient.anamnesisReleased && hasAnamnesisContent) {
+        const releasedAt = new Date().toISOString();
+        const releaserName = await getReleaserName();
+        updates.anamnesis = anamnesis;
+        updates.anamnesisReleased = true;
+        updates.anamnesisReleasedAt = releasedAt;
+        updates.anamnesisReleasedBy = releaserName;
+        updates.anamnesisHistory = [...(patient.anamnesisHistory || []), { snapshot: anamnesis, releasedAt, releasedBy: releaserName }];
+      }
+
+      const drafts = patient.evolution || [];
+      if (drafts.length > 0) {
+        const releasedAt = new Date().toISOString();
+        const releaserName = await getReleaserName();
+        const historyEntries = drafts.map(d => ({ ...d, releasedAt, releasedBy: releaserName }));
+        updates.evolution = [];
+        updates.evolutionHistory = [...(patient.evolutionHistory || []), ...historyEntries];
+      }
+
+      if (Object.keys(updates).length > 1) {
+        await updateDoc(doc(db, 'patients', patient.id!), updates);
+      }
+      await markTodaysAppointmentCompleted();
+      showToast('Consulta finalizada — documentos liberados e agenda atualizada');
+    } catch (err) {
+      showToast('Erro ao finalizar consulta', 'error');
+    }
+    setFinishingConsultation(false);
+    onBack();
+  };
+
 
   const handleNewAnamnesis = async () => {
     setShowNewAnamnesisConfirm(false);
@@ -1260,7 +1378,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
 
   return (
     <div className="max-w-[1800px] mx-auto space-y-6">
-      <button onClick={onBack} className="flex items-center gap-2 text-[#9CA3AF] hover:text-[#4A433D] transition-all group font-medium">
+      <button onClick={() => setShowFinishConsultConfirm(true)} className="flex items-center gap-2 text-[#9CA3AF] hover:text-[#4A433D] transition-all group font-medium">
         <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
         <span>Voltar para lista</span>
       </button>
@@ -1416,31 +1534,88 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
             )}
             {activeTab === 'info' && (
               <motion.div key="info" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-                <div className="pb-6 border-b border-[#F5F2F0]">
-                  <h3 className="serif text-2xl text-[#4A433D]">Informações do Paciente</h3>
-                  <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest mt-1">Dados cadastrais preenchidos pelo paciente</p>
+                <div className="flex items-center justify-between pb-6 border-b border-[#F5F2F0]">
+                  <div>
+                    <h3 className="serif text-2xl text-[#4A433D]">Informações do Paciente</h3>
+                    <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest mt-1">Dados cadastrais preenchidos pelo paciente</p>
+                  </div>
+                  {!isEditingInfo && (
+                    <button
+                      onClick={handleStartEditInfo}
+                      className="bg-[#F0F7F0] text-[#8BA888] px-6 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 shadow-sm hover:bg-[#E5EFE5] transition-all shrink-0"
+                    >
+                      <Edit2 size={16} /> Editar
+                    </button>
+                  )}
                 </div>
-                <div className="bg-[#FDFBF9] p-5 md:p-8 rounded-[32px] border border-[#F5F2F0] grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6">
-                  {[
-                    { label: 'Nome Completo', value: patient.name },
-                    { label: 'CPF', value: patient.cpf },
-                    { label: 'Telefone', value: patient.phone },
-                    { label: 'E-mail', value: patient.email },
-                    { label: 'Data de Nascimento', value: patient.birthDate },
-                    { label: 'Sexo', value: patient.sex === 'F' ? 'Feminino' : patient.sex === 'M' ? 'Masculino' : patient.sex === 'N' ? 'Prefiro não informar' : undefined },
-                    { label: 'Endereço', value: patient.address },
-                    { label: 'Profissão', value: patient.profession },
-                    { label: 'Estado Civil', value: patient.maritalStatus },
-                    { label: 'Por onde conheceu a clínica', value: patient.howHeardAboutClinic },
-                    { label: 'Contato de Emergência', value: patient.emergencyContactName },
-                    { label: 'Telefone de Emergência', value: patient.emergencyContactPhone },
-                  ].map((field, i) => (
-                    <div key={i}>
-                      <p className="text-[9px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-1.5">{field.label}</p>
-                      <p className="text-sm text-[#4A433D]">{field.value || '—'}</p>
+
+                {isEditingInfo ? (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      <FormField label="Nome Completo" value={infoDraft.name} onChange={v => setInfoDraft({ ...infoDraft, name: v })} />
+                      <FormField label="CPF" value={infoDraft.cpf} onChange={v => setInfoDraft({ ...infoDraft, cpf: v })} />
+                      <FormField label="Telefone" value={infoDraft.phone} onChange={v => setInfoDraft({ ...infoDraft, phone: v })} />
+                      <FormField label="E-mail" value={infoDraft.email} onChange={v => setInfoDraft({ ...infoDraft, email: v })} />
+                      <FormField label="Data de Nascimento (DD/MM/AAAA)" value={infoDraft.birthDate} onChange={v => setInfoDraft({ ...infoDraft, birthDate: v })} />
+                      <div>
+                        <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Sexo</label>
+                        <select
+                          value={infoDraft.sex}
+                          onChange={e => setInfoDraft({ ...infoDraft, sex: e.target.value })}
+                          className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm text-[#4A433D]"
+                        >
+                          <option value="">—</option>
+                          <option value="F">Feminino</option>
+                          <option value="M">Masculino</option>
+                          <option value="N">Prefiro não informar</option>
+                        </select>
+                      </div>
+                      <FormField label="Profissão" value={infoDraft.profession} onChange={v => setInfoDraft({ ...infoDraft, profession: v })} />
+                      <FormField label="Estado Civil" value={infoDraft.maritalStatus} onChange={v => setInfoDraft({ ...infoDraft, maritalStatus: v })} />
+                      <FormField label="Por onde conheceu a clínica" value={infoDraft.howHeardAboutClinic} onChange={v => setInfoDraft({ ...infoDraft, howHeardAboutClinic: v })} />
+                      <FormField label="Contato de Emergência" value={infoDraft.emergencyContactName} onChange={v => setInfoDraft({ ...infoDraft, emergencyContactName: v })} />
+                      <FormField label="Telefone de Emergência" value={infoDraft.emergencyContactPhone} onChange={v => setInfoDraft({ ...infoDraft, emergencyContactPhone: v })} />
                     </div>
-                  ))}
-                </div>
+                    <FormField label="Endereço" value={infoDraft.address} onChange={v => setInfoDraft({ ...infoDraft, address: v })} />
+                    <div className="flex gap-4 pt-2">
+                      <button
+                        onClick={() => setIsEditingInfo(false)}
+                        className="flex-1 py-4 text-[#9CA3AF] font-bold text-[10px] uppercase"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={handleSaveInfo}
+                        disabled={savingInfo}
+                        className="flex-1 py-4 bg-[#EADFD4] text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-[#DFCFBF] transition-all disabled:opacity-50"
+                      >
+                        {savingInfo ? 'Salvando...' : 'Salvar Alterações'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-[#FDFBF9] p-5 md:p-8 rounded-[32px] border border-[#F5F2F0] grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6">
+                    {[
+                      { label: 'Nome Completo', value: patient.name },
+                      { label: 'CPF', value: patient.cpf },
+                      { label: 'Telefone', value: patient.phone },
+                      { label: 'E-mail', value: patient.email },
+                      { label: 'Data de Nascimento', value: patient.birthDate },
+                      { label: 'Sexo', value: patient.sex === 'F' ? 'Feminino' : patient.sex === 'M' ? 'Masculino' : patient.sex === 'N' ? 'Prefiro não informar' : undefined },
+                      { label: 'Endereço', value: patient.address },
+                      { label: 'Profissão', value: patient.profession },
+                      { label: 'Estado Civil', value: patient.maritalStatus },
+                      { label: 'Por onde conheceu a clínica', value: patient.howHeardAboutClinic },
+                      { label: 'Contato de Emergência', value: patient.emergencyContactName },
+                      { label: 'Telefone de Emergência', value: patient.emergencyContactPhone },
+                    ].map((field, i) => (
+                      <div key={i}>
+                        <p className="text-[9px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-1.5">{field.label}</p>
+                        <p className="text-sm text-[#4A433D]">{field.value || '—'}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </motion.div>
             )}
 
@@ -2378,6 +2553,40 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
                 </details>
                 );
               })}
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {showFinishConsultConfirm && (
+        <div className="fixed inset-0 bg-[#4A433D]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+          <motion.div
+            initial={{ y: 30, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            className="bg-white w-full max-w-md rounded-[40px] p-10 shadow-2xl"
+          >
+            <div className="w-14 h-14 bg-[#F0F7F0] rounded-2xl flex items-center justify-center text-[#8BA888] mb-6">
+              <CheckCircle2 size={24} />
+            </div>
+            <h3 className="serif text-2xl text-[#4A433D] mb-3">A consulta foi finalizada?</h3>
+            <p className="text-sm text-[#9CA3AF] font-light leading-relaxed mb-8">
+              Se sim, qualquer anamnese ou evolução ainda em rascunho será liberada (travada) automaticamente,
+              e a consulta de hoje desse paciente será marcada como realizada na agenda.
+            </p>
+            <div className="flex gap-4">
+              <button
+                onClick={() => { setShowFinishConsultConfirm(false); onBack(); }}
+                className="flex-1 py-4 text-[#9CA3AF] font-bold text-[10px] uppercase"
+              >
+                Só Voltar
+              </button>
+              <button
+                onClick={handleFinishConsultation}
+                disabled={finishingConsultation}
+                className="flex-1 py-4 bg-[#8BA888] text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-[#7C9979] transition-all disabled:opacity-50"
+              >
+                {finishingConsultation ? 'Finalizando...' : 'Sim, Finalizar'}
+              </button>
             </div>
           </motion.div>
         </div>
