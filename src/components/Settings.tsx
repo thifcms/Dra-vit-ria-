@@ -638,7 +638,7 @@ export default function Settings({ user }: { user: User }) {
                     <FileText size={18} className="text-[#9CA3AF]" />
                     <span className="text-sm font-medium text-[#4A433D]">{template.title}</span>
                   </div>
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                  <div className="flex items-center gap-1 transition-all">
                     <button onClick={() => setEditingTemplate(template)} className="p-2 text-[#9CA3AF] hover:text-[#4A433D]"><Edit2 size={16} /></button>
                     <button onClick={() => handleDeleteTemplate(template.id!)} className="p-2 text-[#9CA3AF] hover:text-red-400"><Trash2 size={16} /></button>
                   </div>
@@ -679,7 +679,7 @@ export default function Settings({ user }: { user: User }) {
                       <p className="text-[10px] text-[#9CA3AF]">{template.medicines.length} medicamento(s)</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                  <div className="flex items-center gap-1 transition-all">
                     <button onClick={() => setEditingRxTemplate(template)} className="p-2 text-[#9CA3AF] hover:text-[#4A433D]"><Edit2 size={16} /></button>
                     <button onClick={() => handleDeleteRxTemplate(template.id!)} className="p-2 text-[#9CA3AF] hover:text-red-400"><Trash2 size={16} /></button>
                   </div>

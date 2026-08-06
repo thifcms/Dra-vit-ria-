@@ -483,13 +483,13 @@ export default function Finance({ user }: { user: User }) {
                       <div className="flex items-center justify-end gap-1">
                         <button 
                           onClick={() => setEditingTransaction(t)}
-                          className="p-2 text-[#F5F2F0] hover:text-[#EADFD4] opacity-0 group-hover:opacity-100 transition-all"
+                          className="p-2 text-[#9CA3AF] hover:text-[#EADFD4] transition-all"
                         >
                           <Pencil size={18} />
                         </button>
                         <button 
                           onClick={() => handleDelete(t.id!)}
-                          className="p-2 text-[#F5F2F0] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                          className="p-2 text-[#9CA3AF] hover:text-red-400 transition-all"
                         >
                           <Trash2 size={18} />
                         </button>

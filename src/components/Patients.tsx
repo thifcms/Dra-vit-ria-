@@ -1974,11 +1974,19 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
                         </div>
                       )}
                       {!compareMode && (
-                        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-all rounded-[32px] flex items-center justify-center backdrop-blur-[2px]">
-                          <button onClick={() => handleDeletePhoto(i)} className="p-4 bg-white/90 rounded-2xl text-red-400 shadow-xl hover:scale-110 active:scale-95 transition-all">
-                            <Trash2 size={24} />
+                        <>
+                          <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-all rounded-[32px] flex items-center justify-center backdrop-blur-[2px] pointer-events-none">
+                            <button onClick={() => handleDeletePhoto(i)} className="pointer-events-auto p-4 bg-white/90 rounded-2xl text-red-400 shadow-xl hover:scale-110 active:scale-95 transition-all">
+                              <Trash2 size={24} />
+                            </button>
+                          </div>
+                          <button
+                            onClick={() => handleDeletePhoto(i)}
+                            className="md:hidden absolute top-3 right-3 p-2.5 bg-white/90 rounded-xl text-red-400 shadow-lg active:scale-95 transition-all"
+                          >
+                            <Trash2 size={16} />
                           </button>
-                        </div>
+                        </>
                       )}
                     </div>
                   ))}
@@ -3643,7 +3651,7 @@ function PrescriptionModule({ user, patient }: { user: User, patient: Patient })
                   {medicines.length > 1 && (
                     <button 
                       onClick={() => removeMedicine(i)}
-                      className="absolute -top-3 -right-3 w-8 h-8 bg-white border border-[#F5F2F0] text-red-400 rounded-full flex items-center justify-center shadow-sm opacity-0 group-hover:opacity-100 transition-all hover:bg-red-50"
+                      className="absolute -top-3 -right-3 w-8 h-8 bg-white border border-[#F5F2F0] text-red-400 rounded-full flex items-center justify-center shadow-sm transition-all hover:bg-red-50"
                     >
                       <Trash2 size={14} />
                     </button>
