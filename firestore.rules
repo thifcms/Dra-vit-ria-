@@ -110,11 +110,20 @@ service cloud.firestore {
       let anamnesisWasReleased = ('anamnesisReleased' in resource.data) && resource.data.anamnesisReleased == true;
       return isAppendOnly(existingAnamnesisHistory, incomingAnamnesisHistory)
         && isAppendOnly(existingEvolutionHistory, incomingEvolutionHistory)
-        // Depois de liberada, o conteúdo da anamnese atual não pode mais mudar, e não dá
-        // pra "desliberar" (voltar anamnesisReleased pra false)
+        // Depois de liberada, o conteúdo da anamnese atual não pode mudar E CONTINUAR
+        // marcado como liberado — mas dá pra abrir uma "Nova Anamnese" (paciente
+        // voltando pra outro tratamento), desde que a anamnese que está entrando seja
+        // claramente uma folha em branco nova (sem queixa, sem conduta, sem
+        // procedimento planejado) — isso impede alguém usar esse caminho pra sorrateiramente
+        // editar o conteúdo que já devia estar travado pra sempre.
         && (!anamnesisWasReleased || (
-          incoming().anamnesis == resource.data.anamnesis
-          && incoming().anamnesisReleased == true
+          (incoming().anamnesis == resource.data.anamnesis && incoming().anamnesisReleased == true)
+          || (
+            incoming().anamnesisReleased == false
+            && incoming().anamnesis.mainComplaint == ''
+            && incoming().anamnesis.conduct == ''
+            && incoming().anamnesis.plannedProcedures.size() == 0
+          )
         ));
     }
 

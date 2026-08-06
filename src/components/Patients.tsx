@@ -518,9 +518,28 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
   const [deletingPatient, setDeletingPatient] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [isAdminUser, setIsAdminUser] = useState<boolean | null>(null);
+
+  // Nome legível de quem está liberando uma anamnese/evolução agora — antes ficava só o
+  // e-mail de login gravado no histórico, o que não diz nada pra quem está lendo depois.
+  // Busca na coleção de profissionais por quem tem esse e-mail vinculado; se não achar
+  // (ex: administrador sem registro de profissional), cai pro nome cadastrado da clínica
+  // e, só em último caso, o próprio e-mail.
+  const getReleaserName = async (): Promise<string> => {
+    if (!user.email) return user.uid;
+    try {
+      const q = query(collection(db, 'professionals'), where('email', '==', user.email));
+      const snap = await getDocs(q);
+      if (!snap.empty) return snap.docs[0].data().name || user.email;
+    } catch { /* segue pro fallback abaixo */ }
+    const ownerId = await getClinicOwnerId(db).catch(() => user.uid);
+    const settingsSnap = await getDoc(doc(db, 'settings', ownerId)).catch(() => null);
+    return settingsSnap?.data()?.professionalName || user.email;
+  };
+
   const [viewingData, setViewingData] = useState(false);
   const [showAnatomyModal, setShowAnatomyModal] = useState(false);
   const [showAnamnesisHistory, setShowAnamnesisHistory] = useState(false);
+  const [showEvolutionHistory, setShowEvolutionHistory] = useState(false);
 
   // Modal obrigatório com o resumo da última consulta, mostrado sempre que o prontuário é
   // aberto (se houver pelo menos um registro de evolução anterior, rascunho ou liberado) —
@@ -772,12 +791,13 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
     setReleasingAnamnesis(true);
     try {
       const releasedAt = new Date().toISOString();
-      const historyEntry = { snapshot: anamnesis, releasedAt, releasedBy: user.email || user.uid };
+      const releaserName = await getReleaserName();
+      const historyEntry = { snapshot: anamnesis, releasedAt, releasedBy: releaserName };
       const updatedFields = {
         anamnesis,
         anamnesisReleased: true,
         anamnesisReleasedAt: releasedAt,
-        anamnesisReleasedBy: user.email || user.uid,
+        anamnesisReleasedBy: releaserName,
         anamnesisHistory: [...(patient.anamnesisHistory || []), historyEntry],
         updatedAt: releasedAt,
       };
@@ -826,8 +846,8 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
       });
       setAnamnesis(freshAnamnesis);
       showToast('Nova anamnese iniciada');
-    } catch (err) {
-      showToast('Erro ao iniciar nova anamnese', 'error');
+    } catch (err: any) {
+      showToast(`Erro ao iniciar nova anamnese${err?.code ? ` (${err.code})` : ''}`, 'error');
     }
     setStartingNewAnamnesis(false);
   };
@@ -876,7 +896,8 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
     try {
       const draft = (patient.evolution || [])[index];
       const releasedAt = new Date().toISOString();
-      const historyEntry = { ...draft, releasedAt, releasedBy: user.email || user.uid };
+      const releaserName = await getReleaserName();
+      const historyEntry = { ...draft, releasedAt, releasedBy: releaserName };
       const remainingDrafts = (patient.evolution || []).filter((_, i) => i !== index);
       const updatedFields = {
         evolution: remainingDrafts,
@@ -1607,12 +1628,22 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
               <motion.div key="evolution" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-6 border-b border-[#F5F2F0]">
                   <h3 className="serif text-2xl text-[#4A433D]">Evolução de Tratamentos</h3>
-                  <button 
-                    onClick={() => setIsAddingEvolution(true)}
-                    className="bg-[#EADFD4] text-white px-8 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 shadow-md hover:bg-[#DFCFBF] transition-all"
-                  >
-                    <Plus size={18} /> Novo Registro
-                  </button>
+                  <div className="flex flex-wrap gap-3">
+                    {(patient.evolutionHistory?.length || 0) > 0 && (
+                      <button
+                        onClick={() => setShowEvolutionHistory(true)}
+                        className="text-[#9CA3AF] hover:text-[#4A433D] flex items-center gap-2 px-6 py-3 rounded-2xl transition-all font-bold text-[10px] uppercase tracking-widest border border-[#F5F2F0]"
+                      >
+                        <History size={16} /> Histórico ({patient.evolutionHistory!.length})
+                      </button>
+                    )}
+                    <button 
+                      onClick={() => setIsAddingEvolution(true)}
+                      className="bg-[#EADFD4] text-white px-8 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 shadow-md hover:bg-[#DFCFBF] transition-all"
+                    >
+                      <Plus size={18} /> Novo Registro
+                    </button>
+                  </div>
                 </div>
 
                 {/* Progress Chart */}
@@ -1689,10 +1720,8 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
                 )}
 
                 <div className="space-y-6">
-                  {[
-                    ...(patient.evolution || []).map((e, idx) => ({ ...e, _released: false as const, _draftIndex: idx })),
-                    ...(patient.evolutionHistory || []).map(e => ({ ...e, _released: true as const, _draftIndex: -1 })),
-                  ]
+                  {(patient.evolution || [])
+                    .map((e, idx) => ({ ...e, _released: false as const, _draftIndex: idx }))
                     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                     .map((entry, i) => (
                     <motion.div 
@@ -1764,9 +1793,9 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
                       )}
                     </motion.div>
                   ))}
-                  {(!patient.evolution || patient.evolution.length === 0) && (!patient.evolutionHistory || patient.evolutionHistory.length === 0) && (
+                  {(!patient.evolution || patient.evolution.length === 0) && (
                     <div className="p-20 text-center text-[#9CA3AF] font-light italic border-2 border-dashed border-[#F5F2F0] rounded-3xl bg-[#FDFBF9]/30">
-                      Nenhum registro de evolução encontrado para este paciente.
+                      Nenhum rascunho de evolução em aberto. {(patient.evolutionHistory?.length || 0) > 0 ? 'Veja os registros já liberados no botão Histórico acima.' : ''}
                     </div>
                   )}
                 </div>
@@ -2168,7 +2197,11 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
               <button onClick={() => setShowAnamnesisHistory(false)} className="text-[#9CA3AF] hover:text-[#4A433D]"><X size={24} /></button>
             </div>
             <div className="space-y-4">
-              {[...(patient.anamnesisHistory || [])].reverse().map((entry, i) => (
+              {[...(patient.anamnesisHistory || [])].reverse().map((entry, i) => {
+                const s: any = entry.snapshot || {};
+                const activeConditions = Object.entries(s.conditions || {}).filter(([, v]) => v).map(([k]) => k);
+                const activeHabits = Object.entries(s.habits || {}).filter(([k, v]) => k !== 'diet' && v).map(([k]) => k);
+                return (
                 <details key={i} className="bg-[#FDFBF9] rounded-3xl border border-[#F5F2F0] overflow-hidden">
                   <summary className="p-6 cursor-pointer flex items-center justify-between text-sm font-semibold text-[#4A433D]">
                     <span className="flex items-center gap-2">
@@ -2178,10 +2211,54 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
                     <span className="text-[10px] text-[#9CA3AF] font-normal uppercase tracking-widest">{entry.releasedBy}</span>
                   </summary>
                   <div className="p-6 pt-0 space-y-3 text-xs text-[#4A433D] font-light">
-                    <p><strong>Queixa Principal:</strong> {entry.snapshot?.mainComplaint || '—'}</p>
-                    <p><strong>Expectativas:</strong> {entry.snapshot?.expectations || '—'}</p>
-                    <p><strong>Avaliação da Pele:</strong> {entry.snapshot?.skinEvaluation || '—'}</p>
-                    <p><strong>Avaliação Facial:</strong> {entry.snapshot?.faceEvaluation || '—'}</p>
+                    <p><strong>Queixa Principal:</strong> {s.mainComplaint || '—'}</p>
+                    <p><strong>Expectativas:</strong> {s.expectations || '—'}</p>
+                    <p><strong>Condições Médicas:</strong> {activeConditions.length ? activeConditions.join(', ') : 'Nenhuma marcada'}</p>
+                    {s.otherConditions && <p><strong>Outras Condições:</strong> {s.otherConditions}</p>}
+                    <p><strong>Alergias:</strong> {s.hasAllergies ? (s.allergiesDetails || 'Sim') : 'Não'}</p>
+                    <p><strong>Medicação Contínua:</strong> {s.hasContinuousMedication ? (s.medicationsDetails || 'Sim') : 'Não'}</p>
+                    {s.familyHistory && <p><strong>Histórico Familiar:</strong> {s.familyHistory}</p>}
+                    <p><strong>Estilo de Vida:</strong> {activeHabits.length ? activeHabits.join(', ') : 'Nenhum marcado'}{s.habits?.diet ? ` — ${s.habits.diet}` : ''}</p>
+                    {s.fitzpatrickType && <p><strong>Fototipo:</strong> {s.fitzpatrickType}</p>}
+                    <p><strong>Avaliação da Pele:</strong> {s.skinEvaluation || '—'}</p>
+                    <p><strong>Avaliação Facial:</strong> {s.faceEvaluation || '—'}</p>
+                    <p><strong>Conduta:</strong> {s.conduct || '—'}</p>
+                    {(s.plannedProcedures || []).length > 0 && <p><strong>Procedimentos Planejados:</strong> {s.plannedProcedures.join(', ')}</p>}
+                  </div>
+                </details>
+                );
+              })}
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {showEvolutionHistory && (
+        <div className="fixed inset-0 bg-[#4A433D]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+          <motion.div
+            initial={{ y: 30, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            className="bg-white w-full max-w-2xl max-h-[85vh] rounded-[40px] p-10 shadow-2xl overflow-y-auto"
+          >
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="serif text-2xl text-[#4A433D]">Histórico de Evoluções Liberadas</h3>
+              <button onClick={() => setShowEvolutionHistory(false)} className="text-[#9CA3AF] hover:text-[#4A433D]"><X size={24} /></button>
+            </div>
+            <div className="space-y-4">
+              {[...(patient.evolutionHistory || [])].reverse().map((entry, i) => (
+                <details key={i} className="bg-[#FDFBF9] rounded-3xl border border-[#F5F2F0] overflow-hidden">
+                  <summary className="p-6 cursor-pointer flex items-center justify-between text-sm font-semibold text-[#4A433D]">
+                    <span className="flex items-center gap-2">
+                      <Lock size={13} className="text-[#B8846E]" />
+                      {new Date(entry.date).toLocaleDateString('pt-BR')} — {entry.procedure}
+                    </span>
+                    <span className="text-[10px] text-[#9CA3AF] font-normal uppercase tracking-widest">{entry.releasedBy}</span>
+                  </summary>
+                  <div className="p-6 pt-0 space-y-3 text-xs text-[#4A433D] font-light">
+                    <p><strong>Observações Clínicas:</strong> {entry.notes || '—'}</p>
+                    {entry.bucoMaxiloNotes && <p><strong>Detalhes Técnicos:</strong> {entry.bucoMaxiloNotes}</p>}
+                    {entry.numericValue !== undefined && <p><strong>Medida Registrada:</strong> {entry.numericValue}</p>}
+                    <p className="text-[10px] text-[#9CA3AF] pt-2 border-t border-[#F5F2F0]">Liberado em {new Date(entry.releasedAt).toLocaleString('pt-BR')}</p>
                   </div>
                 </details>
               ))}
