@@ -2471,6 +2471,7 @@ function AtestadoModule({ user, patient, getReleaserName }: { user: User, patien
     const printText = textOverride ?? bodyText;
     const clinicName = clinicSettings?.clinicName || clinicSettings?.professionalName || 'Clínica';
     const professionalName = clinicSettings?.professionalName || '';
+    const registrationNumber = clinicSettings?.registrationNumber || '';
     const now = new Date();
     const todayLabel = now.toLocaleDateString('pt-BR');
     const nowTimeLabel = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -2485,12 +2486,15 @@ function AtestadoModule({ user, patient, getReleaserName }: { user: User, patien
       <div class="box" style="text-align: center;">
         <p style="margin: 40px 0 6px;">
           <span style="display: inline-block; border-top: 1px solid #4A433D; padding-top: 8px; min-width: 280px;">
-            ${professionalName ? `${professionalName}<br/>` : ''}Cirurgião(ã)-Dentista
+            ${professionalName ? `${professionalName}<br/>` : ''}${registrationNumber ? `CRO nº ${registrationNumber}` : 'Cirurgião(ã)-Dentista'}
           </span>
         </p>
       </div>
     `;
     const footerHtml = `
+      <p style="text-align: center; font-size: 11px; color: #9CA3AF; margin-bottom: 12px;">
+        ${[clinicName, clinicSettings?.clinicAddress, clinicSettings?.whatsappNumber].filter(Boolean).join(' · ')}
+      </p>
       <div class="footer-row">
         <span>${todayLabel} às ${nowTimeLabel}</span>
         <img class="footer-mark" src="/logo/logo-mark-v2.png" alt="" />
@@ -2747,6 +2751,9 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
       </div>
     `;
     const footerHtml = `
+      <p style="text-align: center; font-size: 11px; color: #9CA3AF; margin-bottom: 12px;">
+        ${[clinicName, clinicSettings?.clinicAddress, clinicSettings?.whatsappNumber].filter(Boolean).join(' · ')}
+      </p>
       <div class="footer-row">
         <span>Assinado em ${new Date(term.signedAt).toLocaleString('pt-BR')}</span>
       </div>
@@ -3423,6 +3430,7 @@ function PrescriptionModule({ user, patient }: { user: User, patient: Patient })
   const handleViewPrescription = (prescription: any) => {
     const clinicName = clinicSettings?.clinicName || clinicSettings?.professionalName || 'Clínica';
     const professionalName = clinicSettings?.professionalName || '';
+    const registrationNumber = clinicSettings?.registrationNumber || '';
     const medicinesHtml = prescription.medicines.map((m: any, i: number) =>
       `<p style="margin-bottom: 14px;"><strong>${i + 1}. ${m.name}</strong> — ${m.dosage}<br/><span style="color:#9CA3AF; font-size:13px;">${m.instructions || ''}</span></p>`
     ).join('');
@@ -3441,7 +3449,7 @@ function PrescriptionModule({ user, patient }: { user: User, patient: Patient })
           <img src="${prescription.signatureUrl}" alt="Assinatura" style="max-height: 90px; margin: 20px auto 6px; display: block; mix-blend-mode: multiply;" />
           <p style="margin: 0 0 6px;">
             <span style="display: inline-block; border-top: 1px solid #4A433D; padding-top: 8px; min-width: 280px;">
-              ${professionalName ? `${professionalName}<br/>` : ''}Assinatura Digital
+              ${professionalName ? `${professionalName}<br/>` : ''}${registrationNumber ? `CRO nº ${registrationNumber}` : 'Assinatura e Carimbo Profissional'}
             </span>
           </p>
         ` : `
