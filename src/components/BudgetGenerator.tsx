@@ -3,7 +3,7 @@ import { doc, getDoc, addDoc, updateDoc, collection, query, where, getDocs } fro
 import { db } from '../lib/firebase';
 import { Patient, ClinicSettings, InventoryItem } from '../types';
 import { User } from 'firebase/auth';
-import { Plus, Trash2, FileDown, CheckCircle2, Package, AlertTriangle, MessageCircle, History, X } from 'lucide-react';
+import { Plus, Trash2, FileDown, CheckCircle2, Package, AlertTriangle, MessageCircle, History, X, Eye } from 'lucide-react';
 import { showToast } from '../lib/toast';
 import { getClinicOwnerId, parseCurrencyInput, remoteSignLink } from '../lib/slots';
 import { whatsappLink, genericEmailLink } from '../lib/reminders';
@@ -274,7 +274,7 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
     })();
   }, [patient.id]);
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (mode: 'download' | 'view' = 'download') => {
     const validItems = items.filter(it => it.description.trim() && parseCurrencyInput(it.value) > 0);
     if (validItems.length === 0) {
       showToast('Adicione ao menos um item com descrição e valor', 'error');
@@ -404,8 +404,13 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
       }
 
       const fileName = `orcamento-${patient.name.replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.pdf`;
-      docPdf.save(fileName);
-      showToast('Orçamento gerado');
+      if (mode === 'view') {
+        window.open(docPdf.output('bloburl'), '_blank');
+        showToast('Orçamento aberto — use o botão de impressão do visualizador');
+      } else {
+        docPdf.save(fileName);
+        showToast('Orçamento baixado');
+      }
     } catch (err) {
       console.error(err);
       showToast('Erro ao gerar orçamento', 'error');
@@ -515,14 +520,24 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
         </div>
       </div>
 
-      <button
-        disabled={generating}
-        onClick={handleGenerate}
-        className="w-full py-5 bg-[#EADFD4] text-white rounded-[28px] font-bold text-xs uppercase tracking-widest shadow-md hover:bg-[#DFCFBF] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
-      >
-        <FileDown size={20} />
-        {generating ? 'Gerando...' : 'Gerar PDF do Orçamento'}
-      </button>
+      <div className="flex gap-3">
+        <button
+          disabled={generating}
+          onClick={() => handleGenerate('view')}
+          className="flex-1 py-5 bg-[#EADFD4] text-white rounded-[28px] font-bold text-xs uppercase tracking-widest shadow-md hover:bg-[#DFCFBF] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+        >
+          <Eye size={20} />
+          {generating ? 'Gerando...' : 'Visualizar e Imprimir'}
+        </button>
+        <button
+          disabled={generating}
+          onClick={() => handleGenerate('download')}
+          className="flex-1 py-5 bg-white border border-[#F5F2F0] text-[#4A433D] rounded-[28px] font-bold text-xs uppercase tracking-widest shadow-sm hover:border-[#EADFD4] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+        >
+          <FileDown size={20} />
+          Baixar PDF
+        </button>
+      </div>
 
       <div className="flex gap-3">
         <button

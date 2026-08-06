@@ -964,24 +964,43 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
   // Texto legível da anamnese atual, pra mostrar ao paciente na tela de assinatura
   // remota — não é o objeto técnico interno, é um resumo em português corrido.
   const buildAnamnesisSignContent = () => {
-    const activeConditions = Object.entries(anamnesis.conditions || {}).filter(([, v]) => v).map(([k]) => k);
-    const activeHabits = Object.entries(anamnesis.habits || {}).filter(([k, v]) => k !== 'diet' && v).map(([k]) => k);
+    const habitLabels: Record<string, string> = {
+      smoking: 'Fumante', alcohol: 'Consome Álcool', exercise: 'Pratica Exercícios',
+      sunExposure: 'Exposição Solar Frequente', sunscreen: 'Usa Protetor Solar Diariamente',
+    };
+    const c = anamnesis.conditions || {};
+    const h = anamnesis.habits || {};
     const lines = [
       `Queixa Principal: ${anamnesis.mainComplaint || '—'}`,
       `Expectativas: ${anamnesis.expectations || '—'}`,
-      `Condições Médicas: ${activeConditions.length ? activeConditions.join(', ') : 'Nenhuma marcada'}`,
+      '— CONDIÇÕES MÉDICAS —',
+      ...conditionFilterOptions.map(opt => `${opt.label}: ${(c as any)[opt.key] ? 'Sim' : 'Não'}`),
       anamnesis.otherConditions ? `Outras Condições: ${anamnesis.otherConditions}` : '',
-      `Alergias: ${anamnesis.hasAllergies ? (anamnesis.allergiesDetails || 'Sim') : 'Não'}`,
-      `Medicação Contínua: ${anamnesis.hasContinuousMedication ? (anamnesis.medicationsDetails || 'Sim') : 'Não'}`,
+      `Possui Alergias: ${anamnesis.hasAllergies ? 'Sim' : 'Não'}`,
+      anamnesis.hasAllergies && anamnesis.allergiesDetails ? `Detalhes da Alergia: ${anamnesis.allergiesDetails}` : '',
+      `Usa Medicação Contínua: ${anamnesis.hasContinuousMedication ? 'Sim' : 'Não'}`,
+      anamnesis.hasContinuousMedication && anamnesis.medicationsDetails ? `Detalhes da Medicação: ${anamnesis.medicationsDetails}` : '',
       anamnesis.familyHistory ? `Histórico Familiar: ${anamnesis.familyHistory}` : '',
-      `Estilo de Vida: ${activeHabits.length ? activeHabits.join(', ') : 'Nenhum marcado'}`,
+      '— ESTILO DE VIDA —',
+      ...Object.entries(habitLabels).map(([key, label]) => `${label}: ${(h as any)[key] ? 'Sim' : 'Não'}`),
+      h.diet ? `Dieta e Suplementação: ${h.diet}` : '',
+      '— AVALIAÇÃO —',
+      anamnesis.fitzpatrickType ? `Fototipo (Fitzpatrick): ${anamnesis.fitzpatrickType}` : '',
       `Avaliação da Pele: ${anamnesis.skinEvaluation || '—'}`,
       `Avaliação Facial: ${anamnesis.faceEvaluation || '—'}`,
+      '— CONDUTA —',
       `Conduta / Plano de Tratamento: ${anamnesis.conduct || '—'}`,
-      (anamnesis.plannedProcedures || []).length > 0 ? `Procedimentos Planejados: ${anamnesis.plannedProcedures.join(', ')}` : '',
-      '',
+      (anamnesis.plannedProcedures || []).length > 0
+        ? `Procedimentos Planejados: ${anamnesis.plannedProcedures.map((p: string) => {
+            const sub = anamnesis.plannedSubstances?.[p];
+            return sub ? `${p} (${sub})` : p;
+          }).join(', ')}`
+        : '',
       'Ao assinar abaixo, declaro que as informações acima são verdadeiras e estou ciente do plano de tratamento proposto.',
     ];
+    // Cada linha vira o próprio parágrafo (a tela de assinatura só separa parágrafos em
+    // quebra dupla) — assim cada campo aparece na própria linha, legível, em vez de tudo
+    // grudado sem quebra visual.
     return lines.filter(Boolean).join('\n\n');
   };
 
@@ -2958,7 +2977,8 @@ function AtestadoModule({ user, patient, getReleaserName }: { user: User, patien
         <p>${printText}</p>
       </div>
       <div class="box" style="text-align: center;">
-        <p style="margin: 40px 0 6px;">
+        ${clinicSettings?.professionalSignatureUrl ? `<img src="${clinicSettings.professionalSignatureUrl}" alt="Assinatura" style="max-height: 80px; margin: 30px auto 4px; display: block; mix-blend-mode: multiply;" />` : ''}
+        <p style="margin: ${clinicSettings?.professionalSignatureUrl ? '0' : '40px'} 0 6px;">
           <span style="display: inline-block; border-top: 1px solid #4A433D; padding-top: 8px; min-width: 280px;">
             ${professionalName ? `${professionalName}<br/>` : ''}${registrationNumber ? `CRO nº ${registrationNumber}` : 'Cirurgião(ã)-Dentista'}
           </span>
@@ -3838,17 +3858,24 @@ function PrescriptionModule({ user, patient }: { user: User, patient: Patient })
       showToast('Adicione ao menos um medicamento', 'error');
       return;
     }
-    if (!rxSigPad.current || rxSigPad.current.isEmpty()) {
-      showToast('A assinatura digital é obrigatória', 'error');
+    const hasStoredSignature = !!clinicSettings?.professionalSignatureUrl;
+    if (!hasStoredSignature && (!rxSigPad.current || rxSigPad.current.isEmpty())) {
+      showToast('A assinatura digital é obrigatória — assine no quadro ou cadastre uma assinatura fixa em Configurações → Perfil', 'error');
       return;
     }
     setSaving(true);
     try {
-      const signatureBlob = await fetch(rxSigPad.current.toDataURL()).then(res => res.blob());
-      const path = `patients/${user.uid}/${patient.id}/prescriptions/${Date.now()}_sig.png`;
-      const sRef = ref(storage, path);
-      await uploadBytes(sRef, signatureBlob);
-      const signatureUrl = await getDownloadURL(sRef);
+      // Usa a assinatura já cadastrada no perfil quando existir — evita ter que desenhar
+      // com o mouse toda vez. Só faz upload de uma nova assinatura se não tiver nenhuma
+      // salva (usando a desenhada agora mesmo, na hora).
+      let signatureUrl = clinicSettings?.professionalSignatureUrl || '';
+      if (!signatureUrl) {
+        const signatureBlob = await fetch(rxSigPad.current.toDataURL()).then(res => res.blob());
+        const path = `patients/${user.uid}/${patient.id}/prescriptions/${Date.now()}_sig.png`;
+        const sRef = ref(storage, path);
+        await uploadBytes(sRef, signatureBlob);
+        signatureUrl = await getDownloadURL(sRef);
+      }
 
       const newPrescription = {
         id: Date.now().toString(),
@@ -4064,13 +4091,24 @@ function PrescriptionModule({ user, patient }: { user: User, patient: Patient })
             <FormField label="Orientações Gerais" value={notes} onChange={setNotes} textarea />
 
             <div>
-              <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-3 ml-1">Assinatura Digital (obrigatória)</label>
-              <div className="bg-white rounded-2xl border-2 border-[#F5F2F0] overflow-hidden relative">
-                <SignaturePad ref={rxSigPad} canvasProps={{ className: 'w-full h-32' }} backgroundColor="#FFFFFF" />
-                <button onClick={() => rxSigPad.current?.clear()} className="absolute top-3 right-3 p-2 bg-[#FDFBF9] rounded-full text-[#9CA3AF] hover:text-[#4A433D] shadow-sm">
-                  <RotateCcw size={16} />
-                </button>
-              </div>
+              <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-3 ml-1">
+                {clinicSettings?.professionalSignatureUrl ? 'Assinatura do Profissional' : 'Assinatura Digital (obrigatória)'}
+              </label>
+              {clinicSettings?.professionalSignatureUrl ? (
+                <div className="bg-[#FDFBF9] rounded-2xl border border-[#F5F2F0] p-6 flex items-center gap-4">
+                  <img src={clinicSettings.professionalSignatureUrl} alt="Assinatura" className="h-16 bg-white rounded-xl p-2 border border-[#F5F2F0]" style={{ mixBlendMode: 'multiply' }} />
+                  <p className="text-[11px] text-[#9CA3AF] font-light leading-relaxed">
+                    Usando a assinatura salva no seu perfil — pra trocar, vá em Configurações → Perfil.
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-white rounded-2xl border-2 border-[#F5F2F0] overflow-hidden relative">
+                  <SignaturePad ref={rxSigPad} canvasProps={{ className: 'w-full h-32' }} backgroundColor="#FFFFFF" />
+                  <button onClick={() => rxSigPad.current?.clear()} className="absolute top-3 right-3 p-2 bg-[#FDFBF9] rounded-full text-[#9CA3AF] hover:text-[#4A433D] shadow-sm">
+                    <RotateCcw size={16} />
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="flex gap-4 pt-4">

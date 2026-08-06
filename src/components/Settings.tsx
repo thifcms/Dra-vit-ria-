@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { doc, getDoc, setDoc, deleteDoc, collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, storage } from '../lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { ClinicSettings, ConsentTemplate, PrescriptionTemplate, InventoryItem } from '../types';
 import { APP_VERSION } from '../version';
 import { User, EmailAuthProvider, reauthenticateWithCredential, updatePassword } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
+import SignaturePad from 'react-signature-canvas';
 import { 
   Building2, 
   Calendar,
@@ -26,7 +28,8 @@ import {
   Download,
   KeyRound,
   Pill,
-  Receipt
+  Receipt,
+  RotateCcw
 } from 'lucide-react';
 import { showToast } from '../lib/toast';
 import { hashPin, isValidPinFormat } from '../lib/pin';
@@ -38,6 +41,9 @@ import PatientBackup from './PatientBackup';
 
 export default function Settings({ user }: { user: User }) {
   const [isAdminUser, setIsAdminUser] = useState<boolean | null>(null);
+  const [showSignaturePad, setShowSignaturePad] = useState(false);
+  const [savingSignature, setSavingSignature] = useState(false);
+  const profileSigPad = useRef<any>(null);
   const [settingsTab, setSettingsTab] = useState<'perfil' | 'gestao'>('perfil');
   const [changingLoginPassword, setChangingLoginPassword] = useState(false);
   const [oldLoginPassword, setOldLoginPassword] = useState('');
@@ -325,6 +331,64 @@ export default function Settings({ user }: { user: User }) {
     persist({ ...settings, cloudBackupEnabled: !settings.cloudBackupEnabled });
   };
 
+  const handleSaveDrawnSignature = async () => {
+    if (!profileSigPad.current || profileSigPad.current.isEmpty()) {
+      showToast('Assine no quadro antes de salvar', 'error');
+      return;
+    }
+    setSavingSignature(true);
+    try {
+      const ownerId = await getClinicOwnerId(db).catch(() => user.uid);
+      const signatureBlob = await fetch(profileSigPad.current.toDataURL()).then(res => res.blob());
+      const sRef = ref(storage, `signatures/${ownerId}/professional.png`);
+      await uploadBytes(sRef, signatureBlob);
+      const url = await getDownloadURL(sRef);
+      const updated = { ...settings, professionalSignatureUrl: url };
+      setSettings(updated);
+      await setDoc(doc(db, 'settings', ownerId), updated);
+      showToast('Assinatura salva — será usada automaticamente nos documentos');
+      setShowSignaturePad(false);
+      profileSigPad.current?.clear();
+    } catch (err) {
+      showToast('Erro ao salvar assinatura', 'error');
+    }
+    setSavingSignature(false);
+  };
+
+  const handleUploadSignaturePhoto = async (file: File) => {
+    setSavingSignature(true);
+    try {
+      const ownerId = await getClinicOwnerId(db).catch(() => user.uid);
+      const sRef = ref(storage, `signatures/${ownerId}/professional.png`);
+      await uploadBytes(sRef, file);
+      const url = await getDownloadURL(sRef);
+      const updated = { ...settings, professionalSignatureUrl: url };
+      setSettings(updated);
+      await setDoc(doc(db, 'settings', ownerId), updated);
+      showToast('Assinatura salva — será usada automaticamente nos documentos');
+    } catch (err) {
+      showToast('Erro ao salvar assinatura', 'error');
+    }
+    setSavingSignature(false);
+  };
+
+  const handleRemoveSignature = async () => {
+    if (!window.confirm('Remover a assinatura salva? Documentos voltarão a pedir assinatura manual.')) return;
+    setSavingSignature(true);
+    try {
+      const ownerId = await getClinicOwnerId(db).catch(() => user.uid);
+      // setDoc rejeita undefined explícito — remove a chave do objeto por completo em vez
+      // de tentar zerá-la com undefined
+      const { professionalSignatureUrl, ...rest } = settings;
+      setSettings(rest as ClinicSettings);
+      await setDoc(doc(db, 'settings', ownerId), rest);
+      showToast('Assinatura removida');
+    } catch (err) {
+      showToast('Erro ao remover', 'error');
+    }
+    setSavingSignature(false);
+  };
+
   const handleSaveAll = async () => {
     setSaving(true);
     try {
@@ -492,6 +556,43 @@ export default function Settings({ user }: { user: User }) {
               onChange={v => setSettings({...settings, registrationNumber: v})}
               icon={<Hash size={18} />}
             />
+          </div>
+
+          <div className="mt-8 pt-8 border-t border-[#F5F2F0]">
+            <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-3">
+              Assinatura do Profissional
+            </label>
+            <p className="text-xs text-[#9CA3AF] font-light mb-5">
+              Cadastre sua assinatura uma vez (desenhando ou enviando uma foto) e ela será colada automaticamente
+              nos documentos liberados, sem precisar assinar com o mouse toda vez.
+            </p>
+            {settings.professionalSignatureUrl ? (
+              <div className="flex items-center gap-6 p-6 bg-[#FDFBF9] rounded-[28px] border border-[#F5F2F0]">
+                <img src={settings.professionalSignatureUrl} alt="Assinatura salva" className="h-16 bg-white rounded-xl p-2 border border-[#F5F2F0]" style={{ mixBlendMode: 'multiply' }} />
+                <div className="flex-1 flex flex-wrap gap-3">
+                  <button onClick={() => setShowSignaturePad(true)} className="px-5 py-2.5 bg-white border border-[#F5F2F0] text-[#4A433D] rounded-xl text-[10px] font-bold uppercase tracking-widest hover:border-[#EADFD4]">
+                    Assinar de Novo
+                  </button>
+                  <label className="px-5 py-2.5 bg-white border border-[#F5F2F0] text-[#4A433D] rounded-xl text-[10px] font-bold uppercase tracking-widest hover:border-[#EADFD4] cursor-pointer">
+                    Enviar Nova Foto
+                    <input type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && handleUploadSignaturePhoto(e.target.files[0])} />
+                  </label>
+                  <button onClick={handleRemoveSignature} className="px-5 py-2.5 text-red-400 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-red-50">
+                    Remover
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-3">
+                <button onClick={() => setShowSignaturePad(true)} className="px-6 py-3 bg-[#EADFD4] text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-[#DFCFBF]">
+                  Assinar Agora
+                </button>
+                <label className="px-6 py-3 bg-white border border-[#F5F2F0] text-[#4A433D] rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:border-[#EADFD4] cursor-pointer">
+                  Enviar Foto
+                  <input type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && handleUploadSignaturePhoto(e.target.files[0])} />
+                </label>
+              </div>
+            )}
           </div>
         </section>
 
@@ -991,6 +1092,37 @@ export default function Settings({ user }: { user: User }) {
           </div>
         )}
       </AnimatePresence>
+
+      {showSignaturePad && (
+        <div className="fixed inset-0 bg-[#4A433D]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+          <motion.div
+            initial={{ y: 30, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            className="bg-white w-full max-w-md rounded-[40px] p-10 shadow-2xl"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="serif text-2xl text-[#4A433D]">Assinar</h3>
+              <button onClick={() => { setShowSignaturePad(false); profileSigPad.current?.clear(); }} className="text-[#9CA3AF] hover:text-[#4A433D]"><X size={24} /></button>
+            </div>
+            <div className="bg-[#FDFBF9] rounded-[28px] border-2 border-[#F5F2F0] overflow-hidden relative mb-6">
+              <SignaturePad ref={profileSigPad} canvasProps={{ className: 'w-full h-40' }} backgroundColor="#FDFBF9" />
+              <button onClick={() => profileSigPad.current?.clear()} className="absolute top-3 right-3 p-2 bg-white rounded-full text-[#9CA3AF] hover:text-[#4A433D] shadow-sm">
+                <RotateCcw size={16} />
+              </button>
+            </div>
+            <div className="flex gap-4">
+              <button onClick={() => { setShowSignaturePad(false); profileSigPad.current?.clear(); }} className="flex-1 py-4 text-[#9CA3AF] font-bold text-[10px] uppercase">Cancelar</button>
+              <button
+                onClick={handleSaveDrawnSignature}
+                disabled={savingSignature}
+                className="flex-1 py-4 bg-[#EADFD4] text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-[#DFCFBF] transition-all disabled:opacity-50"
+              >
+                {savingSignature ? 'Salvando...' : 'Salvar Assinatura'}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
 
       {editingKitProcId && (
         <div className="fixed inset-0 bg-[#4A433D]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">

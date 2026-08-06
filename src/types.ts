@@ -473,6 +473,10 @@ export interface FixedCost {
 export interface ClinicSettings {
   professionalName: string;
   registrationNumber: string;
+  // Assinatura do profissional, cadastrada uma vez (foto ou desenhada) — usada
+  // automaticamente sempre que um documento é liberado, sem precisar assinar com o
+  // mouse toda vez (ex: Receituário).
+  professionalSignatureUrl?: string;
   clinicName: string;
   clinicAddress: string;
   contactEmail?: string;
