@@ -2497,7 +2497,6 @@ function AtestadoModule({ user, patient, getReleaserName }: { user: User, patien
       </p>
       <div class="footer-row">
         <span>${todayLabel} às ${nowTimeLabel}</span>
-        <img class="footer-mark" src="/logo/logo-mark-v2.png" alt="" />
       </div>
     `;
     const html = buildLetterheadHtml({ title: printTitle, clinicName, bodyHtml, footerHtml, documentLabel: `${printTitle} — ${patient.name}` });
@@ -3464,7 +3463,6 @@ function PrescriptionModule({ user, patient }: { user: User, patient: Patient })
     const footerHtml = `
       <div class="footer-row">
         <span>${new Date().toLocaleDateString('pt-BR')}</span>
-        <img class="footer-mark" src="/logo/logo-mark-v2.png" alt="" />
       </div>
     `;
     const html = buildLetterheadHtml({ title: 'Receituário', clinicName, bodyHtml, footerHtml, documentLabel: `Receituário — ${patient.name}` });

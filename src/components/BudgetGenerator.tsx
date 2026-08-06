@@ -86,8 +86,11 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
       const { jsPDF } = await import('jspdf');
       const docPdf = new jsPDF({ unit: 'mm', format: 'a4' });
       const pageWidth = docPdf.internal.pageSize.getWidth();
+      const pageHeight = docPdf.internal.pageSize.getHeight();
       const margin = 24;
       let y = 18;
+      let watermarkLogoUrl: string | null = null;
+      let watermarkLogoProps: { width: number; height: number } | null = null;
 
       const clinicName = settings?.clinicName || settings?.professionalName || 'Clínica';
 
@@ -112,16 +115,11 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
         const props = docPdf.getImageProperties(logoDataUrl);
         const ratioHeight = (logoWidth * props.height) / props.width;
 
-        // Marca d'água grande e bem clara, centralizada na folha inteira — mesmo logo
-        // já carregado acima, só desenhado bem maior e quase transparente, por baixo do
-        // resto do conteúdo (desenhada primeiro, antes de tudo mais)
-        const pageHeight = docPdf.internal.pageSize.getHeight();
-        const wmWidth = pageWidth * 0.75;
-        const wmHeight = (wmWidth * props.height) / props.width;
-        docPdf.saveGraphicsState();
-        (docPdf as any).setGState(new (docPdf as any).GState({ opacity: 0.06 }));
-        docPdf.addImage(logoDataUrl, 'PNG', (pageWidth - wmWidth) / 2, (pageHeight - wmHeight) / 2, wmWidth, wmHeight);
-        docPdf.restoreGraphicsState();
+        // Guarda o logo pra desenhar a marca d'água por cima de tudo, no final —
+        // desenhar agora deixaria ela por baixo do resto do conteúdo, que ainda nem
+        // existe nesse ponto
+        watermarkLogoUrl = logoDataUrl;
+        watermarkLogoProps = { width: props.width, height: props.height };
 
         docPdf.addImage(logoDataUrl, 'PNG', (pageWidth - logoWidth) / 2, y, logoWidth, ratioHeight);
         y += ratioHeight + 8;
@@ -193,6 +191,18 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
       docPdf.setFontSize(9);
       docPdf.setTextColor(154, 144, 132);
       docPdf.text(`Este orçamento é válido por ${validityDays} dias a partir da data de emissão.`, margin, y);
+
+      // Marca d'água grande e bem clara, por cima de todo o resto — desenhada por
+      // último de propósito, já que no jsPDF quem desenha depois fica visualmente em
+      // cima (não existe z-index; a ordem de desenho é o que decide)
+      if (watermarkLogoUrl && watermarkLogoProps) {
+        const wmWidth = pageWidth * 1.125; // 0.75 original × 1.5
+        const wmHeight = (wmWidth * watermarkLogoProps.height) / watermarkLogoProps.width;
+        docPdf.saveGraphicsState();
+        (docPdf as any).setGState(new (docPdf as any).GState({ opacity: 0.06 }));
+        docPdf.addImage(watermarkLogoUrl, 'PNG', (pageWidth - wmWidth) / 2, (pageHeight - wmHeight) / 2, wmWidth, wmHeight);
+        docPdf.restoreGraphicsState();
+      }
 
       const fileName = `orcamento-${patient.name.replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.pdf`;
       docPdf.save(fileName);

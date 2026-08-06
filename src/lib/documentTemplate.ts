@@ -102,24 +102,22 @@ export function buildLetterheadHtml({
           top: 50%;
           left: 50%;
           transform: translate(-50%, -50%);
-          width: 85%;
-          max-width: 620px;
+          width: 127%;
+          max-width: 930px;
           opacity: 0.06;
-          z-index: 0;
+          z-index: 5;
           pointer-events: none;
         }
         .logo, .title-bar, .content {
           position: relative;
           z-index: 1;
         }
-        .footer-mark { width: 34px; opacity: 0.5; }
         @media print {
           .print-btn { display: none; }
         }
       </style>
     </head>
     <body>
-      <img class="watermark" src="${logoUrl}" alt="" />
       <button class="print-btn" onclick="window.print()">Imprimir</button>
       <img class="logo" src="${logoUrl}" alt="${clinicName}" />
       <div class="title-bar">${title}</div>
@@ -127,6 +125,7 @@ export function buildLetterheadHtml({
         ${bodyHtml}
         ${footerHtml || ''}
       </div>
+      <img class="watermark" src="${logoUrl}" alt="" />
     </body>
     </html>
   `;
