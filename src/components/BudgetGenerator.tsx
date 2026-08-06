@@ -111,6 +111,18 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
         const logoWidth = 55;
         const props = docPdf.getImageProperties(logoDataUrl);
         const ratioHeight = (logoWidth * props.height) / props.width;
+
+        // Marca d'água grande e bem clara, centralizada na folha inteira — mesmo logo
+        // já carregado acima, só desenhado bem maior e quase transparente, por baixo do
+        // resto do conteúdo (desenhada primeiro, antes de tudo mais)
+        const pageHeight = docPdf.internal.pageSize.getHeight();
+        const wmWidth = pageWidth * 0.75;
+        const wmHeight = (wmWidth * props.height) / props.width;
+        docPdf.saveGraphicsState();
+        (docPdf as any).setGState(new (docPdf as any).GState({ opacity: 0.06 }));
+        docPdf.addImage(logoDataUrl, 'PNG', (pageWidth - wmWidth) / 2, (pageHeight - wmHeight) / 2, wmWidth, wmHeight);
+        docPdf.restoreGraphicsState();
+
         docPdf.addImage(logoDataUrl, 'PNG', (pageWidth - logoWidth) / 2, y, logoWidth, ratioHeight);
         y += ratioHeight + 8;
       } catch {
