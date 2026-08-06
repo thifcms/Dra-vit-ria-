@@ -37,6 +37,7 @@ export function buildLetterheadHtml({
           padding: 0 0 60px;
           color: #4A433D;
           background: #FDFBF9;
+          position: relative;
         }
         .print-btn {
           display: block;
@@ -98,7 +99,7 @@ export function buildLetterheadHtml({
           color: #4A433D;
         }
         .watermark {
-          position: fixed;
+          position: absolute;
           top: 50%;
           left: 50%;
           transform: translate(-50%, -50%);
