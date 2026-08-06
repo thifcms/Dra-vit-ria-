@@ -4,3 +4,4 @@
 // pendente, não um bug no código novo.
 export const APP_VERSION = '2026.08.06-12';
 // trigger novo deploy Thu Aug  6 17:20:32 UTC 2026
+// nova tentativa de deploy Thu Aug  6 19:41:12 UTC 2026
