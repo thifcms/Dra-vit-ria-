@@ -578,6 +578,7 @@ function AddTransactionModal({ user, onClose, editingTransaction }: any) {
     'Aluguel',
     'Marketing',
     'Insumos',
+    'Funcionário',
     'Outros'
   ];
 
