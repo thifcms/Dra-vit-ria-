@@ -385,6 +385,21 @@ export interface InventoryMovement {
   date: string;
 }
 
+// Gerado automaticamente quando um orçamento é aceito e o estoque não é suficiente pra
+// cobrir os insumos/substância do procedimento — o orçamento segue em frente mesmo assim
+// (não trava o atendimento), mas fica visível pro administrador que precisa comprar.
+export interface StockAlert {
+  id?: string;
+  userId?: string;
+  itemId: string;
+  itemName: string;
+  quantityNeeded: number; // quanto faltou pra cobrir o débito
+  patientName: string;
+  patientId?: string;
+  date: string;
+  resolved: boolean;
+}
+
 export interface ConsentTemplate {
   id?: string;
   title: string;
@@ -449,6 +464,11 @@ export interface ClinicSettings {
     id: string;
     name: string;
     price: number; // valor cobrado do procedimento em si
+    // Insumos e substância usados por sessão (agulha, luva, gaze, e também a substância
+    // já cadastrada no estoque, como a toxina/preenchedor) — cada vez que esse
+    // procedimento é aceito num orçamento, essa quantidade de cada item é debitada do
+    // estoque automaticamente, formando um "pacote" fechado pra esse procedimento.
+    insumoKit?: { itemId: string; itemName: string; quantity: number }[];
   }[];
   substances?: {
     id: string;

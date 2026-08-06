@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { doc, getDoc, setDoc, deleteDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, deleteDoc, collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { ClinicSettings, ConsentTemplate, PrescriptionTemplate } from '../types';
+import { ClinicSettings, ConsentTemplate, PrescriptionTemplate, InventoryItem } from '../types';
 import { APP_VERSION } from '../version';
 import { User, EmailAuthProvider, reauthenticateWithCredential, updatePassword } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
@@ -108,6 +108,45 @@ export default function Settings({ user }: { user: User }) {
   const [newProcedureName, setNewProcedureName] = useState('');
   const [newProcedurePrice, setNewProcedurePrice] = useState('');
   const [newSubstance, setNewSubstance] = useState<{ name: string; unit: 'ml' | 'unidade'; procedureIds: string[] }>({ name: '', unit: 'ml', procedureIds: [] });
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+  const [editingKitProcId, setEditingKitProcId] = useState<string | null>(null);
+  const [kitDraft, setKitDraft] = useState<{ itemId: string; itemName: string; quantity: number }[]>([]);
+
+  useEffect(() => {
+    const q = query(collection(db, 'inventory'));
+    const unsubscribe = onSnapshot(q, snap => {
+      setInventoryItems(snap.docs.map(d => ({ id: d.id, ...d.data() } as InventoryItem)));
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const openKitEditor = (proc: { id: string; insumoKit?: { itemId: string; itemName: string; quantity: number }[] }) => {
+    setEditingKitProcId(proc.id);
+    setKitDraft(proc.insumoKit ? proc.insumoKit.map(k => ({ ...k })) : []);
+  };
+
+  const toggleKitItem = (item: InventoryItem) => {
+    setKitDraft(prev => {
+      const exists = prev.find(k => k.itemId === item.id);
+      if (exists) return prev.filter(k => k.itemId !== item.id);
+      return [...prev, { itemId: item.id!, itemName: item.name, quantity: 1 }];
+    });
+  };
+
+  const updateKitQuantity = (itemId: string, quantity: number) => {
+    setKitDraft(prev => prev.map(k => k.itemId === itemId ? { ...k, quantity: Math.max(0.01, quantity) } : k));
+  };
+
+  const handleSaveKit = () => {
+    if (!editingKitProcId) return;
+    const next = (settings.procedures || []).map(p =>
+      p.id === editingKitProcId ? { ...p, insumoKit: kitDraft } : p
+    );
+    persist({ ...settings, procedures: next });
+    showToast('Kit de insumos salvo');
+    setEditingKitProcId(null);
+    setKitDraft([]);
+  };
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -777,11 +816,18 @@ export default function Settings({ user }: { user: User }) {
                   R$ {proc.price.toFixed(2).replace('.', ',')}
                   {' · '}
                   {(settings.substances || []).filter(s => s.procedureIds.includes(proc.id)).length} substância(s) vinculada(s)
+                  {' · '}
+                  {(proc.insumoKit || []).length} insumo(s) no kit
                 </p>
               </div>
-              <button onClick={() => handleDeleteProcedure(proc.id)} className="p-2 text-[#9CA3AF] hover:text-red-400">
-                <Trash2 size={16} />
-              </button>
+              <div className="flex items-center gap-1">
+                <button onClick={() => openKitEditor(proc)} className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-[#8BA888] hover:text-[#7C9979] border border-[#F0F7F0] rounded-xl bg-[#F0F7F0]">
+                  Kit de Insumos
+                </button>
+                <button onClick={() => handleDeleteProcedure(proc.id)} className="p-2 text-[#9CA3AF] hover:text-red-400">
+                  <Trash2 size={16} />
+                </button>
+              </div>
             </div>
           ))}
           {(!settings.procedures || settings.procedures.length === 0) && (
@@ -945,6 +991,59 @@ export default function Settings({ user }: { user: User }) {
           </div>
         )}
       </AnimatePresence>
+
+      {editingKitProcId && (
+        <div className="fixed inset-0 bg-[#4A433D]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+          <motion.div
+            initial={{ y: 30, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            className="bg-white w-full max-w-lg max-h-[85vh] rounded-[40px] p-10 shadow-2xl overflow-y-auto"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="serif text-2xl text-[#4A433D]">Kit de Insumos</h3>
+              <button onClick={() => { setEditingKitProcId(null); setKitDraft([]); }} className="text-[#9CA3AF] hover:text-[#4A433D]"><X size={24} /></button>
+            </div>
+            <p className="text-xs text-[#9CA3AF] font-light mb-6">
+              Marque os insumos e a substância usados por sessão desse procedimento (agulha, luva, gaze, toxina,
+              preenchedor...) e a quantidade de cada um. Ao aceitar um orçamento com esse procedimento, essa
+              quantidade é debitada do estoque automaticamente.
+            </p>
+            {inventoryItems.length === 0 ? (
+              <p className="text-xs text-[#9CA3AF] italic text-center py-10">Cadastre itens no Estoque antes de montar o kit.</p>
+            ) : (
+              <div className="space-y-2">
+                {inventoryItems.map(item => {
+                  const inKit = kitDraft.find(k => k.itemId === item.id);
+                  return (
+                    <div key={item.id} className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${inKit ? 'bg-[#F0F7F0] border-[#8BA888]/30' : 'bg-[#FDFBF9] border-[#F5F2F0]'}`}>
+                      <label className="flex items-center gap-3 flex-1 cursor-pointer">
+                        <input type="checkbox" checked={!!inKit} onChange={() => toggleKitItem(item)} className="w-4 h-4 accent-[#8BA888]" />
+                        <span className="text-sm text-[#4A433D]">{item.name}</span>
+                      </label>
+                      {inKit && (
+                        <input
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          value={inKit.quantity}
+                          onChange={e => updateKitQuantity(item.id!, parseFloat(e.target.value) || 0.01)}
+                          className="w-20 bg-white border border-[#F5F2F0] rounded-xl p-2 text-sm text-center outline-none"
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <div className="flex gap-4 pt-6">
+              <button onClick={() => { setEditingKitProcId(null); setKitDraft([]); }} className="flex-1 py-4 text-[#9CA3AF] font-bold text-[10px] uppercase">Cancelar</button>
+              <button onClick={handleSaveKit} className="flex-1 py-4 bg-[#EADFD4] text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-[#DFCFBF] transition-all">
+                Salvar Kit
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
 
       {showPinModal && (
         <div className="fixed inset-0 bg-[#4A433D]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">

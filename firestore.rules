@@ -376,6 +376,15 @@ service cloud.firestore {
       allow delete: if isSharedAccess() || isOwnDataAccess();
     }
 
+    // Avisos de estoque insuficiente gerados ao aceitar um orçamento — mesma visibilidade
+    // de estoque em geral (equipe autorizada), não é dado sensível de paciente (só nome,
+    // sem prontuário nenhum vinculado)
+    match /stockAlerts/{alertId} {
+      allow read: if isSharedAccess() || isOwnDataAccess();
+      allow create: if (isSharedAccess() || isOwnDataCreate()) && isValidId(alertId);
+      allow update, delete: if isSharedAccess() || isOwnDataAccess();
+    }
+
     // Rules for Transactions
     match /transactions/{transactionId} {
       // Ler o financeiro completo, editar valores ou apagar lançamentos continua restrito

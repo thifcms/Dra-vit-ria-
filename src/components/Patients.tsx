@@ -678,7 +678,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
   };
 
   const [anamnesis, setAnamnesis] = useState(normalizeAnamnesis(patient.anamnesis));
-  const [procedures, setProcedures] = useState<{ id: string; name: string; price: number }[]>([]);
+  const [procedures, setProcedures] = useState<{ id: string; name: string; price: number; insumoKit?: { itemId: string; itemName: string; quantity: number }[] }[]>([]);
   const [substances, setSubstances] = useState<{ id: string; name: string; unit: string; procedureIds: string[] }[]>([]);
 
   useEffect(() => {

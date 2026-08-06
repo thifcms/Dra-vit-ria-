@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, where, orderBy, limit } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { parseCurrencyInput } from '../lib/slots';
-import { InventoryItem, InventoryMovement } from '../types';
+import { InventoryItem, InventoryMovement, StockAlert } from '../types';
 import { User } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -15,7 +15,8 @@ import {
   Trash2,
   History,
   TrendingUp,
-  Tag
+  Tag,
+  X
 } from 'lucide-react';
 import { showToast } from '../lib/toast';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
@@ -23,11 +24,28 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 export default function Inventory({ user }: { user: User }) {
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [movements, setMovements] = useState<InventoryMovement[]>([]);
+  const [stockAlerts, setStockAlerts] = useState<StockAlert[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [consumingItem, setConsumingItem] = useState<InventoryItem | null>(null);
   const [restockingItem, setRestockingItem] = useState<InventoryItem | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const q = query(collection(db, 'stockAlerts'), where('resolved', '==', false));
+    const unsubscribe = onSnapshot(q, snap => {
+      setStockAlerts(snap.docs.map(d => ({ id: d.id, ...d.data() } as StockAlert)));
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleResolveAlert = async (id: string) => {
+    try {
+      await updateDoc(doc(db, 'stockAlerts', id), { resolved: true });
+    } catch (err) {
+      showToast('Erro ao atualizar aviso', 'error');
+    }
+  };
 
   useEffect(() => {
     // Sincronizar itens de estoque em tempo real
@@ -173,6 +191,32 @@ export default function Inventory({ user }: { user: User }) {
           <span>Cadastrar Material</span>
         </button>
       </div>
+
+      {stockAlerts.length > 0 && (
+        <div className="p-6 bg-red-50 border border-red-100 rounded-[32px] space-y-3">
+          <div className="flex items-center gap-2 text-red-500">
+            <AlertTriangle size={18} />
+            <p className="text-xs font-bold uppercase tracking-widest">
+              {stockAlerts.length} aviso(s) de compra necessária
+            </p>
+          </div>
+          <div className="space-y-2">
+            {stockAlerts.map(alert => (
+              <div key={alert.id} className="flex items-center justify-between p-4 bg-white rounded-2xl">
+                <div>
+                  <p className="text-sm font-medium text-[#4A433D]">{alert.itemName}</p>
+                  <p className="text-[10px] text-[#9CA3AF] uppercase font-bold tracking-widest mt-0.5">
+                    Faltaram {alert.quantityNeeded} — orçamento de {alert.patientName} em {new Date(alert.date).toLocaleDateString('pt-BR')}
+                  </p>
+                </div>
+                <button onClick={() => handleResolveAlert(alert.id!)} className="p-2 text-[#9CA3AF] hover:text-[#8BA888] transition-all" title="Marcar como resolvido">
+                  <X size={18} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <InventoryStatCard 
