@@ -414,6 +414,12 @@ export interface FixedCost {
   description: string;
   amount: number;
   active: boolean;
+  // Fixo: soma automaticamente todo mês, sem precisar lançar de novo (aluguel,
+  // telefone). Variável: só entra no cálculo quando lançado manualmente naquele mês
+  // específico (ex: um gasto que muda de valor mês a mês) — existente aqui só como
+  // "template" reaproveitável, sem repetir sozinho.
+  costType: 'fixed' | 'variable';
+  lastLaunchedMonth?: string; // formato "AAAA-MM" — só usado pra custos variáveis
 }
 
 export interface ClinicSettings {
