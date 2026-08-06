@@ -41,7 +41,7 @@ export default function Finance({ user }: { user: User }) {
   const [filter, setFilter] = useState<'all' | 'income' | 'expense'>('all');
   const [loading, setLoading] = useState(true);
   const [isAdminUser, setIsAdminUser] = useState(false);
-  const [showFixedCosts, setShowFixedCosts] = useState(false);
+  const [financeView, setFinanceView] = useState<'geral' | 'balancete' | 'custos'>('geral');
   const [fixedCosts, setFixedCosts] = useState<FixedCost[]>([]);
   const [isAddingFixedCost, setIsAddingFixedCost] = useState(false);
   const [editingFixedCost, setEditingFixedCost] = useState<FixedCost | null>(null);
@@ -369,24 +369,32 @@ export default function Finance({ user }: { user: User }) {
 
   return (
     <>
-      {isAdminUser && (
-        <div className="flex gap-3 mb-8 max-w-[1800px] mx-auto">
+      <div className="flex flex-wrap gap-3 mb-8 max-w-[1800px] mx-auto">
+        <button
+          onClick={() => setFinanceView('geral')}
+          className={`px-6 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all ${financeView === 'geral' ? 'bg-[#EADFD4] text-white shadow-md' : 'bg-white text-[#9CA3AF] border border-[#F5F2F0]'}`}
+        >
+          Visão Geral
+        </button>
+        <button
+          onClick={() => setFinanceView('balancete')}
+          className={`px-6 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all ${financeView === 'balancete' ? 'bg-[#EADFD4] text-white shadow-md' : 'bg-white text-[#9CA3AF] border border-[#F5F2F0]'}`}
+        >
+          Balancete
+        </button>
+        {isAdminUser && (
           <button
-            onClick={() => setShowFixedCosts(false)}
-            className={`px-6 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all ${!showFixedCosts ? 'bg-[#EADFD4] text-white shadow-md' : 'bg-white text-[#9CA3AF] border border-[#F5F2F0]'}`}
-          >
-            Visão Geral
-          </button>
-          <button
-            onClick={() => setShowFixedCosts(true)}
-            className={`px-6 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all ${showFixedCosts ? 'bg-[#EADFD4] text-white shadow-md' : 'bg-white text-[#9CA3AF] border border-[#F5F2F0]'}`}
+            onClick={() => setFinanceView('custos')}
+            className={`px-6 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all ${financeView === 'custos' ? 'bg-[#EADFD4] text-white shadow-md' : 'bg-white text-[#9CA3AF] border border-[#F5F2F0]'}`}
           >
             Custos Fixos
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
-      {showFixedCosts && isAdminUser ? (
+      {financeView === 'balancete' ? (
+        <BalanceteView transactions={transactions} fixedCostsTotal={activeFixedCostsTotal} />
+      ) : financeView === 'custos' && isAdminUser ? (
         <div className="max-w-[1800px] mx-auto space-y-8">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
@@ -798,6 +806,198 @@ export default function Finance({ user }: { user: User }) {
     </div>
       )}
     </>
+  );
+}
+
+function BalanceteView({ transactions, fixedCostsTotal }: { transactions: Transaction[], fixedCostsTotal: number }) {
+  const [period, setPeriod] = useState<'mensal' | 'anual' | 'geral'>('mensal');
+  const now = new Date();
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
+  const [selectedYear, setSelectedYear] = useState(now.getFullYear());
+
+  const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+  const monthNamesShort = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
+  // Anos com pelo menos uma transação, pra popular o seletor sem mostrar anos vazios
+  const yearsWithData = useMemo(() => {
+    const years = new Set<number>();
+    transactions.forEach(t => years.add(new Date(t.date).getFullYear()));
+    years.add(now.getFullYear());
+    return Array.from(years).sort((a, b) => b - a);
+  }, [transactions]);
+
+  const isCurrentMonth = selectedMonth === now.getMonth() && selectedYear === now.getFullYear();
+  const isCurrentYear = selectedYear === now.getFullYear();
+
+  // Mensal: totais só do mês/ano selecionado. Custo fixo só entra se for o mês atual —
+  // não faz sentido "aplicar" o custo fixo cadastrado hoje retroativamente num mês já
+  // fechado no passado.
+  const monthlyData = useMemo(() => {
+    const filtered = transactions.filter(t => {
+      const d = new Date(t.date);
+      return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
+    });
+    const income = filtered.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+    let expense = filtered.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+    if (isCurrentMonth) expense += fixedCostsTotal;
+    return { income, expense, balance: income - expense, count: filtered.length };
+  }, [transactions, selectedMonth, selectedYear, fixedCostsTotal, isCurrentMonth]);
+
+  // Anual: os 12 meses do ano selecionado, pra montar o gráfico de evolução dentro do ano
+  const annualData = useMemo(() => {
+    const monthly = monthNamesShort.map((name, m) => {
+      const filtered = transactions.filter(t => {
+        const d = new Date(t.date);
+        return d.getMonth() === m && d.getFullYear() === selectedYear;
+      });
+      const income = filtered.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+      let expense = filtered.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+      if (isCurrentYear && m === now.getMonth()) expense += fixedCostsTotal;
+      return { name, Entradas: income, Saídas: expense, Saldo: income - expense };
+    });
+    const income = monthly.reduce((s, m) => s + m.Entradas, 0);
+    const expense = monthly.reduce((s, m) => s + m.Saídas, 0);
+    return { monthly, income, expense, balance: income - expense };
+  }, [transactions, selectedYear, fixedCostsTotal, isCurrentYear]);
+
+  // Geral: desde a primeira transação registrada — visão de saúde financeira ao longo
+  // de toda a história da clínica, ano a ano
+  const generalData = useMemo(() => {
+    const yearly = yearsWithData.slice().sort((a, b) => a - b).map(year => {
+      const filtered = transactions.filter(t => new Date(t.date).getFullYear() === year);
+      const income = filtered.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+      let expense = filtered.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+      if (year === now.getFullYear()) expense += fixedCostsTotal;
+      return { name: String(year), Entradas: income, Saídas: expense, Saldo: income - expense };
+    });
+    const income = yearly.reduce((s, y) => s + y.Entradas, 0);
+    const expense = yearly.reduce((s, y) => s + y.Saídas, 0);
+    const firstDate = transactions.length > 0
+      ? new Date(Math.min(...transactions.map(t => new Date(t.date).getTime())))
+      : null;
+    return { yearly, income, expense, balance: income - expense, firstDate };
+  }, [transactions, yearsWithData, fixedCostsTotal]);
+
+  const expenseRatio = (income: number, expense: number) => income > 0 ? (expense / income) * 100 : 0;
+
+  return (
+    <div className="max-w-[1800px] mx-auto space-y-8">
+      <div>
+        <h3 className="serif text-2xl text-[#4A433D]">Balancete</h3>
+        <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest mt-1">Evolução e saúde financeira da clínica</p>
+      </div>
+
+      <div className="flex gap-3">
+        {(['mensal', 'anual', 'geral'] as const).map(p => (
+          <button
+            key={p}
+            onClick={() => setPeriod(p)}
+            className={`px-6 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all capitalize ${period === p ? 'bg-[#4A433D] text-white shadow-md' : 'bg-white text-[#9CA3AF] border border-[#F5F2F0]'}`}
+          >
+            {p}
+          </button>
+        ))}
+      </div>
+
+      {period === 'mensal' && (
+        <div className="space-y-8">
+          <div className="flex flex-wrap gap-3 items-center">
+            <select
+              value={selectedMonth}
+              onChange={e => setSelectedMonth(Number(e.target.value))}
+              className="bg-white border border-[#F5F2F0] rounded-2xl px-5 py-3 text-sm outline-none"
+            >
+              {monthNames.map((name, i) => <option key={i} value={i}>{name}</option>)}
+            </select>
+            <select
+              value={selectedYear}
+              onChange={e => setSelectedYear(Number(e.target.value))}
+              className="bg-white border border-[#F5F2F0] rounded-2xl px-5 py-3 text-sm outline-none"
+            >
+              {yearsWithData.map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+            {isCurrentMonth && fixedCostsTotal > 0 && (
+              <span className="text-[10px] text-[#9CA3AF] font-light">Inclui R$ {fixedCostsTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} de custos fixos deste mês</span>
+            )}
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <BalanceCard label="Entradas do Mês" value={monthlyData.income} icon={<ArrowUpCircle size={20} />} color="text-[#8BA888]" bg="bg-[#F0F7F0]" />
+            <BalanceCard label="Saídas do Mês" value={monthlyData.expense} icon={<ArrowDownCircle size={20} />} color="text-red-400" bg="bg-red-50" />
+            <BalanceCard label="Saldo do Mês" value={monthlyData.balance} icon={<DollarSign size={20} />} color={monthlyData.balance >= 0 ? 'text-[#4A433D]' : 'text-red-400'} bg="bg-[#FDFBF9]" />
+          </div>
+          <p className="text-xs text-[#9CA3AF] font-light">
+            {monthlyData.count} lançamento(s) neste mês
+            {monthlyData.income > 0 && ` — despesas representam ${expenseRatio(monthlyData.income, monthlyData.expense).toFixed(0)}% das entradas`}
+          </p>
+        </div>
+      )}
+
+      {period === 'anual' && (
+        <div className="space-y-8">
+          <select
+            value={selectedYear}
+            onChange={e => setSelectedYear(Number(e.target.value))}
+            className="bg-white border border-[#F5F2F0] rounded-2xl px-5 py-3 text-sm outline-none"
+          >
+            {yearsWithData.map(y => <option key={y} value={y}>{y}</option>)}
+          </select>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <BalanceCard label={`Entradas de ${selectedYear}`} value={annualData.income} icon={<ArrowUpCircle size={20} />} color="text-[#8BA888]" bg="bg-[#F0F7F0]" />
+            <BalanceCard label={`Saídas de ${selectedYear}`} value={annualData.expense} icon={<ArrowDownCircle size={20} />} color="text-red-400" bg="bg-red-50" />
+            <BalanceCard label={`Saldo de ${selectedYear}`} value={annualData.balance} icon={<DollarSign size={20} />} color={annualData.balance >= 0 ? 'text-[#4A433D]' : 'text-red-400'} bg="bg-[#FDFBF9]" />
+          </div>
+          <div className="bg-white p-8 rounded-[32px] border border-[#F5F2F0] shadow-sm">
+            <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-6">Evolução Mês a Mês em {selectedYear}</p>
+            <ResponsiveContainer width="100%" height={300}>
+              <AreaChart data={annualData.monthly}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#F5F2F0" />
+                <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
+                <Tooltip formatter={(v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} />
+                <Legend />
+                <Area type="monotone" dataKey="Entradas" stroke="#8BA888" fill="#8BA888" fillOpacity={0.15} />
+                <Area type="monotone" dataKey="Saídas" stroke="#E8A0A0" fill="#E8A0A0" fillOpacity={0.15} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {period === 'geral' && (
+        <div className="space-y-8">
+          {generalData.firstDate && (
+            <p className="text-xs text-[#9CA3AF] font-light">
+              Histórico completo desde {generalData.firstDate.toLocaleDateString('pt-BR')}
+            </p>
+          )}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <BalanceCard label="Entradas (Geral)" value={generalData.income} icon={<ArrowUpCircle size={20} />} color="text-[#8BA888]" bg="bg-[#F0F7F0]" />
+            <BalanceCard label="Saídas (Geral)" value={generalData.expense} icon={<ArrowDownCircle size={20} />} color="text-red-400" bg="bg-red-50" />
+            <BalanceCard label="Saldo (Geral)" value={generalData.balance} icon={<DollarSign size={20} />} color={generalData.balance >= 0 ? 'text-[#4A433D]' : 'text-red-400'} bg="bg-[#FDFBF9]" />
+          </div>
+          <div className="bg-white p-8 rounded-[32px] border border-[#F5F2F0] shadow-sm">
+            <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-6">Evolução Ano a Ano — Saúde Financeira da Clínica</p>
+            <ResponsiveContainer width="100%" height={300}>
+              <AreaChart data={generalData.yearly}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#F5F2F0" />
+                <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
+                <Tooltip formatter={(v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} />
+                <Legend />
+                <Area type="monotone" dataKey="Entradas" stroke="#8BA888" fill="#8BA888" fillOpacity={0.15} />
+                <Area type="monotone" dataKey="Saídas" stroke="#E8A0A0" fill="#E8A0A0" fillOpacity={0.15} />
+                <Area type="monotone" dataKey="Saldo" stroke="#4A433D" fill="#4A433D" fillOpacity={0.08} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+          {generalData.yearly.length === 0 && (
+            <div className="p-16 text-center text-[#9CA3AF] font-light italic border-2 border-dashed border-[#F5F2F0] rounded-[32px]">
+              Sem lançamentos suficientes ainda pra mostrar a evolução geral.
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
