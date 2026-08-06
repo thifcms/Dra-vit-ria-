@@ -261,8 +261,8 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
             notes,
             signedAt: data.signedAt,
             signatureUrl: data.signatureUrl,
-            sentVia: data.sentVia,
-            sentTo: data.sentTo,
+            ...(data.sentVia ? { sentVia: data.sentVia } : {}),
+            ...(data.sentTo ? { sentTo: data.sentTo } : {}),
           };
         });
         await updateDoc(doc(db, 'patients', patient.id!), {

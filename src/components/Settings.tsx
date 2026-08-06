@@ -342,7 +342,10 @@ export default function Settings({ user }: { user: User }) {
       const signatureBlob = await fetch(profileSigPad.current.toDataURL()).then(res => res.blob());
       const sRef = ref(storage, `signatures/${ownerId}/professional.png`);
       await uploadBytes(sRef, signatureBlob);
-      const url = await getDownloadURL(sRef);
+      // Reassinar sobrescreve o mesmo arquivo — o Firebase costuma devolver a mesma URL
+      // de antes (mesmo token), e o navegador acaba mostrando a imagem antiga em cache.
+      // O parâmetro extra força o navegador a buscar a versão nova.
+      const url = `${await getDownloadURL(sRef)}&v=${Date.now()}`;
       const updated = { ...settings, professionalSignatureUrl: url };
       setSettings(updated);
       await setDoc(doc(db, 'settings', ownerId), updated);
@@ -361,7 +364,7 @@ export default function Settings({ user }: { user: User }) {
       const ownerId = await getClinicOwnerId(db).catch(() => user.uid);
       const sRef = ref(storage, `signatures/${ownerId}/professional.png`);
       await uploadBytes(sRef, file);
-      const url = await getDownloadURL(sRef);
+      const url = `${await getDownloadURL(sRef)}&v=${Date.now()}`;
       const updated = { ...settings, professionalSignatureUrl: url };
       setSettings(updated);
       await setDoc(doc(db, 'settings', ownerId), updated);

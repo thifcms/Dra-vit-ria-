@@ -1076,8 +1076,8 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
           releasedAt,
           releasedBy: 'Paciente (assinatura remota)',
           signatureUrl: data.signatureUrl,
-          sentVia: data.sentVia,
-          sentTo: data.sentTo,
+          ...(data.sentVia ? { sentVia: data.sentVia } : {}),
+          ...(data.sentTo ? { sentTo: data.sentTo } : {}),
         };
         await updateDoc(doc(db, 'patients', patient.id!), {
           anamnesis,
@@ -3401,8 +3401,12 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
             content: data.templateContent || '',
             signedAt: data.signedAt,
             signatureUrl: data.signatureUrl,
-            sentVia: data.sentVia,
-            sentTo: data.sentTo,
+            // Pedidos de assinatura criados antes desses campos existirem não têm
+            // sentVia/sentTo gravados — incluir undefined explicitamente aqui quebraria
+            // o updateDoc (Firestore rejeita undefined mesmo dentro de itens de array,
+            // não só no nível principal do documento)
+            ...(data.sentVia ? { sentVia: data.sentVia } : {}),
+            ...(data.sentTo ? { sentTo: data.sentTo } : {}),
           };
         });
         await updateDoc(doc(db, 'patients', patient.id!), {
