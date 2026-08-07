@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { doc, getDoc, setDoc, deleteDoc, collection, query, where, getDocs, onSnapshot, addDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, deleteDoc, collection, query, where, getDocs, onSnapshot, addDoc, updateDoc, deleteField } from 'firebase/firestore';
 import { db, storage } from '../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { ClinicSettings, ConsentTemplate, PrescriptionTemplate, InventoryItem } from '../types';
@@ -117,6 +117,56 @@ export default function Settings({ user }: { user: User }) {
   const [catalogTab, setCatalogTab] = useState<'substancias' | 'insumos'>('substancias');
   const [newInsumo, setNewInsumo] = useState({ name: '', category: '', unit: 'Unidades', purchasedByBox: false, unitsPerBox: '', minThreshold: '' });
   const [savingInsumo, setSavingInsumo] = useState(false);
+  const [editingInsumoId, setEditingInsumoId] = useState<string | null>(null);
+  const [editInsumo, setEditInsumo] = useState({ name: '', category: '', unit: 'Unidades', purchasedByBox: false, unitsPerBox: '', minThreshold: '' });
+  const [savingEditInsumo, setSavingEditInsumo] = useState(false);
+
+  const openEditInsumo = (item: InventoryItem) => {
+    setEditingInsumoId(item.id!);
+    setEditInsumo({
+      name: item.name,
+      category: item.category,
+      unit: item.unit,
+      purchasedByBox: !!item.purchasedByBox,
+      unitsPerBox: item.unitsPerBox ? String(item.unitsPerBox) : '',
+      minThreshold: String(item.minThreshold),
+    });
+  };
+
+  const handleSaveEditInsumo = async () => {
+    if (!editingInsumoId) return;
+    if (!editInsumo.name.trim()) {
+      showToast('Preencha o nome do insumo', 'error');
+      return;
+    }
+    const parsedUnitsPerBox = parseFloat(editInsumo.unitsPerBox) || 0;
+    if (editInsumo.purchasedByBox && parsedUnitsPerBox <= 0) {
+      showToast('Informe quantas unidades vêm em cada caixa', 'error');
+      return;
+    }
+    setSavingEditInsumo(true);
+    try {
+      const updates: any = {
+        name: editInsumo.name.trim(),
+        category: editInsumo.category.trim() || 'Insumo',
+        unit: editInsumo.unit,
+        minThreshold: parseFloat(editInsumo.minThreshold) || 0,
+      };
+      if (editInsumo.purchasedByBox && parsedUnitsPerBox > 0) {
+        updates.purchasedByBox = true;
+        updates.unitsPerBox = parsedUnitsPerBox;
+      } else {
+        updates.purchasedByBox = false;
+        updates.unitsPerBox = deleteField();
+      }
+      await updateDoc(doc(db, 'inventory', editingInsumoId), updates);
+      showToast('Insumo atualizado');
+      setEditingInsumoId(null);
+    } catch (err) {
+      showToast('Erro ao atualizar insumo', 'error');
+    }
+    setSavingEditInsumo(false);
+  };
 
   const handleAddInsumo = async () => {
     if (!newInsumo.name.trim()) {
@@ -1145,6 +1195,26 @@ export default function Settings({ user }: { user: User }) {
               Todos os insumos cadastrados aparecem na aba Estoque — vá lá pra ver a lista completa e registrar
               compras.
             </p>
+
+            <div className="space-y-2">
+              {inventoryItems.filter(item => item.category !== 'Substância').map(item => (
+                <div key={item.id} className="flex items-center justify-between p-4 bg-[#FDFBF9] rounded-2xl">
+                  <div>
+                    <p className="text-sm text-[#4A433D] font-medium">{item.name}</p>
+                    <p className="text-[10px] text-[#9CA3AF] uppercase tracking-widest">
+                      {item.category} · {item.unit}
+                      {item.purchasedByBox && item.unitsPerBox ? ` · ${item.unitsPerBox} un/caixa` : ''}
+                    </p>
+                  </div>
+                  <button onClick={() => openEditInsumo(item)} className="p-2 text-[#9CA3AF] hover:text-[#EADFD4]">
+                    <Edit2 size={16} />
+                  </button>
+                </div>
+              ))}
+              {inventoryItems.filter(item => item.category !== 'Substância').length === 0 && (
+                <p className="text-xs text-[#9CA3AF] italic text-center py-6">Nenhum insumo cadastrado ainda.</p>
+              )}
+            </div>
           </div>
         ) : (
         <>
@@ -1287,6 +1357,74 @@ export default function Settings({ user }: { user: User }) {
                 className="flex-1 py-4 bg-[#EADFD4] text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-[#DFCFBF] transition-all disabled:opacity-50"
               >
                 {savingSignature ? 'Salvando...' : 'Salvar Assinatura'}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {editingInsumoId && (
+        <div className="fixed inset-0 bg-[#4A433D]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+          <motion.div
+            initial={{ y: 30, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            className="bg-white w-full max-w-md rounded-[40px] p-10 shadow-2xl max-h-[85vh] overflow-y-auto"
+          >
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="serif text-2xl text-[#4A433D]">Editar Insumo</h3>
+              <button onClick={() => setEditingInsumoId(null)} className="text-[#9CA3AF] hover:text-[#4A433D]"><X size={24} /></button>
+            </div>
+            <div className="space-y-4">
+              <input
+                value={editInsumo.name}
+                onChange={e => setEditInsumo({ ...editInsumo, name: e.target.value })}
+                placeholder="Nome do insumo"
+                className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
+              />
+              <input
+                value={editInsumo.category}
+                onChange={e => setEditInsumo({ ...editInsumo, category: e.target.value })}
+                placeholder="Categoria"
+                className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
+              />
+              <select
+                value={editInsumo.unit}
+                onChange={e => setEditInsumo({ ...editInsumo, unit: e.target.value })}
+                className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
+              >
+                <option value="Unidades">Unidades (un)</option>
+                <option value="Ml">Mililitros (ml)</option>
+                <option value="Pares">Pares (pr)</option>
+              </select>
+              <label className="flex items-center gap-3 p-4 bg-[#FDFBF9] rounded-2xl cursor-pointer border border-[#F5F2F0]">
+                <input type="checkbox" checked={editInsumo.purchasedByBox} onChange={e => setEditInsumo({ ...editInsumo, purchasedByBox: e.target.checked })} className="w-4 h-4 accent-[#8BA888]" />
+                <span className="text-sm text-[#4A433D]">Este material é comprado por caixa</span>
+              </label>
+              {editInsumo.purchasedByBox && (
+                <input
+                  value={editInsumo.unitsPerBox}
+                  onChange={e => setEditInsumo({ ...editInsumo, unitsPerBox: e.target.value })}
+                  placeholder="Unidades por caixa"
+                  type="number"
+                  className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
+                />
+              )}
+              <input
+                value={editInsumo.minThreshold}
+                onChange={e => setEditInsumo({ ...editInsumo, minThreshold: e.target.value })}
+                placeholder="Aviso de estoque baixo (em unidades)"
+                type="number"
+                className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
+              />
+            </div>
+            <div className="flex gap-4 pt-8">
+              <button onClick={() => setEditingInsumoId(null)} className="flex-1 py-4 text-[#9CA3AF] font-bold text-[10px] uppercase">Cancelar</button>
+              <button
+                onClick={handleSaveEditInsumo}
+                disabled={savingEditInsumo}
+                className="flex-1 py-4 bg-[#EADFD4] text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-[#DFCFBF] transition-all disabled:opacity-50"
+              >
+                {savingEditInsumo ? 'Salvando...' : 'Salvar Alterações'}
               </button>
             </div>
           </motion.div>
