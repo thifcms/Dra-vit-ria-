@@ -17,7 +17,8 @@ import {
   TrendingUp,
   Tag,
   X,
-  Pencil
+  Pencil,
+  ShoppingCart
 } from 'lucide-react';
 import { showToast } from '../lib/toast';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
@@ -26,9 +27,8 @@ export default function Inventory({ user }: { user: User }) {
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [movements, setMovements] = useState<InventoryMovement[]>([]);
   const [stockAlerts, setStockAlerts] = useState<StockAlert[]>([]);
-  const [isAdding, setIsAdding] = useState(false);
-  const [consumingItem, setConsumingItem] = useState<InventoryItem | null>(null);
-  const [restockingItem, setRestockingItem] = useState<InventoryItem | null>(null);
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+  const [purchasingItem, setPurchasingItem] = useState<InventoryItem | null>(null);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
@@ -206,15 +206,15 @@ export default function Inventory({ user }: { user: User }) {
           </div>
           <div>
             <h1 className="text-3xl font-light text-[#4A433D] serif">Estoque & Insumos</h1>
-            <p className="text-[#9CA3AF] font-light text-xs uppercase tracking-widest mt-1">Materiais e Controle de Consumo</p>
+            <p className="text-[#9CA3AF] font-light text-xs uppercase tracking-widest mt-1">Materiais são cadastrados em Configurações — aqui você compra e controla</p>
           </div>
         </div>
         <button 
-          onClick={() => setIsAdding(true)}
+          onClick={() => setShowPurchaseModal(true)}
           className="bg-[#EADFD4] text-white px-8 py-4 rounded-2xl flex items-center gap-2 hover:bg-[#DFCFBF] transition-all shadow-md active:scale-95 font-medium"
         >
-          <Plus size={20} />
-          <span>Cadastrar Material</span>
+          <ShoppingCart size={20} />
+          <span>Compra</span>
         </button>
       </div>
 
@@ -346,18 +346,11 @@ export default function Inventory({ user }: { user: User }) {
                     <td className="p-6">
                       <div className="flex items-center gap-2">
                         <button 
-                          onClick={() => setConsumingItem(item)}
-                          className="p-2 text-[#9CA3AF] hover:text-red-400 hover:bg-red-50 rounded-xl transition-all"
-                          title="Registrar Consumo"
-                        >
-                          <ArrowDownLeft size={18} />
-                        </button>
-                        <button 
-                          onClick={() => setRestockingItem(item)}
+                          onClick={() => setPurchasingItem(item)}
                           className="p-2 text-[#9CA3AF] hover:text-[#8BA888] hover:bg-[#F0F7F0] rounded-xl transition-all"
-                          title="Registrar Reposição"
+                          title="Comprar"
                         >
-                          <ArrowUpRight size={18} />
+                          <ShoppingCart size={18} />
                         </button>
                         <button 
                           onClick={() => setEditingItem(item)}
@@ -441,21 +434,19 @@ export default function Inventory({ user }: { user: User }) {
       </div>
 
       <AnimatePresence>
-        {isAdding && (
-          <AddMaterialModal user={user} onClose={() => setIsAdding(false)} />
-        )}
-        {consumingItem && (
-          <ConsumeStockModal
-            item={consumingItem}
-            onConsume={(ampoules) => { handleUpdateStock(consumingItem, ampoules, 'consumption'); setConsumingItem(null); }}
-            onClose={() => setConsumingItem(null)}
+        {showPurchaseModal && (
+          <PurchaseModal
+            items={items}
+            onPurchaseItem={(item, units, spentValue) => handleUpdateStock(item, units, 'restock', spentValue)}
+            onClose={() => setShowPurchaseModal(false)}
           />
         )}
-        {restockingItem && (
-          <RestockStockModal
-            item={restockingItem}
-            onRestock={(qty, spentValue) => { handleUpdateStock(restockingItem, qty, 'restock', spentValue); setRestockingItem(null); }}
-            onClose={() => setRestockingItem(null)}
+        {purchasingItem && (
+          <PurchaseModal
+            items={items}
+            preselectedItem={purchasingItem}
+            onPurchaseItem={(item, units, spentValue) => handleUpdateStock(item, units, 'restock', spentValue)}
+            onClose={() => setPurchasingItem(null)}
           />
         )}
         {editingItem && (
@@ -562,6 +553,146 @@ function ConsumeStockModal({ item, onConsume, onClose }: { item: InventoryItem; 
             </button>
           </div>
         </form>
+      </motion.div>
+    </div>
+  );
+}
+
+// Substitui o antigo "Cadastrar Material" — agora usado pra COMPRAR (dar entrada de
+// quantidade + valor gasto) um ou vários materiais/substâncias já cadastrados em
+// Configurações, buscando pelo nome. Quando aberto a partir da linha de um item
+// específico na tabela, já vem com esse item pré-selecionado, sem precisar buscar.
+function PurchaseModal({ items, preselectedItem, onPurchaseItem, onClose }: {
+  items: InventoryItem[];
+  preselectedItem?: InventoryItem | null;
+  onPurchaseItem: (item: InventoryItem, units: number, spentValue?: number) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [cart, setCart] = useState<{ item: InventoryItem; qtyInput: string; spentValue: string }[]>(
+    preselectedItem ? [{ item: preselectedItem, qtyInput: '', spentValue: '' }] : []
+  );
+  const [search, setSearch] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const searchResults = search.trim()
+    ? items.filter(i => i.name.toLowerCase().includes(search.toLowerCase()) && !cart.some(c => c.item.id === i.id)).slice(0, 6)
+    : [];
+
+  const addToCart = (item: InventoryItem) => {
+    setCart(prev => [...prev, { item, qtyInput: '', spentValue: '' }]);
+    setSearch('');
+  };
+  const removeFromCart = (itemId: string) => setCart(prev => prev.filter(c => c.item.id !== itemId));
+  const updateCartField = (itemId: string, field: 'qtyInput' | 'spentValue', value: string) => {
+    setCart(prev => prev.map(c => c.item.id === itemId ? { ...c, [field]: value } : c));
+  };
+
+  const handleSubmit = async () => {
+    const valid = cart.filter(c => parseCurrencyInput(c.qtyInput) > 0);
+    if (valid.length === 0) {
+      showToast('Informe a quantidade de ao menos um item', 'error');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      for (const c of valid) {
+        const isBox = !!c.item.purchasedByBox && !!c.item.unitsPerBox;
+        const qty = parseCurrencyInput(c.qtyInput);
+        // Se o item é comprado por caixa, o número digitado é "quantas caixas" —
+        // converte pra unidades antes de dar entrada, já que o estoque sempre conta em
+        // unidades, nunca em caixas.
+        const units = isBox ? qty * (c.item.unitsPerBox || 0) : qty;
+        const value = c.spentValue ? parseCurrencyInput(c.spentValue) : undefined;
+        await onPurchaseItem(c.item, units, value);
+      }
+      onClose();
+    } catch (err) {
+      showToast('Erro ao registrar compra', 'error');
+    }
+    setSubmitting(false);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-[#4A433D]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+      <motion.div
+        initial={{ y: 30, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 30, opacity: 0 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+        className="bg-white w-full max-w-lg rounded-[40px] p-10 shadow-2xl max-h-[85vh] overflow-y-auto"
+      >
+        <h2 className="serif text-2xl text-[#4A433D] mb-2">Compra de Estoque</h2>
+        <p className="text-xs text-[#9CA3AF] font-light mb-6">
+          Registre a compra de um ou vários materiais/substâncias já cadastrados de uma vez.
+        </p>
+
+        {!preselectedItem && (
+          <div className="relative mb-6">
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Buscar material ou substância cadastrada..."
+              className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
+            />
+            {searchResults.length > 0 && (
+              <div className="absolute z-10 top-full mt-2 w-full bg-white border border-[#F5F2F0] rounded-2xl shadow-lg overflow-hidden">
+                {searchResults.map(r => (
+                  <button key={r.id} onClick={() => addToCart(r)} className="w-full text-left px-4 py-3 hover:bg-[#FDFBF9] text-sm text-[#4A433D] flex items-center justify-between">
+                    <span>{r.name}</span>
+                    <span className="text-[10px] text-[#9CA3AF]">{r.quantity} em estoque</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="space-y-4">
+          {cart.map(c => {
+            const isBox = !!c.item.purchasedByBox && !!c.item.unitsPerBox;
+            return (
+              <div key={c.item.id} className="p-5 bg-[#FDFBF9] rounded-2xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-[#4A433D]">{c.item.name}</p>
+                  {!preselectedItem && (
+                    <button onClick={() => removeFromCart(c.item.id!)} className="text-[#9CA3AF] hover:text-red-400">
+                      <X size={16} />
+                    </button>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    label={isBox ? `Caixas (${c.item.unitsPerBox} un/cx)` : 'Quantidade (un)'}
+                    value={c.qtyInput}
+                    onChange={v => updateCartField(c.item.id!, 'qtyInput', v)}
+                    placeholder="0"
+                    type="number"
+                  />
+                  <FormField
+                    label="Valor gasto (opcional)"
+                    value={c.spentValue}
+                    onChange={v => updateCartField(c.item.id!, 'spentValue', v)}
+                    placeholder="R$"
+                  />
+                </div>
+              </div>
+            );
+          })}
+          {cart.length === 0 && (
+            <p className="text-xs text-[#9CA3AF] italic text-center py-8">Busque acima pra adicionar itens à compra.</p>
+          )}
+        </div>
+
+        <div className="flex gap-4 pt-6">
+          <button onClick={onClose} className="flex-1 py-4 text-[#9CA3AF] font-bold text-[10px] uppercase">Cancelar</button>
+          <button
+            onClick={handleSubmit}
+            disabled={submitting || cart.length === 0}
+            className="flex-1 py-4 bg-[#8BA888] text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-[#7C9979] transition-all disabled:opacity-50"
+          >
+            {submitting ? 'Registrando...' : 'Registrar Compra'}
+          </button>
+        </div>
       </motion.div>
     </div>
   );

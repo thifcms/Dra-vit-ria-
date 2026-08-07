@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { doc, getDoc, setDoc, deleteDoc, collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, setDoc, deleteDoc, collection, query, where, getDocs, onSnapshot, addDoc, updateDoc } from 'firebase/firestore';
 import { db, storage } from '../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { ClinicSettings, ConsentTemplate, PrescriptionTemplate, InventoryItem } from '../types';
@@ -114,6 +114,42 @@ export default function Settings({ user }: { user: User }) {
   const [newProcedureName, setNewProcedureName] = useState('');
   const [newProcedurePrice, setNewProcedurePrice] = useState('');
   const [newSubstance, setNewSubstance] = useState<{ name: string; unit: 'ml' | 'unidade'; procedureIds: string[] }>({ name: '', unit: 'ml', procedureIds: [] });
+  const [catalogTab, setCatalogTab] = useState<'substancias' | 'insumos'>('substancias');
+  const [newInsumo, setNewInsumo] = useState({ name: '', category: '', unit: 'Unidades', purchasedByBox: false, unitsPerBox: '', minThreshold: '', minThresholdIsBoxes: false });
+  const [savingInsumo, setSavingInsumo] = useState(false);
+
+  const handleAddInsumo = async () => {
+    if (!newInsumo.name.trim()) {
+      showToast('Preencha o nome do insumo', 'error');
+      return;
+    }
+    const parsedUnitsPerBox = parseFloat(newInsumo.unitsPerBox) || 0;
+    if (newInsumo.purchasedByBox && parsedUnitsPerBox <= 0) {
+      showToast('Informe quantas unidades vêm em cada caixa', 'error');
+      return;
+    }
+    setSavingInsumo(true);
+    try {
+      const rawThreshold = parseFloat(newInsumo.minThreshold) || 0;
+      const finalThreshold = newInsumo.minThresholdIsBoxes && parsedUnitsPerBox ? rawThreshold * parsedUnitsPerBox : rawThreshold;
+      await addDoc(collection(db, 'inventory'), {
+        userId: user.uid,
+        name: newInsumo.name.trim(),
+        category: newInsumo.category.trim() || 'Insumo',
+        quantity: 0,
+        minThreshold: finalThreshold,
+        unit: newInsumo.unit,
+        ...(newInsumo.purchasedByBox && parsedUnitsPerBox > 0 ? { purchasedByBox: true, unitsPerBox: parsedUnitsPerBox } : {}),
+        updatedAt: new Date().toISOString(),
+      });
+      showToast('Insumo cadastrado — já disponível no Estoque');
+      setNewInsumo({ name: '', category: '', unit: 'Unidades', purchasedByBox: false, unitsPerBox: '', minThreshold: '', minThresholdIsBoxes: false });
+    } catch (err) {
+      showToast('Erro ao cadastrar insumo', 'error');
+    }
+    setSavingInsumo(false);
+  };
+
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [editingKitProcId, setEditingKitProcId] = useState<string | null>(null);
   const [kitDraft, setKitDraft] = useState<{ itemId: string; itemName: string; quantity: number }[]>([]);
@@ -282,10 +318,27 @@ export default function Settings({ user }: { user: User }) {
     });
   };
 
-  const handleAddSubstance = (item: { name: string; unit: 'ml' | 'unidade'; procedureIds: string[] }) => {
-    const next = [...(settings.substances || []), { ...item, id: crypto.randomUUID() }];
+  const handleAddSubstance = async (item: { name: string; unit: 'ml' | 'unidade'; procedureIds: string[] }) => {
+    const id = crypto.randomUUID();
+    const next = [...(settings.substances || []), { ...item, id }];
     persist({ ...settings, substances: next });
-    showToast('Substância adicionada');
+    // Toda substância cadastrada aqui também aparece no Estoque automaticamente, com
+    // quantidade zerada até alguém comprar de verdade — assim ela já fica disponível
+    // pro Kit de Insumos do procedimento e pra "Compra" na aba de Estoque, sem precisar
+    // cadastrar ela duas vezes em dois lugares diferentes.
+    try {
+      await addDoc(collection(db, 'inventory'), {
+        userId: user.uid,
+        name: item.name,
+        category: 'Substância',
+        quantity: 0,
+        minThreshold: 0,
+        unit: item.unit === 'ml' ? 'Ml' : 'Unidades',
+        linkedSubstanceId: id,
+        updatedAt: new Date().toISOString(),
+      });
+    } catch { /* a substância já foi salva nas configurações mesmo se isso falhar */ }
+    showToast('Substância adicionada — já disponível no Estoque');
   };
 
   const handleDeleteSubstance = (id: string) => {
@@ -993,16 +1046,100 @@ export default function Settings({ user }: { user: User }) {
       </div>
 
       <div className="mt-8 bg-white rounded-[40px] border border-[#F5F2F0] p-10">
-        <h3 className="serif text-2xl text-[#4A433D] mb-2">Substâncias</h3>
-        <p className="text-xs text-[#9CA3AF] font-light mb-8">
-          Cadastre as substâncias (marcas, produtos) e vincule a quais procedimentos cada uma se aplica.
-          Se um procedimento tiver mais de uma substância vinculada, o sistema pergunta qual foi usada
-          na hora de marcar na anamnese do paciente.
+        <h3 className="serif text-2xl text-[#4A433D] mb-2">Substância e Insumos</h3>
+        <p className="text-xs text-[#9CA3AF] font-light mb-6">
+          Cadastre aqui tanto as substâncias (marcas, produtos) quanto os insumos (agulha, luva, gaze...). Assim
+          que cadastrado, o item já aparece no Estoque com quantidade zerada — a compra de verdade (quantidade e
+          valor gasto) é feita lá, na aba Estoque.
         </p>
 
-        {(settings.procedures || []).length === 0 ? (
-          <p className="text-xs text-[#9CA3AF] italic text-center py-6">Cadastre ao menos um procedimento acima antes de adicionar substâncias.</p>
+        <div className="flex gap-3 mb-8">
+          <button
+            onClick={() => setCatalogTab('substancias')}
+            className={`px-6 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all ${catalogTab === 'substancias' ? 'bg-[#EADFD4] text-white shadow-md' : 'bg-white text-[#9CA3AF] border border-[#F5F2F0]'}`}
+          >
+            Substâncias
+          </button>
+          <button
+            onClick={() => setCatalogTab('insumos')}
+            className={`px-6 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all ${catalogTab === 'insumos' ? 'bg-[#EADFD4] text-white shadow-md' : 'bg-white text-[#9CA3AF] border border-[#F5F2F0]'}`}
+          >
+            Insumos
+          </button>
+        </div>
+
+        {catalogTab === 'insumos' ? (
+          <div className="space-y-6">
+            <div className="space-y-3 p-6 bg-[#FDFBF9] rounded-[28px]">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <input
+                  value={newInsumo.name}
+                  onChange={e => setNewInsumo({ ...newInsumo, name: e.target.value })}
+                  placeholder="Nome do insumo (ex: Agulha 30G, Luva de Procedimento...)"
+                  className="bg-white border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
+                />
+                <input
+                  value={newInsumo.category}
+                  onChange={e => setNewInsumo({ ...newInsumo, category: e.target.value })}
+                  placeholder="Categoria (ex: Descartáveis)"
+                  className="bg-white border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
+                />
+              </div>
+              <select
+                value={newInsumo.unit}
+                onChange={e => setNewInsumo({ ...newInsumo, unit: e.target.value })}
+                className="w-full bg-white border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
+              >
+                <option value="Unidades">Unidades (un)</option>
+                <option value="Ml">Mililitros (ml)</option>
+                <option value="Pares">Pares (pr)</option>
+              </select>
+              <label className="flex items-center gap-3 p-4 bg-white rounded-2xl cursor-pointer border border-[#F5F2F0]">
+                <input type="checkbox" checked={newInsumo.purchasedByBox} onChange={e => setNewInsumo({ ...newInsumo, purchasedByBox: e.target.checked })} className="w-4 h-4 accent-[#8BA888]" />
+                <span className="text-sm text-[#4A433D]">Este material é comprado por caixa</span>
+              </label>
+              {newInsumo.purchasedByBox && (
+                <input
+                  value={newInsumo.unitsPerBox}
+                  onChange={e => setNewInsumo({ ...newInsumo, unitsPerBox: e.target.value })}
+                  placeholder="Unidades por caixa (ex: 100)"
+                  type="number"
+                  className="w-full bg-white border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
+                />
+              )}
+              <div>
+                <input
+                  value={newInsumo.minThreshold}
+                  onChange={e => setNewInsumo({ ...newInsumo, minThreshold: e.target.value })}
+                  placeholder="Aviso de estoque baixo"
+                  type="number"
+                  className="w-full bg-white border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
+                />
+                {newInsumo.purchasedByBox && (
+                  <label className="flex items-center gap-2 mt-2 ml-1 cursor-pointer">
+                    <input type="checkbox" checked={newInsumo.minThresholdIsBoxes} onChange={e => setNewInsumo({ ...newInsumo, minThresholdIsBoxes: e.target.checked })} className="w-3.5 h-3.5 accent-[#8BA888]" />
+                    <span className="text-[10px] text-[#9CA3AF]">Esse valor é em caixas, não em unidades</span>
+                  </label>
+                )}
+              </div>
+              <button
+                onClick={handleAddInsumo}
+                disabled={savingInsumo}
+                className="w-full bg-[#EADFD4] text-white rounded-2xl px-6 py-4 text-[10px] font-bold uppercase tracking-widest hover:bg-[#DFCFBF] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                <Plus size={16} /> {savingInsumo ? 'Cadastrando...' : 'Cadastrar Insumo'}
+              </button>
+            </div>
+            <p className="text-[10px] text-[#9CA3AF] font-light text-center">
+              Todos os insumos cadastrados aparecem na aba Estoque — vá lá pra ver a lista completa e registrar
+              compras.
+            </p>
+          </div>
         ) : (
+        <>
+          {(settings.procedures || []).length === 0 ? (
+            <p className="text-xs text-[#9CA3AF] italic text-center py-6">Cadastre ao menos um procedimento acima antes de adicionar substâncias.</p>
+          ) : (
           <>
             <div className="space-y-3 mb-8 p-6 bg-[#FDFBF9] rounded-[28px]">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1083,6 +1220,8 @@ export default function Settings({ user }: { user: User }) {
               )}
             </div>
           </>
+        )}
+        </>
         )}
       </div>
       </>
