@@ -388,6 +388,17 @@ service cloud.firestore {
       allow update, delete: if isSharedAccess() || isOwnDataAccess();
     }
 
+    // Receita por procedimento (pra aba "Lucro por Procedimento") — mesmo nível de
+    // sigilo que transactions, já que revela lucro/custo por procedimento, dado
+    // financeiro sensível da clínica. Leitura restrita aos 2 e-mails autorizados de
+    // financeiro; criação liberada porque acontece como efeito natural de confirmar um
+    // orçamento (fluxo clínico comum), não expõe dados de outros pacientes.
+    match /procedureRevenue/{entryId} {
+      allow read: if isFinanceAuthorized();
+      allow create: if (isSharedAccess() || isOwnDataCreate()) && isValidId(entryId);
+      allow update, delete: if isFinanceAuthorized();
+    }
+
     // Rules for Transactions
     match /transactions/{transactionId} {
       // Ler o financeiro completo, editar valores ou apagar lançamentos continua restrito

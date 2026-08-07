@@ -116,6 +116,9 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
       // o orçamento seguem em frente (não trava o atendimento) — só fica registrado um
       // aviso pro administrador saber que precisa comprar.
       const itemsWithKit = validItems.filter(it => it.insumoKit && it.insumoKit.length > 0);
+      // Guarda o custo por unidade de cada item lido durante o débito, pra reaproveitar
+      // no cálculo de lucro por procedimento logo abaixo, sem precisar buscar de novo.
+      const unitCostByItemId = new Map<string, number>();
       if (itemsWithKit.length > 0) {
         // Soma quantidades caso o mesmo insumo apareça em mais de um procedimento do
         // mesmo orçamento, pra debitar uma vez só, com o total correto
@@ -134,7 +137,9 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
           try {
             const itemSnap = await getDoc(doc(db, 'inventory', itemId));
             if (!itemSnap.exists()) continue;
-            const currentQty = (itemSnap.data() as InventoryItem).quantity || 0;
+            const itemData = itemSnap.data() as InventoryItem;
+            if (itemData.lastUnitCost) unitCostByItemId.set(itemId, itemData.lastUnitCost);
+            const currentQty = itemData.quantity || 0;
             const newQty = currentQty - need.quantity;
             await updateDoc(doc(db, 'inventory', itemId), { quantity: Math.max(0, newQty) });
             await addDoc(collection(db, 'inventory_movements'), {
@@ -160,6 +165,29 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
           } catch { /* segue tentando os outros itens mesmo se um falhar */ }
         }
       }
+
+      // Um registro por procedimento aceito (não por orçamento inteiro), com o custo de
+      // insumos calculado agora usando o custo por unidade mais recente de cada item do
+      // kit — é isso que alimenta a aba "Lucro por Procedimento" em Financeiro. Só cria
+      // registro pra itens que vieram de um procedimento cadastrado (têm procedureId);
+      // itens digitados manualmente no orçamento não têm como calcular custo de insumo.
+      const now = new Date().toISOString();
+      await Promise.all(validItems.filter(it => it.procedureId).map(it => {
+        const insumoCost = (it.insumoKit || []).reduce(
+          (sum, k) => sum + (unitCostByItemId.get(k.itemId) || 0) * k.quantity,
+          0
+        );
+        return addDoc(collection(db, 'procedureRevenue'), {
+          userId: user.uid,
+          procedureId: it.procedureId,
+          procedureName: it.description,
+          value: parseCurrencyInput(it.value),
+          insumoCost,
+          date: now,
+          patientId: patient.id,
+          patientName: patient.name,
+        });
+      }));
 
       showToast('Lançamento financeiro confirmado — estoque atualizado');
       setShowConfirmLaunch(false);

@@ -411,6 +411,10 @@ export interface InventoryItem {
   // leitura de itens antigos cadastrados como "Ampolas" antes dessa opção ser removida do
   // formulário de cadastro. Itens novos não usam mais isso.
   ampouleSize?: number;
+  // Custo por unidade, calculado a partir da última compra com valor informado (valor
+  // gasto ÷ quantidade comprada, sempre em unidades). Atualizado toda vez que um valor é
+  // informado no cadastro ou na reposição — usado pra calcular o lucro por procedimento.
+  lastUnitCost?: number;
 }
 
 // Histórico de consumo/reposição de estoque (feature adicionada depois, direto no AI Studio)
@@ -438,6 +442,23 @@ export interface StockAlert {
   patientId?: string;
   date: string;
   resolved: boolean;
+}
+
+// Um registro por procedimento efetivamente pago (Confirmar Lançamento no Orçamento) —
+// diferente de "transactions", que soma o orçamento inteiro numa linha só, aqui cada
+// procedimento vira uma linha própria, com o custo de insumos já calculado no momento
+// (usando o custo por unidade mais recente de cada item do kit). Usado só pra montar a
+// aba "Lucro por Procedimento" em Financeiro — não substitui nem duplica transactions.
+export interface ProcedureRevenueEntry {
+  id?: string;
+  userId?: string;
+  procedureId?: string;
+  procedureName: string;
+  value: number; // valor pago por esse procedimento específico
+  insumoCost: number; // custo dos insumos do kit, calculado na hora da confirmação
+  date: string;
+  patientId?: string;
+  patientName?: string;
 }
 
 export interface ConsentTemplate {

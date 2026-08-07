@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, where, orderBy, Timestamp, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { getClinicOwnerId, parseCurrencyInput } from '../lib/slots';
-import { Transaction, Appointment, FixedCost } from '../types';
+import { Transaction, Appointment, FixedCost, ProcedureRevenueEntry } from '../types';
 import { User } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -41,8 +41,9 @@ export default function Finance({ user }: { user: User }) {
   const [filter, setFilter] = useState<'all' | 'income' | 'expense'>('all');
   const [loading, setLoading] = useState(true);
   const [isAdminUser, setIsAdminUser] = useState(false);
-  const [financeView, setFinanceView] = useState<'geral' | 'balancete' | 'custos'>('geral');
+  const [financeView, setFinanceView] = useState<'geral' | 'balancete' | 'lucro' | 'custos'>('geral');
   const [fixedCosts, setFixedCosts] = useState<FixedCost[]>([]);
+  const [procedureRevenue, setProcedureRevenue] = useState<ProcedureRevenueEntry[]>([]);
   const [isAddingFixedCost, setIsAddingFixedCost] = useState(false);
   const [editingFixedCost, setEditingFixedCost] = useState<FixedCost | null>(null);
   const [fixedCostDescription, setFixedCostDescription] = useState('');
@@ -59,13 +60,25 @@ export default function Finance({ user }: { user: User }) {
   }, [user.email]);
 
   useEffect(() => {
-    if (!isAdminUser) return;
+    // Antes só buscava pra admin, mas o Balancete e a aba de Lucro por Procedimento
+    // (visíveis pra qualquer um que acesse Financeiro, não só admin) também precisam
+    // desses dados pra calcular certo — quem chega em Finance.tsx já passou por
+    // hasFinanceAccess, que usa os mesmos e-mails que a regra do Firestore exige pra
+    // ler fixedCosts, então não há problema de permissão em buscar sempre.
     const q = query(collection(db, 'fixedCosts'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setFixedCosts(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as FixedCost)));
     });
     return () => unsubscribe();
-  }, [isAdminUser]);
+  }, []);
+
+  useEffect(() => {
+    const q = query(collection(db, 'procedureRevenue'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setProcedureRevenue(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as ProcedureRevenueEntry)));
+    });
+    return () => unsubscribe();
+  }, []);
 
   // Só custos FIXOS entram automaticamente todo mês. Os VARIÁVEIS ficam guardados como
   // modelo reaproveitável, mas só contam de verdade quando lançados manualmente naquele
@@ -382,6 +395,12 @@ export default function Finance({ user }: { user: User }) {
         >
           Balancete
         </button>
+        <button
+          onClick={() => setFinanceView('lucro')}
+          className={`px-6 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all ${financeView === 'lucro' ? 'bg-[#EADFD4] text-white shadow-md' : 'bg-white text-[#9CA3AF] border border-[#F5F2F0]'}`}
+        >
+          Lucro por Procedimento
+        </button>
         {isAdminUser && (
           <button
             onClick={() => setFinanceView('custos')}
@@ -394,6 +413,8 @@ export default function Finance({ user }: { user: User }) {
 
       {financeView === 'balancete' ? (
         <BalanceteView transactions={transactions} fixedCostsTotal={activeFixedCostsTotal} />
+      ) : financeView === 'lucro' ? (
+        <ProfitByProcedureView procedureRevenue={procedureRevenue} fixedCosts={fixedCosts} transactions={transactions} />
       ) : financeView === 'custos' && isAdminUser ? (
         <div className="max-w-[1800px] mx-auto space-y-8">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -997,6 +1018,173 @@ function BalanceteView({ transactions, fixedCostsTotal }: { transactions: Transa
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function ProfitByProcedureView({ procedureRevenue, fixedCosts, transactions }: {
+  procedureRevenue: ProcedureRevenueEntry[];
+  fixedCosts: FixedCost[];
+  transactions: Transaction[];
+}) {
+  const now = new Date();
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
+  const [selectedYear, setSelectedYear] = useState(now.getFullYear());
+  const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+  const yearsWithData = useMemo(() => {
+    const years = new Set<number>();
+    procedureRevenue.forEach(e => years.add(new Date(e.date).getFullYear()));
+    years.add(now.getFullYear());
+    return Array.from(years).sort((a, b) => b - a);
+  }, [procedureRevenue]);
+
+  const result = useMemo(() => {
+    const entriesThisMonth = procedureRevenue.filter(e => {
+      const d = new Date(e.date);
+      return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
+    });
+
+    // Custos fixos ativos (mensais, sempre os mesmos) + custos variáveis lançados
+    // especificamente nesse mês — juntos formam o "gasto fixo e variável" do período,
+    // que será rateado entre os procedimentos realizados. Não inclui compra de insumos
+    // (categoria "Insumos"), já que isso já entra no cálculo via custo de insumo de cada
+    // procedimento individualmente — incluir aqui também contaria duas vezes o mesmo gasto.
+    const activeFixedTotal = fixedCosts.filter(c => c.active && c.costType === 'fixed').reduce((s, c) => s + c.amount, 0);
+    const variableLaunchedThisMonth = transactions
+      .filter(t => {
+        const d = new Date(t.date);
+        return t.category === 'Custos Variáveis' && d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
+      })
+      .reduce((s, t) => s + t.amount, 0);
+    const monthlyOverhead = activeFixedTotal + variableLaunchedThisMonth;
+
+    const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
+    const dailyOverhead = monthlyOverhead / daysInMonth;
+
+    // Conta quantos procedimentos foram realizados em cada dia, pra ratear o custo fixo
+    // daquele dia entre eles — um dia com poucos procedimentos absorve mais custo fixo
+    // por procedimento do que um dia cheio, refletindo melhor o custo real de operar a
+    // clínica naquele dia específico.
+    const countByDay = new Map<string, number>();
+    entriesThisMonth.forEach(e => {
+      const dayKey = e.date.split('T')[0];
+      countByDay.set(dayKey, (countByDay.get(dayKey) || 0) + 1);
+    });
+
+    const byProcedure = new Map<string, { count: number; revenue: number; insumoCost: number; overhead: number }>();
+    entriesThisMonth.forEach(e => {
+      const dayKey = e.date.split('T')[0];
+      const countThatDay = countByDay.get(dayKey) || 1;
+      const overheadShare = dailyOverhead / countThatDay;
+      const existing = byProcedure.get(e.procedureName) || { count: 0, revenue: 0, insumoCost: 0, overhead: 0 };
+      byProcedure.set(e.procedureName, {
+        count: existing.count + 1,
+        revenue: existing.revenue + e.value,
+        insumoCost: existing.insumoCost + e.insumoCost,
+        overhead: existing.overhead + overheadShare,
+      });
+    });
+
+    const rows = Array.from(byProcedure.entries()).map(([name, v]) => ({
+      name,
+      count: v.count,
+      revenue: v.revenue,
+      insumoCost: v.insumoCost,
+      overhead: v.overhead,
+      profit: v.revenue - v.insumoCost - v.overhead,
+    })).sort((a, b) => b.profit - a.profit);
+
+    const totals = rows.reduce((acc, r) => ({
+      count: acc.count + r.count,
+      revenue: acc.revenue + r.revenue,
+      insumoCost: acc.insumoCost + r.insumoCost,
+      overhead: acc.overhead + r.overhead,
+      profit: acc.profit + r.profit,
+    }), { count: 0, revenue: 0, insumoCost: 0, overhead: 0, profit: 0 });
+
+    return { rows, totals, monthlyOverhead };
+  }, [procedureRevenue, fixedCosts, transactions, selectedMonth, selectedYear]);
+
+  return (
+    <div className="max-w-[1800px] mx-auto space-y-8">
+      <div>
+        <h3 className="serif text-2xl text-[#4A433D]">Lucro por Procedimento</h3>
+        <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest mt-1">
+          Receita menos custo de insumos e a parte proporcional dos custos fixos/variáveis do período
+        </p>
+      </div>
+
+      <div className="flex flex-wrap gap-3">
+        <select
+          value={selectedMonth}
+          onChange={e => setSelectedMonth(Number(e.target.value))}
+          className="bg-white border border-[#F5F2F0] rounded-2xl px-5 py-3 text-sm outline-none"
+        >
+          {monthNames.map((name, i) => <option key={i} value={i}>{name}</option>)}
+        </select>
+        <select
+          value={selectedYear}
+          onChange={e => setSelectedYear(Number(e.target.value))}
+          className="bg-white border border-[#F5F2F0] rounded-2xl px-5 py-3 text-sm outline-none"
+        >
+          {yearsWithData.map(y => <option key={y} value={y}>{y}</option>)}
+        </select>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <BalanceCard label="Receita Total" value={result.totals.revenue} icon={<ArrowUpCircle size={20} />} color="text-[#8BA888]" bg="bg-[#F0F7F0]" />
+        <BalanceCard label="Custo de Insumos" value={result.totals.insumoCost} icon={<ArrowDownCircle size={20} />} color="text-red-400" bg="bg-red-50" />
+        <BalanceCard label="Custos Fixos/Variáveis Rateados" value={result.totals.overhead} icon={<ArrowDownCircle size={20} />} color="text-red-400" bg="bg-red-50" />
+        <BalanceCard label="Lucro Líquido" value={result.totals.profit} icon={<DollarSign size={20} />} color={result.totals.profit >= 0 ? 'text-[#4A433D]' : 'text-red-400'} bg="bg-[#FDFBF9]" />
+      </div>
+
+      <div className="bg-white rounded-[32px] border border-[#F5F2F0] shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[#F5F2F0] text-[9px] font-bold text-[#9CA3AF] uppercase tracking-widest">
+                <th className="text-left p-5">Procedimento</th>
+                <th className="text-right p-5">Qtd</th>
+                <th className="text-right p-5">Receita</th>
+                <th className="text-right p-5">Insumos</th>
+                <th className="text-right p-5">Custos Fixos/Var.</th>
+                <th className="text-right p-5">Lucro</th>
+                <th className="text-right p-5">Margem</th>
+              </tr>
+            </thead>
+            <tbody>
+              {result.rows.map((r, i) => (
+                <tr key={i} className="border-b border-[#F5F2F0] last:border-0">
+                  <td className="p-5 text-[#4A433D] font-medium">{r.name}</td>
+                  <td className="p-5 text-right text-[#9CA3AF]">{r.count}</td>
+                  <td className="p-5 text-right text-[#8BA888]">R$ {r.revenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                  <td className="p-5 text-right text-red-400">R$ {r.insumoCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                  <td className="p-5 text-right text-red-400">R$ {r.overhead.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                  <td className={`p-5 text-right font-semibold ${r.profit >= 0 ? 'text-[#4A433D]' : 'text-red-400'}`}>
+                    R$ {r.profit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </td>
+                  <td className={`p-5 text-right text-xs font-bold ${r.profit >= 0 ? 'text-[#8BA888]' : 'text-red-400'}`}>
+                    {r.revenue > 0 ? `${((r.profit / r.revenue) * 100).toFixed(0)}%` : '—'}
+                  </td>
+                </tr>
+              ))}
+              {result.rows.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="p-16 text-center text-[#9CA3AF] font-light italic">
+                    Nenhum procedimento com orçamento confirmado nesse mês ainda.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <p className="text-[10px] text-[#9CA3AF] font-light">
+        Custo fixo/variável do mês: R$ {result.monthlyOverhead.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}, dividido pelos dias do mês e,
+        em cada dia, pelo número de procedimentos realizados naquele dia específico.
+      </p>
     </div>
   );
 }
