@@ -393,16 +393,23 @@ export interface InventoryItem {
   code?: string;
   name: string;
   category: string;
-  quantity: number; // sempre em ampolas/frascos pra itens com ampouleSize — a compra é
-                     // sempre por ampola inteira, mesmo que o uso seja parcial (em ml)
-  minThreshold: number;
+  quantity: number; // sempre em unidades — mesmo quando comprado por caixa, o controle de
+                     // estoque conta e mostra sempre em unidades, já que o uso é sempre
+                     // unitário
+  minThreshold: number; // sempre guardado em unidades, mesmo que a pessoa tenha
+                         // preenchido em caixas no cadastro (convertido na hora de salvar)
   unit: string;
   supplier?: string;
   lastRestockDate?: string;
   expiryDate?: string;
-  // Quantos ml/UI vêm em 1 ampola/frasco — só faz sentido pra itens com unit='Ampolas'.
-  // Usado pra converter um consumo registrado em ml pra uma fração de ampola, já que o
-  // controle de estoque sempre conta por ampola, não por ml solto.
+  // Se marcado, a compra desse item é feita em caixas fechadas — usado só na hora de
+  // comprar/repor (pergunta quantas caixas, converte pra unidades automaticamente).
+  // O consumo em si continua sempre por unidade, nunca por caixa.
+  purchasedByBox?: boolean;
+  unitsPerBox?: number; // quantas unidades vêm em cada caixa — só relevante se purchasedByBox
+  // Quantos ml/UI vêm em 1 ampola/frasco — campo legado, mantido só pra não quebrar a
+  // leitura de itens antigos cadastrados como "Ampolas" antes dessa opção ser removida do
+  // formulário de cadastro. Itens novos não usam mais isso.
   ampouleSize?: number;
 }
 

@@ -524,7 +524,12 @@ function RestockStockModal({ item, onRestock, onClose }: { item: InventoryItem; 
   const [qty, setQty] = useState('1');
   const [spentValue, setSpentValue] = useState('');
 
+  const isBoxPurchase = !!item.purchasedByBox && !!item.unitsPerBox;
   const parsedQty = parseCurrencyInput(qty);
+  // Se o material é comprado por caixa, o que a pessoa digita aqui é "quantas caixas
+  // comprei" — convertido pra unidades antes de entrar no estoque, que sempre conta em
+  // unidades, nunca em caixas.
+  const unitsToAdd = isBoxPurchase ? parsedQty * (item.unitsPerBox || 0) : parsedQty;
   const parsedValue = spentValue ? parseCurrencyInput(spentValue) : undefined;
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -533,7 +538,7 @@ function RestockStockModal({ item, onRestock, onClose }: { item: InventoryItem; 
       showToast('Informe uma quantidade válida', 'error');
       return;
     }
-    onRestock(parsedQty, parsedValue);
+    onRestock(unitsToAdd, parsedValue);
   };
 
   return (
@@ -546,16 +551,21 @@ function RestockStockModal({ item, onRestock, onClose }: { item: InventoryItem; 
         className="bg-white w-full max-w-md rounded-[40px] p-10 shadow-2xl"
       >
         <h2 className="serif text-2xl text-[#4A433D] mb-2">Registrar Reposição</h2>
-        <p className="text-xs text-[#9CA3AF] font-light mb-8">{item.name} — {Number(item.quantity.toFixed(2))} {item.unit.toLowerCase()} em estoque</p>
+        <p className="text-xs text-[#9CA3AF] font-light mb-8">{item.name} — {Number(item.quantity.toFixed(2))} unidades em estoque</p>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          <FormField
-            label={`Quantidade comprada (${item.unit.toLowerCase()})`}
-            value={qty}
-            onChange={setQty}
-            placeholder="0"
-            type="number"
-          />
+          <div>
+            <FormField
+              label={isBoxPurchase ? `Quantas caixas comprou? (${item.unitsPerBox} un/caixa)` : 'Quantidade comprada (unidades)'}
+              value={qty}
+              onChange={setQty}
+              placeholder="0"
+              type="number"
+            />
+            {isBoxPurchase && parsedQty > 0 && (
+              <p className="text-[10px] text-[#9CA3AF] font-light mt-1.5 ml-1">= {unitsToAdd} unidades</p>
+            )}
+          </div>
           <FormField
             label="Valor gasto na compra (opcional)"
             value={spentValue}
@@ -587,24 +597,50 @@ function AddMaterialModal({ user, onClose }: any) {
   const [category, setCategory] = useState('');
   const [quantity, setQuantity] = useState('');
   const [minThreshold, setMinThreshold] = useState('');
+  const [minThresholdIsBoxes, setMinThresholdIsBoxes] = useState(false);
   const [unit, setUnit] = useState('Unidades');
-  const [ampouleSize, setAmpouleSize] = useState('');
+  const [purchasedByBox, setPurchasedByBox] = useState(false);
+  const [unitsPerBox, setUnitsPerBox] = useState('');
+  const [boxesOnHand, setBoxesOnHand] = useState('');
   const [saving, setSaving] = useState(false);
+
+  const parsedUnitsPerBox = parseFloat(unitsPerBox) || 0;
+
+  // Se comprado por caixa e a pessoa preencheu "quantas caixas tem agora", calcula a
+  // quantidade em unidades automaticamente — continua editável direto também, pra quem
+  // já sabe a quantidade exata em unidades e prefere digitar direto.
+  const handleBoxesOnHandChange = (v: string) => {
+    setBoxesOnHand(v);
+    const boxes = parseFloat(v);
+    if (boxes && parsedUnitsPerBox) {
+      setQuantity(String(boxes * parsedUnitsPerBox));
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (saving) return;
+    if (purchasedByBox && (!parsedUnitsPerBox || parsedUnitsPerBox <= 0)) {
+      showToast('Informe quantas unidades vêm em cada caixa', 'error');
+      return;
+    }
     setSaving(true);
     try {
-      const parsedAmpouleSize = ampouleSize ? parseFloat(ampouleSize) : undefined;
+      const rawThreshold = parseFloat(minThreshold) || 0;
+      // Aviso de estoque baixo sempre gravado em unidades, mesmo que preenchido em
+      // caixas — assim a comparação com a quantidade (também sempre em unidades) fica
+      // correta em qualquer lugar do app que precise checar "estoque baixo"
+      const finalThreshold = minThresholdIsBoxes && parsedUnitsPerBox
+        ? rawThreshold * parsedUnitsPerBox
+        : rawThreshold;
       await addDoc(collection(db, 'inventory'), {
         userId: user.uid,
         name,
         category,
         quantity: parseFloat(quantity) || 0,
-        minThreshold: parseFloat(minThreshold) || 0,
+        minThreshold: finalThreshold,
         unit,
-        ...(unit === 'Ampolas' && parsedAmpouleSize && parsedAmpouleSize > 0 ? { ampouleSize: parsedAmpouleSize } : {}),
+        ...(purchasedByBox && parsedUnitsPerBox > 0 ? { purchasedByBox: true, unitsPerBox: parsedUnitsPerBox } : {}),
         updatedAt: new Date().toISOString()
       });
       showToast('Material cadastrado com sucesso');
@@ -623,7 +659,7 @@ function AddMaterialModal({ user, onClose }: any) {
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 30, opacity: 0 }}
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        className="bg-white w-full max-w-lg rounded-[40px] p-10 shadow-2xl"
+        className="bg-white w-full max-w-lg rounded-[40px] p-10 shadow-2xl max-h-[85vh] overflow-y-auto"
       >
         <h2 className="serif text-2xl text-[#4A433D] mb-8">Novo Material</h2>
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -637,7 +673,6 @@ function AddMaterialModal({ user, onClose }: any) {
                 value={unit}
                 onChange={e => setUnit(e.target.value)}
               >
-                <option value="Ampolas">Ampolas/Frascos (amp)</option>
                 <option value="Unidades">Unidades (un)</option>
                 <option value="Caixas">Caixas (cx)</option>
                 <option value="Ml">Mililitros (ml)</option>
@@ -645,18 +680,49 @@ function AddMaterialModal({ user, onClose }: any) {
               </select>
             </div>
           </div>
-          {unit === 'Ampolas' && (
-            <FormField
-              label="Quantos ml/UI tem cada ampola? (opcional)"
-              value={ampouleSize}
-              onChange={setAmpouleSize}
-              placeholder="ex: 2 (pra converter consumo em ml automaticamente)"
-              type="number"
-            />
+
+          <label className="flex items-center gap-3 p-4 bg-[#FDFBF9] rounded-2xl cursor-pointer">
+            <input type="checkbox" checked={purchasedByBox} onChange={e => setPurchasedByBox(e.target.checked)} className="w-4 h-4 accent-[#8BA888]" />
+            <span className="text-sm text-[#4A433D]">Este material é comprado por caixa</span>
+          </label>
+
+          {purchasedByBox && (
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                label="Unidades por caixa"
+                value={unitsPerBox}
+                onChange={setUnitsPerBox}
+                placeholder="ex: 100"
+                type="number"
+              />
+              <FormField
+                label="Quantas caixas você tem agora?"
+                value={boxesOnHand}
+                onChange={handleBoxesOnHandChange}
+                placeholder="ex: 3"
+                type="number"
+              />
+            </div>
           )}
+
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="Quantidade Atual (em ampolas)" value={quantity} onChange={setQuantity} placeholder="0" type="number" />
-            <FormField label="Aviso de Estoque Baixo" value={minThreshold} onChange={setMinThreshold} placeholder="ex: 5" type="number" />
+            <div>
+              <FormField label="Quantidade Atual (sempre em unidades)" value={quantity} onChange={setQuantity} placeholder="0" type="number" />
+              {purchasedByBox && parsedUnitsPerBox > 0 && quantity && (
+                <p className="text-[10px] text-[#9CA3AF] font-light mt-1.5 ml-1">
+                  = {(parseFloat(quantity) / parsedUnitsPerBox).toFixed(1)} caixa(s)
+                </p>
+              )}
+            </div>
+            <div>
+              <FormField label="Aviso de Estoque Baixo" value={minThreshold} onChange={setMinThreshold} placeholder="ex: 5" type="number" />
+              {purchasedByBox && (
+                <label className="flex items-center gap-2 mt-2 ml-1 cursor-pointer">
+                  <input type="checkbox" checked={minThresholdIsBoxes} onChange={e => setMinThresholdIsBoxes(e.target.checked)} className="w-3.5 h-3.5 accent-[#8BA888]" />
+                  <span className="text-[10px] text-[#9CA3AF]">Esse valor é em caixas, não em unidades</span>
+                </label>
+              )}
+            </div>
           </div>
           
           <div className="flex gap-4 pt-4">
