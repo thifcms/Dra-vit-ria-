@@ -534,6 +534,10 @@ export interface ClinicSettings {
     // procedimento é aceito num orçamento, essa quantidade de cada item é debitada do
     // estoque automaticamente, formando um "pacote" fechado pra esse procedimento.
     insumoKit?: { itemId: string; itemName: string; quantity: number }[];
+    // Se esse procedimento pode ter desconto no Orçamento, e o teto máximo permitido —
+    // controla o balão de desconto que aparece ao lado do item no Orçamento.
+    allowDiscount?: boolean;
+    maxDiscountPercent?: number;
   }[];
   substances?: {
     id: string;

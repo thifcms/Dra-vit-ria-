@@ -257,6 +257,20 @@ export default function Settings({ user }: { user: User }) {
     showToast('Procedimento removido');
   };
 
+  const handleToggleProcedureDiscount = (id: string, allow: boolean) => {
+    persist({
+      ...settings,
+      procedures: (settings.procedures || []).map(p => p.id === id ? { ...p, allowDiscount: allow } : p),
+    });
+  };
+
+  const handleUpdateMaxDiscount = (id: string, percent: number) => {
+    persist({
+      ...settings,
+      procedures: (settings.procedures || []).map(p => p.id === id ? { ...p, maxDiscountPercent: Math.max(0, Math.min(100, percent)) } : p),
+    });
+  };
+
   const handleAddSubstance = (item: { name: string; unit: 'ml' | 'unidade'; procedureIds: string[] }) => {
     const next = [...(settings.substances || []), { ...item, id: crypto.randomUUID() }];
     persist({ ...settings, substances: next });
@@ -913,24 +927,51 @@ export default function Settings({ user }: { user: User }) {
 
         <div className="space-y-2">
           {(settings.procedures || []).map(proc => (
-            <div key={proc.id} className="flex items-center justify-between p-4 bg-[#FDFBF9] rounded-2xl">
-              <div>
-                <p className="text-sm text-[#4A433D] font-medium">{proc.name}</p>
-                <p className="text-[10px] text-[#9CA3AF] uppercase tracking-widest">
-                  R$ {proc.price.toFixed(2).replace('.', ',')}
-                  {' · '}
-                  {(settings.substances || []).filter(s => s.procedureIds.includes(proc.id)).length} substância(s) vinculada(s)
-                  {' · '}
-                  {(proc.insumoKit || []).length} insumo(s) no kit
-                </p>
+            <div key={proc.id} className="p-4 bg-[#FDFBF9] rounded-2xl space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-[#4A433D] font-medium">{proc.name}</p>
+                  <p className="text-[10px] text-[#9CA3AF] uppercase tracking-widest">
+                    R$ {proc.price.toFixed(2).replace('.', ',')}
+                    {' · '}
+                    {(settings.substances || []).filter(s => s.procedureIds.includes(proc.id)).length} substância(s) vinculada(s)
+                    {' · '}
+                    {(proc.insumoKit || []).length} insumo(s) no kit
+                  </p>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => openKitEditor(proc)} className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-[#8BA888] hover:text-[#7C9979] border border-[#F0F7F0] rounded-xl bg-[#F0F7F0]">
+                    Kit de Insumos
+                  </button>
+                  <button onClick={() => handleDeleteProcedure(proc.id)} className="p-2 text-[#9CA3AF] hover:text-red-400">
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               </div>
-              <div className="flex items-center gap-1">
-                <button onClick={() => openKitEditor(proc)} className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-[#8BA888] hover:text-[#7C9979] border border-[#F0F7F0] rounded-xl bg-[#F0F7F0]">
-                  Kit de Insumos
-                </button>
-                <button onClick={() => handleDeleteProcedure(proc.id)} className="p-2 text-[#9CA3AF] hover:text-red-400">
-                  <Trash2 size={16} />
-                </button>
+              <div className="flex items-center gap-4 pt-3 border-t border-[#F0EAE3]">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={!!proc.allowDiscount}
+                    onChange={e => handleToggleProcedureDiscount(proc.id, e.target.checked)}
+                    className="w-4 h-4 accent-[#8BA888]"
+                  />
+                  <span className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest">Permite desconto no Orçamento</span>
+                </label>
+                {proc.allowDiscount && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-[#9CA3AF]">Máximo:</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      defaultValue={proc.maxDiscountPercent ?? 10}
+                      onBlur={e => handleUpdateMaxDiscount(proc.id, parseFloat(e.target.value) || 0)}
+                      className="w-16 bg-white border border-[#F5F2F0] rounded-xl p-2 text-xs text-center outline-none"
+                    />
+                    <span className="text-[10px] text-[#9CA3AF]">%</span>
+                  </div>
+                )}
               </div>
             </div>
           ))}

@@ -20,13 +20,20 @@ interface BudgetItem {
   insumoKit?: { itemId: string; itemName: string; quantity: number }[]; // cópia do kit,
                          // só pra exibir a lista de materiais no orçamento (sem valores
                          // separados — o preço é sempre o do pacote inteiro)
+  originalValue?: string; // preço de tabela antes de qualquer desconto — guardado pra
+                           // recalcular certo se o percentual de desconto for alterado
+  discountPercent?: number; // desconto aplicado nesse item — o campo "value" já reflete
+                             // o valor COM desconto, então gerar o orçamento não precisa
+                             // saber que existe desconto nenhum, só usa o value final
+  allowDiscount?: boolean; // copiado do procedimento no momento em que o item é criado
+  maxDiscountPercent?: number;
 }
 
 export default function BudgetGenerator({ patient, user, liveAnamnesis, availableProcedures }: {
   patient: Patient;
   user: User;
   liveAnamnesis?: { plannedProcedures?: string[]; plannedSubstances?: Record<string, string> };
-  availableProcedures?: { id: string; name: string; price: number; insumoKit?: { itemId: string; itemName: string; quantity: number }[] }[];
+  availableProcedures?: { id: string; name: string; price: number; insumoKit?: { itemId: string; itemName: string; quantity: number }[]; allowDiscount?: boolean; maxDiscountPercent?: number }[];
 }) {
   const [settings, setSettings] = useState<ClinicSettings | null>(null);
   const [items, setItems] = useState<BudgetItem[]>([{ description: '', value: '' }]);
@@ -68,9 +75,12 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
         next.push({
           description: name,
           value: proc.price.toFixed(2).replace('.', ','),
+          originalValue: proc.price.toFixed(2).replace('.', ','),
           fromAnamnesis: true,
           procedureId: proc.id,
           insumoKit: proc.insumoKit,
+          allowDiscount: proc.allowDiscount,
+          maxDiscountPercent: proc.maxDiscountPercent,
         });
       });
       // Se ficou só o item em branco inicial junto com itens automáticos, remove o em branco
@@ -86,6 +96,20 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
   const removeItem = (idx: number) => setItems(prev => prev.filter((_, i) => i !== idx));
   const updateItem = (idx: number, field: keyof BudgetItem, value: string) => {
     setItems(prev => prev.map((it, i) => (i === idx ? { ...it, [field]: value } : it)));
+  };
+
+  // Recalcula o valor final do item a partir do preço de tabela (originalValue) — o
+  // campo "value" (usado em tudo: total, PDF, assinatura) já fica com o valor COM
+  // desconto aplicado, então nada mais no orçamento precisa saber que houve desconto.
+  const applyDiscount = (idx: number, percent: number) => {
+    setItems(prev => prev.map((it, i) => {
+      if (i !== idx) return it;
+      const cap = it.maxDiscountPercent ?? 0;
+      const clamped = Math.max(0, Math.min(cap, percent));
+      const original = parseCurrencyInput(it.originalValue || it.value);
+      const discounted = original * (1 - clamped / 100);
+      return { ...it, discountPercent: clamped, value: discounted.toFixed(2).replace('.', ',') };
+    }));
   };
 
   const total = items.reduce((sum, it) => sum + parseCurrencyInput(it.value), 0);
@@ -482,6 +506,28 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
                 <Trash2 size={16} />
               </button>
             </div>
+            {item.allowDiscount && (
+              <div className="flex items-center gap-2 mt-2 ml-1">
+                <div className="flex items-center bg-[#FDF3E7] rounded-full px-3 py-1.5 gap-1.5">
+                  <span className="text-[9px] font-bold uppercase tracking-widest text-[#C9A15A]">Desconto</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max={item.maxDiscountPercent ?? 0}
+                    value={item.discountPercent || ''}
+                    onChange={e => applyDiscount(idx, parseFloat(e.target.value) || 0)}
+                    placeholder="0"
+                    className="w-10 bg-transparent text-xs text-center outline-none text-[#C9A15A] font-bold"
+                  />
+                  <span className="text-[10px] text-[#C9A15A] font-bold">% (máx {item.maxDiscountPercent ?? 0}%)</span>
+                </div>
+                {(item.discountPercent || 0) > 0 && (
+                  <span className="text-[10px] text-[#9CA3AF] line-through">
+                    R$ {parseCurrencyInput(item.originalValue || '0').toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         ))}
       </div>
