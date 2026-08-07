@@ -884,6 +884,24 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
     setSavingAnamnesis(false);
   };
 
+  // Auto-save: antes só salvava clicando em "Salvar" — se a pessoa saísse da tela do
+  // paciente (ou fechasse o app) no meio do preenchimento, tudo que tinha digitado se
+  // perdia. Agora, 2.5s depois de parar de digitar/mexer em algo, salva sozinho em
+  // segundo plano, sem interromper o que está sendo feito nem mostrar toast (silencioso
+  // de propósito, pra não incomodar a cada pausa natural de digitação).
+  const isFirstAnamnesisRender = useRef(true);
+  useEffect(() => {
+    if (isFirstAnamnesisRender.current) { isFirstAnamnesisRender.current = false; return; }
+    if (patient.anamnesisReleased) return;
+    const timeout = setTimeout(() => {
+      updateDoc(doc(db, 'patients', patient.id!), {
+        anamnesis,
+        updatedAt: new Date().toISOString(),
+      }).catch(() => { /* melhor esforço — o botão Salvar continua disponível como reforço */ });
+    }, 2500);
+    return () => clearTimeout(timeout);
+  }, [anamnesis]);
+
   const [releasingAnamnesis, setReleasingAnamnesis] = useState(false);
   // Backup automático: sempre que algo é liberado (trava definitiva, o momento que
   // importa legalmente), gera um PDF atualizado do prontuário — baixa localmente E sobe

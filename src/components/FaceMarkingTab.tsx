@@ -148,23 +148,43 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
     } : p)));
   };
 
-  const updatePointSubstance = (idx: number, substanceId: string | undefined, substanceName: string | undefined, ml: number) => {
+  // Um ponto pode ter mais de uma substância aplicada nele (ex: toxina + preenchedor no
+  // mesmo local) — cada linha do array é independente, com seu próprio produto e ml.
+  const addPointSubstance = (idx: number, substanceId: string, substanceName: string) => {
     setPoints(prev => prev.map((p, i) => (i === idx ? {
       ...p,
-      substanceId: substanceId || undefined,
-      substanceName: substanceId ? substanceName : undefined,
-      substanceMlPerPoint: substanceId ? ml : undefined,
+      substances: [...(p.substances || []), { substanceId, substanceName, ml: 0.1 }],
+    } : p)));
+  };
+
+  const updatePointSubstanceRow = (idx: number, rowIdx: number, substanceId: string, substanceName: string, ml: number) => {
+    setPoints(prev => prev.map((p, i) => (i === idx ? {
+      ...p,
+      substances: (p.substances || []).map((s, si) => si === rowIdx ? { substanceId, substanceName, ml } : s),
+    } : p)));
+  };
+
+  const removePointSubstance = (idx: number, rowIdx: number) => {
+    setPoints(prev => prev.map((p, i) => (i === idx ? {
+      ...p,
+      substances: (p.substances || []).filter((_, si) => si !== rowIdx),
     } : p)));
   };
 
   // Soma quanto de cada substância foi usado em todos os pontos marcados até agora —
   // atualiza sozinho conforme os pontos vão sendo criados/editados. É só informativo
   // (quanto produto vai ser gasto no total), não entra no cálculo do orçamento — o valor
-  // sempre vem do procedimento marcado na anamnese, nunca da substância.
+  // sempre vem do procedimento marcado na anamnese, nunca da substância. Lê tanto o
+  // array novo (substances[]) quanto os campos antigos de pontos salvos antes dessa
+  // mudança (um ponto = uma substância só), sem perder nem duplicar leitura.
   const substanceUsage: { substanceId: string; substanceName: string; totalMl: number; unit: string }[] = (() => {
     const totals: Record<string, number> = {};
     points.forEach(p => {
-      if (p.substanceId && p.substanceMlPerPoint) {
+      if (p.substances && p.substances.length > 0) {
+        p.substances.forEach(s => {
+          if (s.substanceId && s.ml) totals[s.substanceId] = (totals[s.substanceId] || 0) + s.ml;
+        });
+      } else if (p.substanceId && p.substanceMlPerPoint) {
         totals[p.substanceId] = (totals[p.substanceId] || 0) + p.substanceMlPerPoint;
       }
     });
@@ -373,31 +393,45 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
                       </select>
                     </div>
                     {substances.length > 0 && (
-                      <div className="flex items-center gap-1.5 pl-8 mt-1.5">
-                        <DollarSign size={12} className="text-[#9CA3AF] shrink-0" />
-                        <select
-                          value={p.substanceId || ''}
-                          onChange={e => {
-                            const sub = substances.find(s => s.id === e.target.value);
-                            updatePointSubstance(i, sub?.id, sub?.name, p.substanceMlPerPoint || 0.1);
+                      <div className="pl-8 mt-1.5 space-y-1.5">
+                        {(p.substances || []).map((s, si) => (
+                          <div key={si} className="flex items-center gap-1.5">
+                            <DollarSign size={12} className="text-[#9CA3AF] shrink-0" />
+                            <select
+                              value={s.substanceId}
+                              onChange={e => {
+                                const sub = substances.find(sub => sub.id === e.target.value);
+                                if (sub) updatePointSubstanceRow(i, si, sub.id, sub.name, s.ml);
+                              }}
+                              className="flex-1 text-[10px] bg-white border border-[#F5F2F0] rounded-lg px-2 py-1 outline-none text-[#4A433D]"
+                            >
+                              {substances.map(sub => (
+                                <option key={sub.id} value={sub.id}>{sub.name}</option>
+                              ))}
+                            </select>
+                            <input
+                              type="number"
+                              min={0}
+                              step="0.1"
+                              value={s.ml}
+                              onChange={e => updatePointSubstanceRow(i, si, s.substanceId, s.substanceName, parseFloat(e.target.value) || 0)}
+                              className="w-14 text-[10px] bg-white border border-[#F5F2F0] rounded-lg px-2 py-1 outline-none text-[#4A433D]"
+                            />
+                            <button onClick={() => removePointSubstance(i, si)} className="text-[#9CA3AF] hover:text-red-400 shrink-0">
+                              <X size={12} />
+                            </button>
+                          </div>
+                        ))}
+                        <button
+                          onClick={() => {
+                            const firstAvailable = substances.find(sub => !(p.substances || []).some(s => s.substanceId === sub.id));
+                            if (firstAvailable) addPointSubstance(i, firstAvailable.id, firstAvailable.name);
                           }}
-                          className="flex-1 text-[10px] bg-white border border-[#F5F2F0] rounded-lg px-2 py-1 outline-none text-[#4A433D]"
+                          disabled={(p.substances || []).length >= substances.length}
+                          className="text-[9px] font-bold uppercase tracking-widest text-[#8BA888] hover:text-[#7C9979] disabled:opacity-40 disabled:cursor-not-allowed"
                         >
-                          <option value="">Sem substância pro orçamento</option>
-                          {substances.map(sub => (
-                            <option key={sub.id} value={sub.id}>{sub.name}</option>
-                          ))}
-                        </select>
-                        {p.substanceId && (
-                          <input
-                            type="number"
-                            min={0}
-                            step="0.1"
-                            value={p.substanceMlPerPoint ?? 0.1}
-                            onChange={e => updatePointSubstance(i, p.substanceId, p.substanceName, parseFloat(e.target.value) || 0)}
-                            className="w-14 text-[10px] bg-white border border-[#F5F2F0] rounded-lg px-2 py-1 outline-none text-[#4A433D]"
-                          />
-                        )}
+                          + Adicionar Substância neste Ponto
+                        </button>
                       </div>
                     )}
                   </div>

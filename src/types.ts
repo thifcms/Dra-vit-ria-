@@ -624,11 +624,17 @@ export interface FaceMarkingPoint {
   inventoryItemId?: string; // se preenchido, dar baixa automática no estoque ao salvar
   inventoryItemName?: string; // guardado junto pra manter o histórico legível mesmo se o item for renomeado/excluído depois
   inventoryQuantity?: number;
-  // Vínculo com o catálogo de Substâncias (Configurações) — diferente do estoque acima,
-  // esse é usado pra calcular o custo/orçamento, não pra dar baixa física
+  // Campos antigos (um ponto = uma substância) — mantidos só pra não quebrar a leitura
+  // de sessões salvas antes de existir suporte a mais de uma substância por ponto. Novas
+  // marcações usam o array "substances" abaixo, que suporta infiltrar mais de um produto
+  // no mesmo ponto de aplicação.
   substanceId?: string;
   substanceName?: string;
   substanceMlPerPoint?: number;
+  // Vínculo com o catálogo de Substâncias (Configurações) — diferente do estoque acima,
+  // esse é usado pra calcular o custo/orçamento, não pra dar baixa física. Um ponto pode
+  // ter mais de uma substância aplicada nele (ex: toxina + preenchedor no mesmo local).
+  substances?: { substanceId: string; substanceName: string; ml: number }[];
 }
 
 // Resumo de quanto de cada substância foi usado numa sessão de marcação inteira — soma
