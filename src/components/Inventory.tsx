@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, where, orderBy, limit } from 'firebase/firestore';
+import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, deleteField, doc, where, orderBy, limit } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { parseCurrencyInput } from '../lib/slots';
 import { InventoryItem, InventoryMovement, StockAlert } from '../types';
@@ -16,7 +16,8 @@ import {
   History,
   TrendingUp,
   Tag,
-  X
+  X,
+  Pencil
 } from 'lucide-react';
 import { showToast } from '../lib/toast';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
@@ -28,6 +29,7 @@ export default function Inventory({ user }: { user: User }) {
   const [isAdding, setIsAdding] = useState(false);
   const [consumingItem, setConsumingItem] = useState<InventoryItem | null>(null);
   const [restockingItem, setRestockingItem] = useState<InventoryItem | null>(null);
+  const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -357,6 +359,13 @@ export default function Inventory({ user }: { user: User }) {
                         >
                           <ArrowUpRight size={18} />
                         </button>
+                        <button 
+                          onClick={() => setEditingItem(item)}
+                          className="p-2 text-[#9CA3AF] hover:text-[#EADFD4] hover:bg-[#FDFBF9] rounded-xl transition-all"
+                          title="Editar Cadastro"
+                        >
+                          <Pencil size={18} />
+                        </button>
                       </div>
                     </td>
                     <td className="p-6 text-right">
@@ -448,6 +457,9 @@ export default function Inventory({ user }: { user: User }) {
             onRestock={(qty, spentValue) => { handleUpdateStock(restockingItem, qty, 'restock', spentValue); setRestockingItem(null); }}
             onClose={() => setRestockingItem(null)}
           />
+        )}
+        {editingItem && (
+          <EditMaterialModal item={editingItem} onClose={() => setEditingItem(null)} />
         )}
       </AnimatePresence>
     </div>
@@ -730,10 +742,13 @@ function AddMaterialModal({ user, onClose }: any) {
                 onChange={e => setUnit(e.target.value)}
               >
                 <option value="Unidades">Unidades (un)</option>
-                <option value="Caixas">Caixas (cx)</option>
                 <option value="Ml">Mililitros (ml)</option>
                 <option value="Pares">Pares (pr)</option>
               </select>
+              <p className="text-[10px] text-[#9CA3AF] font-light mt-1.5 ml-1">
+                A quantidade sempre é controlada em unidades — se o material é comprado em caixas, use a opção
+                "comprado por caixa" acima.
+              </p>
             </div>
           </div>
 
@@ -797,6 +812,122 @@ function AddMaterialModal({ user, onClose }: any) {
               className="flex-1 py-4 bg-[#EADFD4] text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-[#DFCFBF] transition-all"
             >
               {saving ? 'Gravando...' : 'Cadastrar Material'}
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </div>
+  );
+}
+
+// Edição de um material já cadastrado — mesma estrutura do cadastro novo, mas sem pedir
+// valor gasto (isso é só na Reposição) e pré-preenchido com os dados atuais. Existe
+// principalmente pra corrigir cadastros feitos errado (ex: unidade marcada como "Caixas"
+// quando a quantidade já era controlada em unidades) sem precisar apagar e recriar.
+function EditMaterialModal({ item, onClose }: { item: InventoryItem; onClose: () => void }) {
+  const [name, setName] = useState(item.name);
+  const [category, setCategory] = useState(item.category);
+  const [quantity, setQuantity] = useState(String(item.quantity));
+  const [minThreshold, setMinThreshold] = useState(String(item.minThreshold));
+  const [unit, setUnit] = useState(item.unit === 'Caixas' ? 'Unidades' : item.unit);
+  const [purchasedByBox, setPurchasedByBox] = useState(!!item.purchasedByBox);
+  const [unitsPerBox, setUnitsPerBox] = useState(item.unitsPerBox ? String(item.unitsPerBox) : '');
+  const [saving, setSaving] = useState(false);
+
+  const parsedUnitsPerBox = parseFloat(unitsPerBox) || 0;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (saving) return;
+    if (purchasedByBox && (!parsedUnitsPerBox || parsedUnitsPerBox <= 0)) {
+      showToast('Informe quantas unidades vêm em cada caixa', 'error');
+      return;
+    }
+    setSaving(true);
+    try {
+      const updates: any = {
+        name,
+        category,
+        quantity: parseFloat(quantity) || 0,
+        minThreshold: parseFloat(minThreshold) || 0,
+        unit,
+        updatedAt: new Date().toISOString(),
+      };
+      if (purchasedByBox && parsedUnitsPerBox > 0) {
+        updates.purchasedByBox = true;
+        updates.unitsPerBox = parsedUnitsPerBox;
+      } else {
+        updates.purchasedByBox = false;
+        updates.unitsPerBox = deleteField();
+      }
+      await updateDoc(doc(db, 'inventory', item.id!), updates);
+      showToast('Material atualizado');
+      onClose();
+    } catch (err) {
+      showToast('Erro ao atualizar material', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-[#4A433D]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+      <motion.div 
+        initial={{ y: 30, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 30, opacity: 0 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+        className="bg-white w-full max-w-lg rounded-[40px] p-10 shadow-2xl max-h-[85vh] overflow-y-auto"
+      >
+        <h2 className="serif text-2xl text-[#4A433D] mb-8">Editar Material</h2>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <FormField label="Nome do Material" value={name} onChange={setName} placeholder="ex: Luvas de Nitrilo, Botox 50U..." />
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Categoria" value={category} onChange={setCategory} placeholder="ex: Descartáveis, Toxinas..." />
+            <div>
+              <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Unidade</label>
+              <select 
+                className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all font-light appearance-none text-sm"
+                value={unit}
+                onChange={e => setUnit(e.target.value)}
+              >
+                <option value="Unidades">Unidades (un)</option>
+                <option value="Ml">Mililitros (ml)</option>
+                <option value="Pares">Pares (pr)</option>
+                {item.unit === 'Ampolas' && <option value="Ampolas">Ampolas/Frascos (amp) — legado</option>}
+              </select>
+            </div>
+          </div>
+
+          <label className="flex items-center gap-3 p-4 bg-[#FDFBF9] rounded-2xl cursor-pointer">
+            <input type="checkbox" checked={purchasedByBox} onChange={e => setPurchasedByBox(e.target.checked)} className="w-4 h-4 accent-[#8BA888]" />
+            <span className="text-sm text-[#4A433D]">Este material é comprado por caixa</span>
+          </label>
+
+          {purchasedByBox && (
+            <FormField label="Unidades por caixa" value={unitsPerBox} onChange={setUnitsPerBox} placeholder="ex: 100" type="number" />
+          )}
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <FormField label="Quantidade Atual (sempre em unidades)" value={quantity} onChange={setQuantity} placeholder="0" type="number" />
+              {purchasedByBox && parsedUnitsPerBox > 0 && quantity && (
+                <p className="text-[10px] text-[#9CA3AF] font-light mt-1.5 ml-1">
+                  = {(parseFloat(quantity) / parsedUnitsPerBox).toFixed(1)} caixa(s)
+                </p>
+              )}
+            </div>
+            <FormField label="Aviso de Estoque Baixo (unidades)" value={minThreshold} onChange={setMinThreshold} placeholder="ex: 5" type="number" />
+          </div>
+
+          <div className="flex gap-4 pt-4">
+            <button type="button" onClick={onClose} className="flex-1 py-4 text-[#9CA3AF] font-bold text-[10px] uppercase">Cancelar</button>
+            <button 
+              disabled={saving}
+              type="submit" 
+              className="flex-1 py-4 bg-[#EADFD4] text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-[#DFCFBF] transition-all"
+            >
+              {saving ? 'Salvando...' : 'Salvar Alterações'}
             </button>
           </div>
         </form>

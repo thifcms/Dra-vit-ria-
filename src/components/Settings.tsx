@@ -139,8 +139,19 @@ export default function Settings({ user }: { user: User }) {
     });
   };
 
-  const updateKitQuantity = (itemId: string, quantity: number) => {
-    setKitDraft(prev => prev.map(k => k.itemId === itemId ? { ...k, quantity: Math.max(0.01, quantity) } : k));
+  const updateKitQuantity = (itemId: string, rawValue: string) => {
+    // Aceita o campo vazio ou em digitação (ex: "0.") sem forçar de volta pro mínimo —
+    // isso só é validado no blur. Sem isso, apagar o "1" pra digitar outro número virava
+    // NaN, caía no fallback e prendia o campo em "0.01" a cada tecla.
+    setKitDraft(prev => prev.map(k => k.itemId === itemId ? { ...k, quantity: rawValue as any } : k));
+  };
+
+  const handleKitQuantityBlur = (itemId: string) => {
+    setKitDraft(prev => prev.map(k => {
+      if (k.itemId !== itemId) return k;
+      const parsed = parseFloat(String(k.quantity));
+      return { ...k, quantity: !parsed || parsed <= 0 ? 0.01 : parsed };
+    }));
   };
 
   const handleSaveKit = () => {
@@ -1199,10 +1210,11 @@ export default function Settings({ user }: { user: User }) {
                       {inKit && (
                         <input
                           type="number"
-                          min="0.01"
+                          min="0"
                           step="0.01"
                           value={inKit.quantity}
-                          onChange={e => updateKitQuantity(item.id!, parseFloat(e.target.value) || 0.01)}
+                          onChange={e => updateKitQuantity(item.id!, e.target.value)}
+                          onBlur={() => handleKitQuantityBlur(item.id!)}
                           className="w-20 bg-white border border-[#F5F2F0] rounded-xl p-2 text-sm text-center outline-none"
                         />
                       )}

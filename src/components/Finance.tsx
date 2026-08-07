@@ -1191,10 +1191,10 @@ function ProfitByProcedureView({ procedureRevenue, fixedCosts, transactions }: {
 
 function BalanceCard({ label, value, icon, color, bg }: any) {
   return (
-    <div className={`${bg} p-8 rounded-[32px] border border-[#F5F2F0] shadow-sm`}>
-      <div className="flex items-center gap-3 mb-4">
-        <div className={`p-2 bg-white rounded-xl ${color} shadow-sm`}>{icon}</div>
-        <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest">{label}</p>
+    <div className={`${bg} p-8 rounded-[32px] border border-[#F5F2F0] shadow-sm h-[176px] flex flex-col justify-between`}>
+      <div className="flex items-center gap-3">
+        <div className={`p-2 bg-white rounded-xl ${color} shadow-sm shrink-0`}>{icon}</div>
+        <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest leading-relaxed">{label}</p>
       </div>
       <p className={`text-3xl font-light serif ${color}`}>
         R$ {value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
