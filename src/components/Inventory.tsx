@@ -574,9 +574,13 @@ function PurchaseModal({ items, preselectedItem, onPurchaseItem, onClose }: {
   const [search, setSearch] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  // Mostra o catálogo inteiro (até 20) quando o campo está em foco/vazio, e filtra
+  // conforme digita — antes só mostrava alguma coisa depois de já ter digitado, o que
+  // fazia parecer que não existia nenhum item cadastrado.
+  const availableItems = items.filter(i => !cart.some(c => c.item.id === i.id));
   const searchResults = search.trim()
-    ? items.filter(i => i.name.toLowerCase().includes(search.toLowerCase()) && !cart.some(c => c.item.id === i.id)).slice(0, 6)
-    : [];
+    ? availableItems.filter(i => i.name.toLowerCase().includes(search.toLowerCase())).slice(0, 8)
+    : availableItems.slice(0, 20);
 
   const addToCart = (item: InventoryItem) => {
     setCart(prev => [...prev, { item, qtyInput: '', spentValue: '' }]);
