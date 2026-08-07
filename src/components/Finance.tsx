@@ -423,7 +423,7 @@ export default function Finance({ user }: { user: User }) {
       {financeView === 'balancete' ? (
         <BalanceteView transactions={transactions} fixedCostsTotal={activeFixedCostsTotal} settings={settings} />
       ) : financeView === 'lucro' ? (
-        <ProfitByProcedureView procedureRevenue={procedureRevenue} fixedCosts={fixedCosts} transactions={transactions} />
+        <ProfitByProcedureView procedureRevenue={procedureRevenue} fixedCosts={fixedCosts} transactions={transactions} settings={settings} />
       ) : financeView === 'custos' && isAdminUser ? (
         <div className="max-w-[1800px] mx-auto space-y-8">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -1102,10 +1102,11 @@ function BalanceteView({ transactions, fixedCostsTotal, settings }: { transactio
   );
 }
 
-function ProfitByProcedureView({ procedureRevenue, fixedCosts, transactions }: {
+function ProfitByProcedureView({ procedureRevenue, fixedCosts, transactions, settings }: {
   procedureRevenue: ProcedureRevenueEntry[];
   fixedCosts: FixedCost[];
   transactions: Transaction[];
+  settings: ClinicSettings | null;
 }) {
   const now = new Date();
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
@@ -1118,6 +1119,17 @@ function ProfitByProcedureView({ procedureRevenue, fixedCosts, transactions }: {
     years.add(now.getFullYear());
     return Array.from(years).sort((a, b) => b - a);
   }, [procedureRevenue]);
+
+  // Quantas horas por dia de expediente, a partir do horário já configurado em
+  // Configurações (o mesmo usado no agendamento online) — se não tiver configurado,
+  // assume 8h/dia como padrão razoável em vez de travar o cálculo.
+  const dailyWorkingHours = useMemo(() => {
+    if (!settings?.workingHoursStart || !settings?.workingHoursEnd) return 8;
+    const [startH, startM] = settings.workingHoursStart.split(':').map(Number);
+    const [endH, endM] = settings.workingHoursEnd.split(':').map(Number);
+    const hours = (endH + endM / 60) - (startH + startM / 60);
+    return hours > 0 ? hours : 8;
+  }, [settings]);
 
   const result = useMemo(() => {
     const entriesThisMonth = procedureRevenue.filter(e => {
@@ -1139,8 +1151,22 @@ function ProfitByProcedureView({ procedureRevenue, fixedCosts, transactions }: {
       .reduce((s, t) => s + t.amount, 0);
     const monthlyOverhead = activeFixedTotal + variableLaunchedThisMonth;
 
-    const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
-    const dailyOverhead = monthlyOverhead / daysInMonth;
+    // Rateio por HORAS TRABALHADAS no mês, não por dias corridos do calendário — dias
+    // sem expediente (folga, fim de semana fora do horário configurado) não entram na
+    // conta, e o custo fixo se concentra corretamente nas horas em que a clínica de
+    // fato funciona.
+    const workingDays = settings?.workingDays;
+    const daysInMonthCount = new Date(selectedYear, selectedMonth + 1, 0).getDate();
+    let totalWorkingHoursInMonth = 0;
+    for (let day = 1; day <= daysInMonthCount; day++) {
+      const weekday = new Date(selectedYear, selectedMonth, day).getDay();
+      if (!workingDays || workingDays.includes(weekday)) totalWorkingHoursInMonth += dailyWorkingHours;
+    }
+    const hourlyOverhead = totalWorkingHoursInMonth > 0 ? monthlyOverhead / totalWorkingHoursInMonth : 0;
+    // Custo fixo do dia = valor por hora × horas de expediente daquele dia — se um
+    // procedimento aconteceu num dia, considera que o expediente inteiro daquele dia
+    // rodou (não dá pra saber quantas horas exatas cada procedimento levou)
+    const dailyOverhead = hourlyOverhead * dailyWorkingHours;
 
     // Conta quantos procedimentos foram realizados em cada dia, pra ratear o custo fixo
     // daquele dia entre eles — um dia com poucos procedimentos absorve mais custo fixo
@@ -1183,8 +1209,8 @@ function ProfitByProcedureView({ procedureRevenue, fixedCosts, transactions }: {
       profit: acc.profit + r.profit,
     }), { count: 0, revenue: 0, insumoCost: 0, overhead: 0, profit: 0 });
 
-    return { rows, totals, monthlyOverhead };
-  }, [procedureRevenue, fixedCosts, transactions, selectedMonth, selectedYear]);
+    return { rows, totals, monthlyOverhead, totalWorkingHoursInMonth, hourlyOverhead };
+  }, [procedureRevenue, fixedCosts, transactions, selectedMonth, selectedYear, dailyWorkingHours, settings]);
 
   return (
     <div className="max-w-[1800px] mx-auto space-y-8">
@@ -1262,8 +1288,9 @@ function ProfitByProcedureView({ procedureRevenue, fixedCosts, transactions }: {
       </div>
 
       <p className="text-[10px] text-[#9CA3AF] font-light">
-        Custo fixo/variável do mês: R$ {result.monthlyOverhead.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}, dividido pelos dias do mês e,
-        em cada dia, pelo número de procedimentos realizados naquele dia específico.
+        Custo fixo/variável do mês: R$ {result.monthlyOverhead.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}, dividido pelas {result.totalWorkingHoursInMonth.toFixed(0)} horas
+        trabalhadas no mês (R$ {result.hourlyOverhead.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/hora) e, em cada dia com atendimento, pelo número de
+        procedimentos realizados naquele dia específico.
       </p>
     </div>
   );
