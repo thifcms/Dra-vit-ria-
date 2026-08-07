@@ -262,6 +262,21 @@ export interface Patient {
   // Orçamentos assinados pelo paciente — o Orçamento em si não persiste nada por padrão
   // (é só um documento gerado), mas quando enviado pra assinatura remota e assinado,
   // fica guardado aqui permanentemente, sem apagar orçamentos assinados anteriormente.
+  // Orçamentos salvos que ainda não foram pagos — o paciente recebeu/viu o orçamento
+  // mas não aceitou/pagou na hora. Fica guardado aqui com prazo de validade de 15 dias,
+  // sem entrar no financeiro nem debitar estoque até alguém marcar como pago
+  // explicitamente (handleMarkBudgetPaid). Diferente de budgetHistory, que é
+  // especificamente pra orçamentos assinados remotamente pelo paciente.
+  pendingBudgets?: {
+    id: string;
+    date: string; // quando foi salvo
+    validUntil: string; // date + 15 dias — depois disso mostra como vencido
+    items: { description: string; value: string; procedureId?: string; insumoKit?: { itemId: string; itemName: string; quantity: number }[] }[];
+    total: number;
+    notes?: string;
+    status: 'pending' | 'paid';
+    paidAt?: string;
+  }[];
   budgetHistory?: {
     id: string;
     date: string;
