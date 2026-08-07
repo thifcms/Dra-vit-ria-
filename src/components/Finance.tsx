@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, where, orderBy, Timestamp, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { getClinicOwnerId, parseCurrencyInput } from '../lib/slots';
-import { Transaction, Appointment, FixedCost, ProcedureRevenueEntry } from '../types';
+import { Transaction, Appointment, FixedCost, ProcedureRevenueEntry, ClinicSettings } from '../types';
 import { User } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -19,9 +19,11 @@ import {
   DollarSign,
   CheckCircle2,
   Award,
-  Repeat
+  Repeat,
+  Printer
 } from 'lucide-react';
 import { showToast } from '../lib/toast';
+import { buildLetterheadHtml } from '../lib/documentTemplate';
 import { 
   AreaChart, 
   Area, 
@@ -50,6 +52,13 @@ export default function Finance({ user }: { user: User }) {
   const [fixedCostAmount, setFixedCostAmount] = useState('');
   const [fixedCostType, setFixedCostType] = useState<'fixed' | 'variable'>('fixed');
   const [launchingCostId, setLaunchingCostId] = useState<string | null>(null);
+  const [settings, setSettings] = useState<ClinicSettings | null>(null);
+
+  useEffect(() => {
+    getClinicOwnerId(db).then(ownerId => getDoc(doc(db, 'settings', ownerId))).then(snap => {
+      if (snap.exists()) setSettings(snap.data() as ClinicSettings);
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!user.email) return;
@@ -412,7 +421,7 @@ export default function Finance({ user }: { user: User }) {
       </div>
 
       {financeView === 'balancete' ? (
-        <BalanceteView transactions={transactions} fixedCostsTotal={activeFixedCostsTotal} />
+        <BalanceteView transactions={transactions} fixedCostsTotal={activeFixedCostsTotal} settings={settings} />
       ) : financeView === 'lucro' ? (
         <ProfitByProcedureView procedureRevenue={procedureRevenue} fixedCosts={fixedCosts} transactions={transactions} />
       ) : financeView === 'custos' && isAdminUser ? (
@@ -830,7 +839,7 @@ export default function Finance({ user }: { user: User }) {
   );
 }
 
-function BalanceteView({ transactions, fixedCostsTotal }: { transactions: Transaction[], fixedCostsTotal: number }) {
+function BalanceteView({ transactions, fixedCostsTotal, settings }: { transactions: Transaction[], fixedCostsTotal: number, settings: ClinicSettings | null }) {
   const [period, setPeriod] = useState<'mensal' | 'anual' | 'geral'>('mensal');
   const now = new Date();
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
@@ -901,11 +910,82 @@ function BalanceteView({ transactions, fixedCostsTotal }: { transactions: Transa
 
   const expenseRatio = (income: number, expense: number) => income > 0 ? (expense / income) * 100 : 0;
 
+  // Imprime o balancete do período que está sendo visto na tela agora (mensal, anual
+  // ou geral) — usa o mesmo cabeçalho/rodapé com identidade visual dos outros
+  // documentos do app, com os mesmos números mostrados na tela.
+  const handlePrint = () => {
+    const clinicName = settings?.clinicName || settings?.professionalName || 'Clínica';
+    let periodLabel = '';
+    let rows = '';
+    let totalsHtml = '';
+
+    if (period === 'mensal') {
+      periodLabel = `${monthNames[selectedMonth]} de ${selectedYear}`;
+      rows = `<p><strong>Lançamentos no período:</strong> ${monthlyData.count}</p>`;
+      totalsHtml = `
+        <p><strong>Entradas:</strong> R$ ${monthlyData.income.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+        <p><strong>Saídas:</strong> R$ ${monthlyData.expense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+        <p><strong>Saldo:</strong> R$ ${monthlyData.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+      `;
+    } else if (period === 'anual') {
+      periodLabel = String(selectedYear);
+      rows = annualData.monthly.map(m => `<p>${m.name}: Entradas R$ ${m.Entradas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} — Saídas R$ ${m.Saídas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>`).join('');
+      totalsHtml = `
+        <p><strong>Entradas do Ano:</strong> R$ ${annualData.income.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+        <p><strong>Saídas do Ano:</strong> R$ ${annualData.expense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+        <p><strong>Saldo do Ano:</strong> R$ ${annualData.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+      `;
+    } else {
+      periodLabel = generalData.firstDate ? `Desde ${generalData.firstDate.toLocaleDateString('pt-BR')}` : 'Histórico Geral';
+      rows = generalData.yearly.map(y => `<p>${y.name}: Entradas R$ ${y.Entradas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} — Saídas R$ ${y.Saídas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>`).join('');
+      totalsHtml = `
+        <p><strong>Entradas (Geral):</strong> R$ ${generalData.income.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+        <p><strong>Saídas (Geral):</strong> R$ ${generalData.expense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+        <p><strong>Saldo (Geral):</strong> R$ ${generalData.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+      `;
+    }
+
+    const bodyHtml = `
+      <div class="box">
+        <div class="box-label">Período</div>
+        <p>${periodLabel}</p>
+      </div>
+      <div class="box">
+        <div class="box-label">Resumo</div>
+        ${totalsHtml}
+      </div>
+      <div class="box">
+        <div class="box-label">Detalhamento</div>
+        ${rows || '<p>Sem lançamentos neste período.</p>'}
+      </div>
+    `;
+    const footerHtml = `
+      <div class="footer-row">
+        <span>Impresso em ${new Date().toLocaleString('pt-BR')}</span>
+      </div>
+    `;
+    const html = buildLetterheadHtml({ title: `Balancete ${period === 'mensal' ? 'Mensal' : period === 'anual' ? 'Anual' : 'Geral'}`, clinicName, bodyHtml, footerHtml, documentLabel: `Balancete — ${periodLabel}` });
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.onload = () => printWindow.print();
+    }
+  };
+
   return (
     <div className="max-w-[1800px] mx-auto space-y-8">
-      <div>
-        <h3 className="serif text-2xl text-[#4A433D]">Balancete</h3>
-        <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest mt-1">Evolução e saúde financeira da clínica</p>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h3 className="serif text-2xl text-[#4A433D]">Balancete</h3>
+          <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest mt-1">Evolução e saúde financeira da clínica</p>
+        </div>
+        <button
+          onClick={handlePrint}
+          className="flex items-center gap-2 bg-white border border-[#F5F2F0] text-[#4A433D] px-6 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:border-[#EADFD4] transition-all"
+        >
+          <Printer size={16} /> Imprimir
+        </button>
       </div>
 
       <div className="flex gap-3">

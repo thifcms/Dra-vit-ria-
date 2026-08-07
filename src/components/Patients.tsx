@@ -949,7 +949,10 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
       const needsFaceMap = plannedNames.some(name => {
         const proc = procedures.find(p => p.name === name);
         if (!proc) return false;
-        return substances.some(s => s.procedureIds.includes(proc.id));
+        // Antes checava o vínculo substância↔procedimento; isso foi removido (o Kit de
+        // Insumos já define isso). Agora checa se algum item do kit desse procedimento
+        // bate com o nome de uma substância cadastrada.
+        return (proc.insumoKit || []).some(k => substances.some(s => s.name === k.itemName));
       });
       if (needsFaceMap) {
         setActiveTab('facemap');
@@ -2042,43 +2045,16 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
                                     onClick={() => {
                                       const current = anamnesis.plannedProcedures || [];
                                       if (active) {
-                                        // Desmarcando — também limpa a escolha de substância guardada pra esse procedimento
-                                        const nextSubs = { ...(anamnesis.plannedSubstances || {}) };
-                                        delete nextSubs[proc.name];
-                                        setAnamnesis({ ...anamnesis, plannedProcedures: current.filter(n => n !== proc.name), plannedSubstances: nextSubs });
+                                        setAnamnesis({ ...anamnesis, plannedProcedures: current.filter(n => n !== proc.name) });
                                         return;
                                       }
-                                      // Marcando — se esse procedimento tiver mais de uma substância vinculada,
-                                      // pergunta qual foi usada nesse paciente antes de marcar
-                                      const linkedSubstances = substances.filter(s => s.procedureIds.includes(proc.id));
-                                      if (linkedSubstances.length > 1) {
-                                        const options = linkedSubstances.map((s, i) => `${i + 1}. ${s.name}`).join('\n');
-                                        const choice = window.prompt(`Qual substância foi usada em "${proc.name}"?\n${options}\n\nDigite o número:`);
-                                        const idx = parseInt(choice || '', 10) - 1;
-                                        if (idx < 0 || idx >= linkedSubstances.length || isNaN(idx)) return; // cancelou ou digitou errado — não marca
-                                        setAnamnesis({
-                                          ...anamnesis,
-                                          plannedProcedures: [...current, proc.name],
-                                          plannedSubstances: { ...(anamnesis.plannedSubstances || {}), [proc.name]: linkedSubstances[idx].name },
-                                        });
-                                        return;
-                                      }
-                                      if (linkedSubstances.length === 1) {
-                                        setAnamnesis({
-                                          ...anamnesis,
-                                          plannedProcedures: [...current, proc.name],
-                                          plannedSubstances: { ...(anamnesis.plannedSubstances || {}), [proc.name]: linkedSubstances[0].name },
-                                        });
-                                        return;
-                                      }
+                                      // A escolha de qual substância foi usada não é mais perguntada aqui — o Kit de
+                                      // Insumos do procedimento já define isso, sem precisar duplicar a decisão.
                                       setAnamnesis({ ...anamnesis, plannedProcedures: [...current, proc.name] });
                                     }}
                                     className={`text-xs px-4 py-2 rounded-xl border transition-all ${active ? 'bg-[#8BA888] border-[#8BA888] text-white' : 'bg-white border-[#F5F2F0] text-[#9CA3AF] hover:border-[#8BA888]/30'}`}
                                   >
                                     {proc.name}
-                                    {active && anamnesis.plannedSubstances?.[proc.name] && (
-                                      <span className="opacity-80"> — {anamnesis.plannedSubstances[proc.name]}</span>
-                                    )}
                                   </button>
                                   {active && (
                                     launched ? (

@@ -558,7 +558,9 @@ export interface ClinicSettings {
     id: string;
     name: string;
     unit: 'ml' | 'unidade';
-    procedureIds: string[]; // a quais procedimentos essa substância pode ser aplicada
+    procedureIds?: string[]; // legado — não vincula mais nada, o Kit de Insumos do
+                              // procedimento é quem define isso agora. Mantido opcional
+                              // só pra não quebrar leitura de dados antigos.
     // pricePerUnit/ampouleSize removidos — o valor é sempre do procedimento agora, a
     // substância não entra no cálculo do orçamento. Mantidos como opcionais só pra não
     // quebrar leitura de dados antigos que ainda tenham esses campos gravados.

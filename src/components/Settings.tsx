@@ -115,7 +115,7 @@ export default function Settings({ user }: { user: User }) {
   const [newProcedurePrice, setNewProcedurePrice] = useState('');
   const [newSubstance, setNewSubstance] = useState<{ name: string; unit: 'ml' | 'unidade'; procedureIds: string[] }>({ name: '', unit: 'ml', procedureIds: [] });
   const [catalogTab, setCatalogTab] = useState<'substancias' | 'insumos'>('substancias');
-  const [newInsumo, setNewInsumo] = useState({ name: '', category: '', unit: 'Unidades', purchasedByBox: false, unitsPerBox: '', minThreshold: '', minThresholdIsBoxes: false });
+  const [newInsumo, setNewInsumo] = useState({ name: '', category: '', unit: 'Unidades', purchasedByBox: false, unitsPerBox: '', minThreshold: '' });
   const [savingInsumo, setSavingInsumo] = useState(false);
 
   const handleAddInsumo = async () => {
@@ -130,20 +130,21 @@ export default function Settings({ user }: { user: User }) {
     }
     setSavingInsumo(true);
     try {
-      const rawThreshold = parseFloat(newInsumo.minThreshold) || 0;
-      const finalThreshold = newInsumo.minThresholdIsBoxes && parsedUnitsPerBox ? rawThreshold * parsedUnitsPerBox : rawThreshold;
+      // Nenhum valor (dinheiro nem caixa/unidade) é definido aqui no cadastro — isso só
+      // é decidido no ato da compra, na aba Estoque. O aviso de estoque baixo já entra
+      // direto em unidades, como a quantidade sempre é.
       await addDoc(collection(db, 'inventory'), {
         userId: user.uid,
         name: newInsumo.name.trim(),
         category: newInsumo.category.trim() || 'Insumo',
         quantity: 0,
-        minThreshold: finalThreshold,
+        minThreshold: parseFloat(newInsumo.minThreshold) || 0,
         unit: newInsumo.unit,
         ...(newInsumo.purchasedByBox && parsedUnitsPerBox > 0 ? { purchasedByBox: true, unitsPerBox: parsedUnitsPerBox } : {}),
         updatedAt: new Date().toISOString(),
       });
       showToast('Insumo cadastrado — já disponível no Estoque');
-      setNewInsumo({ name: '', category: '', unit: 'Unidades', purchasedByBox: false, unitsPerBox: '', minThreshold: '', minThresholdIsBoxes: false });
+      setNewInsumo({ name: '', category: '', unit: 'Unidades', purchasedByBox: false, unitsPerBox: '', minThreshold: '' });
     } catch (err) {
       showToast('Erro ao cadastrar insumo', 'error');
     }
@@ -998,9 +999,7 @@ export default function Settings({ user }: { user: User }) {
                   <p className="text-[10px] text-[#9CA3AF] uppercase tracking-widest">
                     R$ {proc.price.toFixed(2).replace('.', ',')}
                     {' · '}
-                    {(settings.substances || []).filter(s => s.procedureIds.includes(proc.id)).length} substância(s) vinculada(s)
-                    {' · '}
-                    {(proc.insumoKit || []).length} insumo(s) no kit
+                    {(proc.insumoKit || []).length} insumo(s)/substância(s) no kit
                   </p>
                 </div>
                 <div className="flex items-center gap-1">
@@ -1111,16 +1110,10 @@ export default function Settings({ user }: { user: User }) {
                 <input
                   value={newInsumo.minThreshold}
                   onChange={e => setNewInsumo({ ...newInsumo, minThreshold: e.target.value })}
-                  placeholder="Aviso de estoque baixo"
+                  placeholder="Aviso de estoque baixo (em unidades)"
                   type="number"
                   className="w-full bg-white border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
                 />
-                {newInsumo.purchasedByBox && (
-                  <label className="flex items-center gap-2 mt-2 ml-1 cursor-pointer">
-                    <input type="checkbox" checked={newInsumo.minThresholdIsBoxes} onChange={e => setNewInsumo({ ...newInsumo, minThresholdIsBoxes: e.target.checked })} className="w-3.5 h-3.5 accent-[#8BA888]" />
-                    <span className="text-[10px] text-[#9CA3AF]">Esse valor é em caixas, não em unidades</span>
-                  </label>
-                )}
               </div>
               <button
                 onClick={handleAddInsumo}
@@ -1137,10 +1130,6 @@ export default function Settings({ user }: { user: User }) {
           </div>
         ) : (
         <>
-          {(settings.procedures || []).length === 0 ? (
-            <p className="text-xs text-[#9CA3AF] italic text-center py-6">Cadastre ao menos um procedimento acima antes de adicionar substâncias.</p>
-          ) : (
-          <>
             <div className="space-y-3 mb-8 p-6 bg-[#FDFBF9] rounded-[28px]">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <input
@@ -1158,39 +1147,13 @@ export default function Settings({ user }: { user: User }) {
                   <option value="unidade">Por unidade</option>
                 </select>
               </div>
-              <div>
-                <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Vincular a quais procedimentos</p>
-                <div className="flex flex-wrap gap-2">
-                  {(settings.procedures || []).map(proc => {
-                    const active = newSubstance.procedureIds.includes(proc.id);
-                    return (
-                      <button
-                        key={proc.id}
-                        onClick={() => {
-                          const next = active
-                            ? newSubstance.procedureIds.filter(id => id !== proc.id)
-                            : [...newSubstance.procedureIds, proc.id];
-                          setNewSubstance({ ...newSubstance, procedureIds: next });
-                        }}
-                        className={`text-xs px-4 py-2 rounded-xl border transition-all ${active ? 'bg-[#8BA888] border-[#8BA888] text-white' : 'bg-white border-[#F5F2F0] text-[#9CA3AF]'}`}
-                      >
-                        {proc.name}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
               <button
                 onClick={() => {
                   if (!newSubstance.name.trim()) {
                     showToast('Preencha o nome da substância', 'error');
                     return;
                   }
-                  if (newSubstance.procedureIds.length === 0) {
-                    showToast('Vincule a substância a ao menos um procedimento', 'error');
-                    return;
-                  }
-                  handleAddSubstance({ name: newSubstance.name.trim(), unit: newSubstance.unit, procedureIds: newSubstance.procedureIds });
+                  handleAddSubstance({ name: newSubstance.name.trim(), unit: newSubstance.unit, procedureIds: [] });
                   setNewSubstance({ name: '', unit: 'ml', procedureIds: [] });
                 }}
                 className="w-full bg-[#EADFD4] text-white rounded-2xl px-6 py-4 text-[10px] font-bold uppercase tracking-widest hover:bg-[#DFCFBF] transition-all flex items-center justify-center gap-2"
@@ -1204,11 +1167,7 @@ export default function Settings({ user }: { user: User }) {
                 <div key={sub.id} className="flex items-center justify-between p-4 bg-[#FDFBF9] rounded-2xl">
                   <div>
                     <p className="text-sm text-[#4A433D] font-medium">{sub.name}</p>
-                    <p className="text-[10px] text-[#9CA3AF] uppercase tracking-widest">
-                      {sub.unit}
-                      {' · '}
-                      {sub.procedureIds.map(pid => (settings.procedures || []).find(p => p.id === pid)?.name).filter(Boolean).join(', ') || 'sem vínculo'}
-                    </p>
+                    <p className="text-[10px] text-[#9CA3AF] uppercase tracking-widest">{sub.unit}</p>
                   </div>
                   <button onClick={() => handleDeleteSubstance(sub.id)} className="p-2 text-[#9CA3AF] hover:text-red-400">
                     <Trash2 size={16} />
@@ -1220,8 +1179,6 @@ export default function Settings({ user }: { user: User }) {
               )}
             </div>
           </>
-        )}
-        </>
         )}
       </div>
       </>
