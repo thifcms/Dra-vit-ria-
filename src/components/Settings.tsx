@@ -244,8 +244,27 @@ export default function Settings({ user }: { user: User }) {
     }));
   };
 
+  // Custo do kit = soma do custo por unidade mais recente (última compra) de cada item,
+  // vezes a quantidade que o kit usa dele. Usado pra validar a margem de lucro mínima
+  // configurada, tanto ao salvar o kit quanto ao editar o preço do procedimento.
+  const calculateKitCost = (kit: { itemId: string; quantity: number }[]) => {
+    return kit.reduce((sum, k) => {
+      const item = inventoryItems.find(i => i.id === k.itemId);
+      return sum + (item?.lastUnitCost || 0) * k.quantity;
+    }, 0);
+  };
+
   const handleSaveKit = () => {
     if (!editingKitProcId) return;
+    const proc = (settings.procedures || []).find(p => p.id === editingKitProcId);
+    if (proc && settings.minProfitMarginPercent != null && proc.price > 0) {
+      const cost = calculateKitCost(kitDraft);
+      const margin = ((proc.price - cost) / proc.price) * 100;
+      if (margin < settings.minProfitMarginPercent) {
+        showToast(`Esse kit deixa a margem em ${margin.toFixed(1)}% (custo de insumos: R$ ${cost.toFixed(2)}) — abaixo do mínimo de ${settings.minProfitMarginPercent}% configurado. Ajuste o kit ou aumente o preço do procedimento.`, 'error');
+        return;
+      }
+    }
     const next = (settings.procedures || []).map(p =>
       p.id === editingKitProcId ? { ...p, insumoKit: kitDraft } : p
     );
@@ -358,6 +377,15 @@ export default function Settings({ user }: { user: User }) {
   };
 
   const handleUpdateProcedure = (id: string, name: string, price: number) => {
+    const proc = (settings.procedures || []).find(p => p.id === id);
+    if (proc?.insumoKit && proc.insumoKit.length > 0 && settings.minProfitMarginPercent != null && price > 0) {
+      const cost = calculateKitCost(proc.insumoKit);
+      const margin = ((price - cost) / price) * 100;
+      if (margin < settings.minProfitMarginPercent) {
+        showToast(`Esse preço deixa a margem em ${margin.toFixed(1)}% (custo de insumos: R$ ${cost.toFixed(2)}) — abaixo do mínimo de ${settings.minProfitMarginPercent}% configurado.`, 'error');
+        return;
+      }
+    }
     persist({
       ...settings,
       procedures: (settings.procedures || []).map(p => p.id === id ? { ...p, name, price } : p),
@@ -882,6 +910,20 @@ export default function Settings({ user }: { user: User }) {
                 icon={<Receipt size={18} />}
                 placeholder="Ex: https://minhaprefeitura.gov.br/nfse"
               />
+              <div>
+                <SettingField 
+                  label="Margem de Lucro Mínima (%)" 
+                  value={settings.minProfitMarginPercent != null ? String(settings.minProfitMarginPercent) : ''} 
+                  onChange={v => setSettings({...settings, minProfitMarginPercent: v ? Math.max(0, Math.min(100, parseFloat(v) || 0)) : undefined})}
+                  icon={<TrendingUp size={18} />}
+                  placeholder="Ex: 30"
+                  type="number"
+                />
+                <p className="text-[10px] text-[#9CA3AF] font-light mt-2 ml-1">
+                  Ao editar o preço de um procedimento que já tem Kit de Insumos, o sistema não deixa salvar um
+                  valor que dê uma margem de lucro menor que essa, considerando o custo dos insumos.
+                </p>
+              </div>
             </div>
           </section>
 
@@ -1735,13 +1777,15 @@ function TemplateForm({ template, onSave, onCancel }: any) {
   );
 }
 
-function SettingField({ label, value, onChange, icon }: any) {
+function SettingField({ label, value, onChange, icon, type, placeholder }: any) {
   return (
     <div className="space-y-2">
       <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest ml-1">{label}</label>
       <div className="relative flex items-center">
         <div className="absolute left-4 text-[#9CA3AF]">{icon}</div>
         <input 
+          type={type || 'text'}
+          placeholder={placeholder}
           className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 pl-12 outline-none focus:border-[#EADFD4]/30 transition-all font-light text-[#4A433D] shadow-sm"
           value={value}
           onChange={e => onChange(e.target.value)}
@@ -1751,4 +1795,4 @@ function SettingField({ label, value, onChange, icon }: any) {
   );
 }
 
-import { Settings as SettingsIcon, Phone, FileDown } from 'lucide-react';
+import { Settings as SettingsIcon, Phone, FileDown, TrendingUp } from 'lucide-react';

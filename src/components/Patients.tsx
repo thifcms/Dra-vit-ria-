@@ -3316,6 +3316,7 @@ function ConsentTermsModule({ user, patient, onAnamnesisMerged }: { user: User, 
   const [preparingWhatsAppTemplate, setPreparingWhatsAppTemplate] = useState<{ id: string, title: string, content: string } | null>(null);
   const [editableContent, setEditableContent] = useState('');
   const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
+  const [termsSubTab, setTermsSubTab] = useState<'termos' | 'outros'>('termos');
 
   const handleViewSignedTerm = (term: NonNullable<Patient['consentTerms']>[number]) => {
     const clinicName = clinicSettings?.clinicName || clinicSettings?.professionalName || 'Clínica';
@@ -3677,17 +3678,35 @@ function ConsentTermsModule({ user, patient, onAnamnesisMerged }: { user: User, 
   return (
     <div className="space-y-10">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-6 border-b border-[#F5F2F0]">
-        <h3 className="serif text-2xl text-[#4A433D]">Termos & Consentimentos</h3>
-        <button 
-          onClick={() => setIsSigning(true)}
-          className="bg-[#EADFD4] text-white px-8 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest shadow-md hover:bg-[#DFCFBF] transition-all"
+        <h3 className="serif text-2xl text-[#4A433D]">Termos & Assinaturas</h3>
+        {termsSubTab === 'termos' && (
+          <button 
+            onClick={() => setIsSigning(true)}
+            className="bg-[#EADFD4] text-white px-8 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest shadow-md hover:bg-[#DFCFBF] transition-all"
+          >
+            Novo Termo
+          </button>
+        )}
+      </div>
+
+      <div className="flex gap-3">
+        <button
+          onClick={() => setTermsSubTab('termos')}
+          className={`px-6 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all ${termsSubTab === 'termos' ? 'bg-[#EADFD4] text-white shadow-md' : 'bg-white text-[#9CA3AF] border border-[#F5F2F0]'}`}
         >
-          Novo Termo
+          Termos
+        </button>
+        <button
+          onClick={() => setTermsSubTab('outros')}
+          className={`px-6 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all ${termsSubTab === 'outros' ? 'bg-[#EADFD4] text-white shadow-md' : 'bg-white text-[#9CA3AF] border border-[#F5F2F0]'}`}
+        >
+          Outros Documentos Assinados
         </button>
       </div>
 
+      {termsSubTab === 'termos' ? (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {patient.consentTerms?.map((term, i) => (
+        {patient.consentTerms?.filter(t => !t.templateId.startsWith('intake-')).map((term, i) => (
           <div key={i} className="p-8 bg-white border border-[#F5F2F0] rounded-[32px] space-y-6 shadow-sm group hover:border-[#EADFD4]/30 transition-all">
             <div className="flex justify-between items-start">
               <div>
@@ -3709,12 +3728,72 @@ function ConsentTermsModule({ user, patient, onAnamnesisMerged }: { user: User, 
             </button>
           </div>
         ))}
-        {(!patient.consentTerms || patient.consentTerms.length === 0) && (
+        {(!patient.consentTerms || patient.consentTerms.filter(t => !t.templateId.startsWith('intake-')).length === 0) && (
           <div className="col-span-full p-20 text-center text-[#9CA3AF] font-light italic border-2 border-dashed border-[#F5F2F0] rounded-[40px] bg-[#FDFBF9]/50">
             Nenhum termo de consentimento assinado.
           </div>
         )}
       </div>
+      ) : (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {patient.consentTerms?.filter(t => t.templateId.startsWith('intake-')).map((term, i) => (
+          <div key={`intake-${i}`} className="p-8 bg-white border border-[#F5F2F0] rounded-[32px] space-y-6 shadow-sm hover:border-[#EADFD4]/30 transition-all">
+            <div>
+              <h4 className="text-lg font-normal text-[#4A433D] serif leading-tight">{term.templateTitle}</h4>
+              <p className="text-[9px] text-[#9CA3AF] font-bold uppercase tracking-[0.2em] mt-2">
+                Assinado em {new Date(term.signedAt).toLocaleDateString('pt-BR')} — Questionário enviado ao paciente
+              </p>
+            </div>
+            <div className="h-24 bg-[#FDFBF9] rounded-2xl flex items-center justify-center border border-dashed border-[#F5F2F0] p-4 shadow-sm">
+              <img src={term.signatureUrl} alt="Assinatura" className="h-full object-contain mix-blend-multiply opacity-80" />
+            </div>
+            <button
+              onClick={() => handleViewSignedTerm(term)}
+              className="w-full py-3 bg-white border border-[#F5F2F0] text-[#5C544E] rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:border-[#EADFD4]/40 transition-all"
+            >
+              <Eye size={14} /> Visualizar e Imprimir
+            </button>
+          </div>
+        ))}
+        {(patient.anamnesisHistory || []).filter(h => (h as any).signatureUrl).map((h, i) => (
+          <div key={`anamnesis-${i}`} className="p-8 bg-white border border-[#F5F2F0] rounded-[32px] space-y-6 shadow-sm hover:border-[#EADFD4]/30 transition-all">
+            <div>
+              <h4 className="text-lg font-normal text-[#4A433D] serif leading-tight">Anamnese e Plano de Tratamento</h4>
+              <p className="text-[9px] text-[#9CA3AF] font-bold uppercase tracking-[0.2em] mt-2">
+                Assinado em {new Date(h.releasedAt).toLocaleDateString('pt-BR')}
+                {(h as any).sentVia ? ` — enviado por ${(h as any).sentVia === 'whatsapp' ? 'WhatsApp' : 'e-mail'}` : ''}
+              </p>
+            </div>
+            <div className="h-24 bg-[#FDFBF9] rounded-2xl flex items-center justify-center border border-dashed border-[#F5F2F0] p-4 shadow-sm">
+              <img src={(h as any).signatureUrl} alt="Assinatura" className="h-full object-contain mix-blend-multiply opacity-80" />
+            </div>
+          </div>
+        ))}
+        {(patient.budgetHistory || []).map((b, i) => (
+          <div key={`budget-${i}`} className="p-8 bg-white border border-[#F5F2F0] rounded-[32px] space-y-6 shadow-sm hover:border-[#EADFD4]/30 transition-all">
+            <div>
+              <h4 className="text-lg font-normal text-[#4A433D] serif leading-tight">
+                Orçamento — R$ {b.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </h4>
+              <p className="text-[9px] text-[#9CA3AF] font-bold uppercase tracking-[0.2em] mt-2">
+                Assinado em {new Date(b.signedAt).toLocaleDateString('pt-BR')}
+                {b.sentVia ? ` — enviado por ${b.sentVia === 'whatsapp' ? 'WhatsApp' : 'e-mail'}` : ''}
+              </p>
+            </div>
+            <div className="h-24 bg-[#FDFBF9] rounded-2xl flex items-center justify-center border border-dashed border-[#F5F2F0] p-4 shadow-sm">
+              <img src={b.signatureUrl} alt="Assinatura" className="h-full object-contain mix-blend-multiply opacity-80" />
+            </div>
+          </div>
+        ))}
+        {(patient.anamnesisHistory || []).filter(h => (h as any).signatureUrl).length === 0
+          && (patient.budgetHistory || []).length === 0
+          && (patient.consentTerms || []).filter(t => t.templateId.startsWith('intake-')).length === 0 && (
+          <div className="col-span-full p-20 text-center text-[#9CA3AF] font-light italic border-2 border-dashed border-[#F5F2F0] rounded-[40px] bg-[#FDFBF9]/50">
+            Nenhum documento assinado remotamente em outras abas ainda (ficha enviada, anamnese ou orçamento).
+          </div>
+        )}
+      </div>
+      )}
 
       <AnimatePresence>
         {isSigning && (

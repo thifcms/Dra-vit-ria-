@@ -572,6 +572,10 @@ export interface ClinicSettings {
   // porque o app em si não emite (isso exige integração com prefeitura/certificado
   // digital); só abre esse link e depois guarda o PDF já emitido no prontuário.
   invoiceEmissionLink?: string;
+  // Margem de lucro mínima aceitável (%) — usada pra validar o preço de um procedimento
+  // contra o custo do seu Kit de Insumos, impedindo salvar um valor que dê menos que
+  // esse percentual de lucro.
+  minProfitMarginPercent?: number;
 }
 
 // Documento público (legível por qualquer um, sem login) usado pela página de agendamento
