@@ -171,6 +171,24 @@ export default function Inventory({ user }: { user: User }) {
     }
   };
 
+  // Apaga só o REGISTRO/histórico de movimentações — diferente de excluir uma
+  // movimentação avulsa, isso NÃO mexe na quantidade atual de nenhum item (o estoque de
+  // hoje já está certo, é só o histórico/auditoria de como chegou lá que some). Ação
+  // irreversível, por isso pede confirmação com o total de registros que serão apagados.
+  const [clearingHistory, setClearingHistory] = useState(false);
+  const handleClearAllMovements = async () => {
+    if (movements.length === 0) return;
+    if (!confirm(`Apagar todo o histórico de movimentação (${movements.length} registro${movements.length !== 1 ? 's' : ''})? As quantidades atuais em estoque NÃO serão alteradas — só o histórico some. Essa ação não pode ser desfeita.`)) return;
+    setClearingHistory(true);
+    try {
+      await Promise.all(movements.map(m => deleteDoc(doc(db, 'inventory_movements', m.id!))));
+      showToast('Histórico de movimentação apagado');
+    } catch (err) {
+      showToast('Erro ao apagar histórico', 'error');
+    }
+    setClearingHistory(false);
+  };
+
   return (
     <div className="max-w-[1800px] mx-auto space-y-8">
       <div className="flex items-center justify-between flex-wrap gap-4">
@@ -360,9 +378,20 @@ export default function Inventory({ user }: { user: User }) {
 
       {/* Movimentações Recentes */}
       <div className="bg-white rounded-[40px] border border-[#F5F2F0] shadow-sm p-8">
-        <h3 className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-[0.2em] mb-8 flex items-center gap-2">
-          <History size={14} className="text-[#EADFD4]" /> Histórico de Movimentações
-        </h3>
+        <div className="flex items-center justify-between mb-8 flex-wrap gap-3">
+          <h3 className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-[0.2em] flex items-center gap-2">
+            <History size={14} className="text-[#EADFD4]" /> Histórico de Movimentações
+          </h3>
+          {movements.length > 0 && (
+            <button
+              onClick={handleClearAllMovements}
+              disabled={clearingHistory}
+              className="flex items-center gap-2 text-[10px] font-bold text-red-400 hover:text-red-500 uppercase tracking-widest px-4 py-2 rounded-xl border border-red-100 hover:bg-red-50 transition-all disabled:opacity-50"
+            >
+              <Trash2 size={14} /> {clearingHistory ? 'Apagando...' : 'Apagar Histórico'}
+            </button>
+          )}
+        </div>
         <div className="space-y-4">
           {movements.slice(0, 8).map(m => (
             <div key={m.id} className="flex items-center justify-between p-4 bg-[#FDFBF9] rounded-2xl border border-[#F5F2F0]">
