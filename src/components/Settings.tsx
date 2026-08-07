@@ -153,6 +153,9 @@ export default function Settings({ user }: { user: User }) {
 
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [editingKitProcId, setEditingKitProcId] = useState<string | null>(null);
+  const [editingProcId, setEditingProcId] = useState<string | null>(null);
+  const [editProcName, setEditProcName] = useState('');
+  const [editProcPrice, setEditProcPrice] = useState('');
   const [kitDraft, setKitDraft] = useState<{ itemId: string; itemName: string; quantity: number }[]>([]);
 
   useEffect(() => {
@@ -296,13 +299,21 @@ export default function Settings({ user }: { user: User }) {
   };
 
   const handleDeleteProcedure = (id: string) => {
-    if (!window.confirm('Excluir este procedimento? As substâncias vinculadas a ele deixam de referenciá-lo.')) return;
+    if (!window.confirm('Excluir este procedimento?')) return;
     persist({
       ...settings,
       procedures: (settings.procedures || []).filter(p => p.id !== id),
-      substances: (settings.substances || []).map(s => ({ ...s, procedureIds: s.procedureIds.filter(pid => pid !== id) })),
     });
     showToast('Procedimento removido');
+  };
+
+  const handleUpdateProcedure = (id: string, name: string, price: number) => {
+    persist({
+      ...settings,
+      procedures: (settings.procedures || []).map(p => p.id === id ? { ...p, name, price } : p),
+    });
+    showToast('Procedimento atualizado');
+    setEditingProcId(null);
   };
 
   const handleToggleProcedureDiscount = (id: string, allow: boolean) => {
@@ -1003,6 +1014,13 @@ export default function Settings({ user }: { user: User }) {
                   </p>
                 </div>
                 <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => { setEditingProcId(proc.id); setEditProcName(proc.name); setEditProcPrice(proc.price.toFixed(2).replace('.', ',')); }}
+                    className="p-2 text-[#9CA3AF] hover:text-[#EADFD4]"
+                    title="Editar Procedimento"
+                  >
+                    <Edit2 size={16} />
+                  </button>
                   <button onClick={() => openKitEditor(proc)} className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-[#8BA888] hover:text-[#7C9979] border border-[#F0F7F0] rounded-xl bg-[#F0F7F0]">
                     Kit de Insumos
                   </button>
@@ -1269,6 +1287,56 @@ export default function Settings({ user }: { user: User }) {
                 className="flex-1 py-4 bg-[#EADFD4] text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-[#DFCFBF] transition-all disabled:opacity-50"
               >
                 {savingSignature ? 'Salvando...' : 'Salvar Assinatura'}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {editingProcId && (
+        <div className="fixed inset-0 bg-[#4A433D]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+          <motion.div
+            initial={{ y: 30, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            className="bg-white w-full max-w-md rounded-[40px] p-10 shadow-2xl"
+          >
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="serif text-2xl text-[#4A433D]">Editar Procedimento</h3>
+              <button onClick={() => setEditingProcId(null)} className="text-[#9CA3AF] hover:text-[#4A433D]"><X size={24} /></button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Nome do Procedimento</label>
+                <input
+                  value={editProcName}
+                  onChange={e => setEditProcName(e.target.value)}
+                  className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 ml-1">Valor</label>
+                <input
+                  value={editProcPrice}
+                  onChange={e => setEditProcPrice(e.target.value)}
+                  placeholder="R$"
+                  className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
+                />
+              </div>
+            </div>
+            <div className="flex gap-4 pt-8">
+              <button onClick={() => setEditingProcId(null)} className="flex-1 py-4 text-[#9CA3AF] font-bold text-[10px] uppercase">Cancelar</button>
+              <button
+                onClick={() => {
+                  const price = parseCurrencyInput(editProcPrice);
+                  if (!editProcName.trim() || !price || price <= 0) {
+                    showToast('Preencha nome e valor válidos', 'error');
+                    return;
+                  }
+                  handleUpdateProcedure(editingProcId, editProcName.trim(), price);
+                }}
+                className="flex-1 py-4 bg-[#EADFD4] text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-[#DFCFBF] transition-all"
+              >
+                Salvar Alterações
               </button>
             </div>
           </motion.div>
