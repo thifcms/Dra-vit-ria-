@@ -347,8 +347,12 @@ export default function IntakeQuestionnaire({ appointmentId, patientId, patientN
           <Question label="Já realizou preenchimento facial?" value={hadFillerBefore} onChange={setHadFillerBefore}>
             <TextField label="Qual produto?" value={fillerProduct} onChange={setFillerProduct} />
           </Question>
-          <Question label="(Mulheres) Está amamentando?" value={isBreastfeeding} onChange={setIsBreastfeeding} />
-          <Question label="(Mulheres) Está grávida?" value={isPregnant} onChange={setIsPregnant} />
+          {patient?.sex !== 'M' && (
+            <>
+              <Question label="(Mulheres) Está amamentando?" value={isBreastfeeding} onChange={setIsBreastfeeding} />
+              <Question label="(Mulheres) Está grávida?" value={isPregnant} onChange={setIsPregnant} />
+            </>
+          )}
           <Question label="Tem alguma condição médica?" value={hasMedicalConditions} onChange={setHasMedicalConditions}>
             <p className="text-[10px] text-[#9CA3AF] mb-2">Marque todas que se aplicam:</p>
             <div className="grid grid-cols-2 gap-2">

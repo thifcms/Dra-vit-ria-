@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { doc, getDoc, addDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, addDoc, updateDoc, collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Patient, ClinicSettings, InventoryItem } from '../types';
 import { User } from 'firebase/auth';
 import { Plus, Trash2, FileDown, CheckCircle2, MessageCircle, History, X, Eye, Clock } from 'lucide-react';
 import { showToast } from '../lib/toast';
 import { getClinicOwnerId, parseCurrencyInput, remoteSignLink } from '../lib/slots';
-import { whatsappLink, genericEmailLink } from '../lib/reminders';
+import { whatsappLink, genericEmailLink, openWhatsApp } from '../lib/reminders';
 
 interface BudgetItem {
   description: string;
@@ -45,6 +45,7 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
   const [showBudgetSignSend, setShowBudgetSignSend] = useState(false);
   const [sendingBudgetSign, setSendingBudgetSign] = useState(false);
   const [showBudgetHistory, setShowBudgetHistory] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
 
   useEffect(() => {
     getClinicOwnerId(db).then(ownerId => getDoc(doc(db, 'settings', ownerId))).then(snap => {
@@ -333,7 +334,7 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
       const link = remoteSignLink(docRef.id);
       const message = `Olá, ${patient.name}! Segue o link pra revisar e assinar seu orçamento:\n${link}`;
       if (via === 'whatsapp') {
-        window.open(whatsappLink(sentTo, message), '_blank');
+        openWhatsApp(sentTo, message);
       } else {
         window.open(genericEmailLink(sentTo, 'Assinatura: Orçamento', message), '_blank');
       }
@@ -348,15 +349,18 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
   // Assinatura remota do orçamento: diferente de anamnese/termo, o orçamento não tinha
   // nenhum lugar pra ficar guardado permanentemente — agora, ao ser assinado, cria uma
   // entrada nova em budgetHistory, sem apagar orçamentos assinados anteriormente.
+  // onSnapshot detecta a assinatura em tempo real (antes usava getDocs, só checava uma
+  // vez ao abrir a tela) — e, assim que detectado, TRAVA o formulário atual: depois que
+  // o paciente assina, não dá mais pra mexer nesse orçamento específico.
   useEffect(() => {
-    (async () => {
+    if (isLocked) return;
+    const q = query(
+      collection(db, 'signRequests'),
+      where('patientId', '==', patient.id),
+      where('status', '==', 'signed')
+    );
+    const unsubscribe = onSnapshot(q, async (snap) => {
       try {
-        const q = query(
-          collection(db, 'signRequests'),
-          where('patientId', '==', patient.id),
-          where('status', '==', 'signed')
-        );
-        const snap = await getDocs(q);
         const toMerge = snap.docs.filter(d => !d.data().mergedIntoRecord && d.data().docType === 'budget');
         if (toMerge.length === 0) return;
         const validItems = items.filter(it => it.description.trim() && parseCurrencyInput(it.value) > 0);
@@ -379,10 +383,12 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
           budgetHistory: [...(patient.budgetHistory || []), ...newEntries],
         });
         await Promise.all(toMerge.map(d => updateDoc(doc(db, 'signRequests', d.id), { mergedIntoRecord: true })));
-        showToast('Orçamento assinado remotamente — guardado no prontuário');
+        setIsLocked(true);
+        showToast('Orçamento assinado remotamente — guardado no prontuário e travado pra edição');
       } catch { /* melhor esforço */ }
-    })();
-  }, [patient.id]);
+    });
+    return () => unsubscribe();
+  }, [patient.id, isLocked]);
 
   const handleGenerate = async (mode: 'download' | 'view' = 'download') => {
     const validItems = items.filter(it => it.description.trim() && parseCurrencyInput(it.value) > 0);
@@ -534,6 +540,17 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
         <h3 className="serif text-2xl text-[#4A433D]">Gerar Orçamento</h3>
       </div>
 
+      {isLocked && (
+        <div className="p-6 bg-[#F0F7F0] border border-[#8BA888]/30 rounded-3xl flex items-center gap-3">
+          <CheckCircle2 size={20} className="text-[#8BA888] shrink-0" />
+          <p className="text-xs text-[#4A433D]">
+            Este orçamento foi assinado remotamente pelo paciente e está travado — não pode mais ser editado.
+            Consulte o histórico abaixo pra ver os detalhes assinados.
+          </p>
+        </div>
+      )}
+
+      <fieldset disabled={isLocked} className="contents">
       <div className="space-y-3">
         {items.map((item, idx) => (
           <div key={idx}>
@@ -643,6 +660,8 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
         </div>
       </div>
 
+      </fieldset>
+
       <div className="flex gap-3">
         <button
           disabled={generating}
@@ -665,7 +684,7 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
       <div className="flex gap-3">
         <button
           onClick={() => setShowBudgetSignSend(true)}
-          disabled={total <= 0}
+          disabled={total <= 0 || isLocked}
           className="flex-1 py-4 bg-white border border-[#F5F2F0] text-[#4A433D] rounded-2xl font-bold text-[10px] uppercase tracking-widest hover:border-[#EADFD4] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
         >
           <MessageCircle size={16} /> Assinatura Remota
@@ -687,7 +706,7 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
         <div className="flex gap-3">
           <button
             onClick={handleSaveAsPending}
-            disabled={total <= 0 || savingPending}
+            disabled={total <= 0 || savingPending || isLocked}
             className="flex-1 py-5 bg-white border-2 border-[#F5F2F0] text-[#4A433D] rounded-[28px] font-bold text-xs uppercase tracking-widest hover:border-[#EADFD4] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
           >
             <Clock size={18} />
@@ -695,7 +714,7 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
           </button>
           <button
             onClick={() => setShowConfirmLaunch(true)}
-            disabled={total <= 0}
+            disabled={total <= 0 || isLocked}
             className="flex-1 py-5 bg-[#8BA888] text-white rounded-[28px] font-bold text-xs uppercase tracking-widest shadow-md hover:bg-[#7C9979] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
           >
             <CheckCircle2 size={18} />

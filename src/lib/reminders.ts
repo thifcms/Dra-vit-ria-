@@ -40,6 +40,27 @@ export function whatsappLink(phone: string, message: string): string {
   return `https://wa.me/${normalizePhoneForWhatsapp(phone)}?text=${encodeURIComponent(message)}`;
 }
 
+// wa.me sempre abre a versão web primeiro no navegador, mesmo com o WhatsApp Desktop já
+// instalado no computador — o protocolo whatsapp:// é o que o próprio app registra no
+// sistema operacional pra abrir direto nele. Tenta o protocolo do app primeiro (troca a
+// própria aba de lugar, o que só funciona se algo "pegar" o link); se depois de um
+// tempinho a aba ainda estiver na mesma página (sinal de que nada capturou o protocolo,
+// ou seja, o app não está instalado), cai pro wa.me numa aba nova como já era antes.
+export function openWhatsApp(phone: string, message: string): void {
+  const appUrl = `whatsapp://send?phone=${normalizePhoneForWhatsapp(phone)}&text=${encodeURIComponent(message)}`;
+  const webUrl = whatsappLink(phone, message);
+  let handedOff = false;
+  const onBlur = () => { handedOff = true; };
+  window.addEventListener('blur', onBlur);
+  window.location.href = appUrl;
+  setTimeout(() => {
+    window.removeEventListener('blur', onBlur);
+    if (!handedOff && !document.hidden) {
+      window.open(webUrl, '_blank');
+    }
+  }, 1200);
+}
+
 export function emailLink(email: string, clinicName: string, message: string): string {
   const subject = `Lembrete de consulta — ${clinicName}`;
   return `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;

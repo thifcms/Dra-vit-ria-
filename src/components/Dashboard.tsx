@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { doc, getDoc } from 'firebase/firestore';
-import { buildReminderMessage, whatsappLink } from '../lib/reminders';
+import { buildReminderMessage, whatsappLink, openWhatsApp } from '../lib/reminders';
 import { checkinLink, cancelLink, todayLocalStr, getClinicOwnerId, hasFinanceAccess } from '../lib/slots';
 import { showToast } from '../lib/toast';
 import { ClinicSettings } from '../types';
@@ -204,7 +204,7 @@ export default function Dashboard({ user, onNavigate, onOpenPatient, professiona
       checkinUrl,
       cancelUrl: cancel,
     });
-    window.open(whatsappLink(phone, msg), '_blank');
+    openWhatsApp(phone, msg);
   };
 
   if (loading) return null;

@@ -693,6 +693,7 @@ function AuthenticatedApp() {
                   <Patients
                     user={user}
                     initialPatientId={jumpToPatientId}
+                    onReturnToSchedule={() => { setActiveView('schedule'); setJumpToPatientId(null); }}
                   />
                 )}
                 {activeView === 'schedule' && (

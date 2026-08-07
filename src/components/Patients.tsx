@@ -5,7 +5,7 @@ import { compressImage } from '../lib/imageCompress';
 import { db, storage } from '../lib/firebase';
 import { Patient, ClinicSettings } from '../types';
 import { phoneIndexKey, cpfIndexKey, getClinicOwnerId, todayLocalStr, remoteSignLink, intakeInviteLink, parseCurrencyInput } from '../lib/slots';
-import { whatsappLink, genericEmailLink } from '../lib/reminders';
+import { whatsappLink, genericEmailLink, openWhatsApp } from '../lib/reminders';
 import { buildLetterheadHtml } from '../lib/documentTemplate';
 import { User } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
@@ -94,7 +94,7 @@ const conditionFilterOptions: { key: string, label: string }[] = [
   { key: 'contraceptive', label: 'Anticoncepcional' },
 ];
 
-export default function Patients({ user, initialPatientId }: { user: User, initialPatientId?: string | null }) {
+export default function Patients({ user, initialPatientId, onReturnToSchedule }: { user: User, initialPatientId?: string | null, onReturnToSchedule?: () => void }) {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [isAdding, setIsAdding] = useState(false);
@@ -145,7 +145,7 @@ export default function Patients({ user, initialPatientId }: { user: User, initi
   if (selectedPatient) {
     // We fetch a fresh copy or use real-time sync for the detail view
     const patientSync = patients.find(p => p.id === selectedPatient.id) || selectedPatient;
-    return <PatientDetail user={user} patient={patientSync} onBack={() => setSelectedPatient(null)} />;
+    return <PatientDetail user={user} patient={patientSync} onBack={() => setSelectedPatient(null)} onReturnToSchedule={onReturnToSchedule} />;
   }
 
   return (
@@ -356,7 +356,7 @@ function AddPatientModal({ user, onClose }: { user: User, onClose: () => void })
           });
           const link = intakeInviteLink(inviteRef.id);
           const message = `Olá, ${name}! Por favor, preencha a ficha clínica: ${link}`;
-          window.open(whatsappLink(phone, message), '_blank');
+          openWhatsApp(phone, message);
         } catch (err) {
           // Melhor esforço — não impede o cadastro de ter dado certo
         }
@@ -511,7 +511,7 @@ function buildIntakeFullText(s: any): string {
   return lines.join('\n');
 }
 
-function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient, onBack: () => void }) {
+function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: User, patient: Patient, onBack: () => void, onReturnToSchedule?: () => void }) {
   const [activeTab, setActiveTab] = useState<'info' | 'anamnesis' | 'evolution' | 'photos' | 'files' | 'exams' | 'atestado' | 'consent' | 'prescriptions' | 'facemap' | 'budget' | 'invoices'>('anamnesis');
   const [phoneDraft, setPhoneDraft] = useState(patient.phone || '');
   // Sem isso, se o telefone chegasse gravado um pouco depois de a tela já ter aberto
@@ -740,6 +740,22 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
   const [receiptValue, setReceiptValue] = useState('');
   const [receiptReference, setReceiptReference] = useState('');
   const [receiptPayerName, setReceiptPayerName] = useState('');
+
+  // Ao abrir o recibo, pré-preenche com o valor do pagamento mais recente já confirmado
+  // desse paciente (seja um orçamento pago na hora, ou um pendente marcado como pago
+  // depois) — evita ter que digitar de novo um valor que o sistema já sabe.
+  const openReceiptForm = () => {
+    const paidBudgets = (patient.pendingBudgets || []).filter(p => p.status === 'paid' && p.paidAt);
+    const signedBudgets = patient.budgetHistory || [];
+    const candidates = [
+      ...paidBudgets.map(p => ({ total: p.total, date: p.paidAt! })),
+      ...signedBudgets.map(b => ({ total: b.total, date: b.signedAt })),
+    ].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    if (candidates.length > 0) {
+      setReceiptValue(candidates[0].total.toFixed(2).replace('.', ','));
+    }
+    setShowReceiptForm(true);
+  };
 
   useEffect(() => {
     (async () => {
@@ -1044,7 +1060,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
       const link = remoteSignLink(docRef.id);
       const message = `Olá, ${patient.name}! Segue o link pra revisar e assinar sua anamnese e plano de tratamento:\n${link}`;
       if (via === 'whatsapp') {
-        window.open(whatsappLink(sentTo, message), '_blank');
+        openWhatsApp(sentTo, message);
       } else {
         window.open(genericEmailLink(sentTo, 'Assinatura: Anamnese e Plano de Tratamento', message), '_blank');
       }
@@ -1059,16 +1075,18 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
   // Assinaturas remotas de anamnese: quando o paciente assina do próprio celular, isso
   // libera (tranca) a anamnese automaticamente — mesmo efeito de clicar em "Liberar" 
   // presencialmente, só que registrando a assinatura de verdade e prova de envio.
+  // onSnapshot detecta isso em tempo real, mesmo que o profissional já esteja com essa
+  // tela aberta esperando o paciente assinar (antes usava getDocs, que só checava uma
+  // vez ao abrir a tela).
   useEffect(() => {
-    (async () => {
-      if (patient.anamnesisReleased) return;
+    if (patient.anamnesisReleased) return;
+    const q = query(
+      collection(db, 'signRequests'),
+      where('patientId', '==', patient.id),
+      where('status', '==', 'signed')
+    );
+    const unsubscribe = onSnapshot(q, async (snap) => {
       try {
-        const q = query(
-          collection(db, 'signRequests'),
-          where('patientId', '==', patient.id),
-          where('status', '==', 'signed')
-        );
-        const snap = await getDocs(q);
         const toMerge = snap.docs.filter(d => !d.data().mergedIntoRecord && d.data().docType === 'anamnesis');
         if (toMerge.length === 0) return;
         const latest = toMerge[toMerge.length - 1];
@@ -1093,7 +1111,8 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
         await Promise.all(toMerge.map(d => updateDoc(doc(db, 'signRequests', d.id), { mergedIntoRecord: true })));
         showToast('Assinatura remota da anamnese recebida — anamnese liberada');
       } catch { /* melhor esforço */ }
-    })();
+    });
+    return () => unsubscribe();
   }, [patient.id, patient.anamnesisReleased]);
 
   const [startingNewAnamnesis, setStartingNewAnamnesis] = useState(false);
@@ -1211,7 +1230,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
       showToast('Erro ao finalizar consulta', 'error');
     }
     setFinishingConsultation(false);
-    onBack();
+    if (onReturnToSchedule) onReturnToSchedule(); else onBack();
   };
 
 
@@ -1723,6 +1742,14 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
             {activeTab === 'facemap' && (
               <motion.div key="facemap" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                 <FaceMarkingTab patient={patient} user={user} />
+                <button
+                  onClick={() => setShowFinishConsultConfirm(true)}
+                  disabled={finishingConsultation}
+                  className="w-full mt-6 py-5 bg-[#8BA888] text-white rounded-[28px] font-bold text-xs uppercase tracking-widest shadow-md hover:bg-[#7C9979] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                >
+                  <CheckCircle2 size={20} />
+                  Finalizar Atendimento
+                </button>
               </motion.div>
             )}
             {activeTab === 'budget' && (
@@ -2274,7 +2301,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
 
             {activeTab === 'consent' && (
               <motion.div key="consent" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                <ConsentTermsModule user={user} patient={patient} />
+                <ConsentTermsModule user={user} patient={patient} onAnamnesisMerged={(fresh) => setAnamnesis(normalizeAnamnesis(fresh))} />
               </motion.div>
             )}
 
@@ -2531,7 +2558,7 @@ function PatientDetail({ user, patient, onBack }: { user: User, patient: Patient
                     )}
                     {!showReceiptForm && (
                       <button
-                        onClick={() => setShowReceiptForm(true)}
+                        onClick={openReceiptForm}
                         className="bg-[#EADFD4] text-white px-8 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 shadow-md hover:bg-[#DFCFBF] transition-all"
                       >
                         <Printer size={18} /> Gerar Recibo Simples
@@ -3262,7 +3289,7 @@ function AtestadoModule({ user, patient, getReleaserName }: { user: User, patien
   );
 }
 
-function ConsentTermsModule({ user, patient }: { user: User, patient: Patient }) {
+function ConsentTermsModule({ user, patient, onAnamnesisMerged }: { user: User, patient: Patient, onAnamnesisMerged?: (freshAnamnesis: any) => void }) {
   const [isSigning, setIsSigning] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
   const [templates, setTemplates] = useState<{ id: string, title: string, content: string }[]>([]);
@@ -3355,17 +3382,19 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
   };
 
   // Assinaturas feitas remotamente (link enviado por WhatsApp) ficam guardadas em
-  // signRequests até serem "puxadas" pro prontuário — isso acontece sozinho aqui, assim
-  // que o profissional abre essa aba do paciente.
+  // signRequests até serem "puxadas" pro prontuário — onSnapshot detecta a assinatura
+  // em tempo real, mesmo que o profissional já esteja com essa tela aberta no momento
+  // em que o paciente assina (antes usava getDocs, uma checagem única que só rodava ao
+  // abrir a tela — se o paciente assinasse depois, o profissional só via a atualização
+  // fechando e abrindo o prontuário de novo).
   useEffect(() => {
-    (async () => {
+    const q = query(
+      collection(db, 'signRequests'),
+      where('patientId', '==', patient.id),
+      where('status', '==', 'signed')
+    );
+    const unsubscribe = onSnapshot(q, async (snap) => {
       try {
-        const q = query(
-          collection(db, 'signRequests'),
-          where('patientId', '==', patient.id),
-          where('status', '==', 'signed')
-        );
-        const snap = await getDocs(q);
         const toMerge = snap.docs.filter(d => !d.data().mergedIntoRecord && (!d.data().docType || d.data().docType === 'consent'));
         if (toMerge.length === 0) return;
 
@@ -3393,7 +3422,8 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
       } catch (err) {
         // Melhor esforço — não impede o resto da tela de funcionar
       }
-    })();
+    });
+    return () => unsubscribe();
   }, [patient.id]);
 
   // Ficha clínica de harmonização facial, preenchida pelo próprio paciente na sala de
@@ -3401,13 +3431,12 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
   // profissional abre essa aba: dados de cadastro, anamnese (questionário de saúde e
   // queixa principal) e os dois termos de autorização, com a assinatura do paciente.
   useEffect(() => {
-    (async () => {
+    const q = query(
+      collection(db, 'intakeSubmissions'),
+      where('patientId', '==', patient.id)
+    );
+    const unsubscribe = onSnapshot(q, async (snap) => {
       try {
-        const q = query(
-          collection(db, 'intakeSubmissions'),
-          where('patientId', '==', patient.id)
-        );
-        const snap = await getDocs(q);
         const toMerge = snap.docs.filter(d => !d.data().mergedIntoRecord);
         if (toMerge.length === 0) return;
 
@@ -3520,12 +3549,18 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
           },
         };
         await updateDoc(doc(db, 'patients', patient.id!), patientUpdate);
+        // Sem isso, a tela do profissional continuava com o estado local antigo (sem os
+        // dados da ficha) mesmo depois do Firestore já ter sido atualizado — qualquer
+        // gravação seguinte (ex: clicar em "Liberar") sobrescrevia a mesclagem que
+        // acabou de acontecer, fazendo a anamnese "voltar" a ficar em branco.
+        onAnamnesisMerged?.(patientUpdate.anamnesis);
         await Promise.all(toMerge.map(d => updateDoc(doc(db, 'intakeSubmissions', d.id), { mergedIntoRecord: true })));
         showToast('Ficha clínica preenchida pelo paciente recebida e mesclada no prontuário');
       } catch (err) {
         // Melhor esforço — não impede o resto da tela de funcionar
       }
-    })();
+    });
+    return () => unsubscribe();
   }, [patient.id]);
 
   const openWhatsAppPreparation = (template: { id: string, title: string, content: string }) => {
@@ -3569,7 +3604,7 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
       const link = remoteSignLink(docRef.id);
       const message = `Olá, ${patient.name}! Segue o link pra assinar o documento "${preparingWhatsAppTemplate.title}" da sua consulta:\n${link}`;
       if (via === 'whatsapp') {
-        window.open(whatsappLink(sentTo, message), '_blank');
+        openWhatsApp(sentTo, message);
       } else {
         window.open(genericEmailLink(sentTo, `Assinatura: ${preparingWhatsAppTemplate.title}`, message), '_blank');
       }
@@ -4000,7 +4035,7 @@ function PrescriptionModule({ user, patient }: { user: User, patient: Patient })
       .map((m: any, i: number) => `${i + 1}. ${m.name} — ${m.dosage}${m.instructions ? `\n   ${m.instructions}` : ''}`)
       .join('\n');
     const message = `Olá, ${patient.name}! Segue sua receita de ${clinicName}:\n\n${medicinesText}${prescription.content ? `\n\nOrientações: ${prescription.content}` : ''}`;
-    window.open(whatsappLink(patient.phone, message), '_blank');
+    openWhatsApp(patient.phone, message);
   };
 
   const handleViewPrescription = (prescription: any) => {
