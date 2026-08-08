@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { doc, getDoc, setDoc, deleteDoc, collection, query, where, getDocs, onSnapshot, addDoc, updateDoc, deleteField } from 'firebase/firestore';
+import { doc, getDoc, setDoc, deleteDoc, collection, query, where, getDocs, onSnapshot, addDoc, updateDoc, deleteField, writeBatch } from 'firebase/firestore';
 import { db, storage } from '../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { ClinicSettings, ConsentTemplate, PrescriptionTemplate, InventoryItem } from '../types';
@@ -120,6 +120,60 @@ export default function Settings({ user }: { user: User }) {
   const [editingInsumoId, setEditingInsumoId] = useState<string | null>(null);
   const [editInsumo, setEditInsumo] = useState({ name: '', category: '', unit: 'Unidades', purchasedByBox: false, unitsPerBox: '', minThreshold: '' });
   const [savingEditInsumo, setSavingEditInsumo] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [resetConfirmText, setResetConfirmText] = useState('');
+  const [resetting, setResetting] = useState(false);
+  const [resetResult, setResetResult] = useState<string | null>(null);
+
+  // Apaga TODOS os documentos de uma coleção, em lotes de até 450 (limite do Firestore é
+  // 500 operações por lote) — usado só pelo "zerar dados de teste", nunca em nenhum
+  // outro fluxo normal do app.
+  const deleteAllInCollection = async (collectionName: string): Promise<number> => {
+    const snap = await getDocs(collection(db, collectionName));
+    const docs = snap.docs;
+    let deleted = 0;
+    for (let i = 0; i < docs.length; i += 450) {
+      const batch = writeBatch(db);
+      const chunk = docs.slice(i, i + 450);
+      chunk.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+      deleted += chunk.length;
+    }
+    return deleted;
+  };
+
+  // Zera pacientes/prontuários e financeiro (era ambiente de teste) — mantém intactos
+  // Estoque, Configurações (procedimentos/kits/dados da clínica) e login/administradores,
+  // exatamente como confirmado. Inclui as coleções auxiliares ligadas a paciente
+  // (agendamentos, índices de CPF/telefone, pedidos de assinatura, ficha enviada, avisos
+  // de estoque por paciente, receita por procedimento) — sem isso, ficariam órfãs
+  // referenciando pacientes que não existem mais, e os índices de CPF/telefone
+  // impediriam recadastrar o mesmo CPF/telefone de teste de novo.
+  const handleResetTestData = async () => {
+    if (resetConfirmText !== 'APAGAR TUDO') return;
+    setResetting(true);
+    setResetResult(null);
+    const collections = [
+      'patients', 'appointments', 'busySlots', 'patientCpfIndex', 'patientPhoneIndex',
+      'signRequests', 'intakeSubmissions', 'stockAlerts', 'procedureRevenue',
+      'transactions', 'fixedCosts',
+    ];
+    const results: string[] = [];
+    for (const c of collections) {
+      try {
+        const count = await deleteAllInCollection(c);
+        results.push(`${c}: ${count} apagado(s)`);
+      } catch (err: any) {
+        results.push(`${c}: ERRO — ${err?.message || 'falhou'}`);
+      }
+    }
+    setResetResult(results.join('\n'));
+    setResetting(false);
+    setShowResetConfirm(false);
+    setResetConfirmText('');
+    showToast('Dados de teste zerados — pacientes e financeiro apagados');
+  };
+
 
   const openEditInsumo = (item: InventoryItem) => {
     setEditingInsumoId(item.id!);
@@ -1322,6 +1376,57 @@ export default function Settings({ user }: { user: User }) {
 
       <div className="mt-8">
         <PatientBackup user={user} />
+      </div>
+
+      <div className="mt-8 bg-red-50 border-2 border-red-200 rounded-[40px] p-10">
+        <h3 className="serif text-2xl text-red-500 mb-2">Zona de Perigo</h3>
+        <p className="text-xs text-red-400 font-light mb-6">
+          Apaga permanentemente todos os pacientes/prontuários e todo o financeiro (transações, custos fixos e
+          variáveis) — usado só pra encerrar um período de testes e começar do zero. Estoque, Configurações
+          (procedimentos, kits, dados da clínica) e login/administradores <strong>não</strong> são afetados. Essa
+          ação não pode ser desfeita.
+        </p>
+        {!showResetConfirm ? (
+          <button
+            onClick={() => setShowResetConfirm(true)}
+            className="bg-red-500 text-white px-8 py-4 rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-red-600 transition-all"
+          >
+            Zerar Pacientes e Financeiro (Dados de Teste)
+          </button>
+        ) : (
+          <div className="space-y-4">
+            <p className="text-xs text-red-500 font-bold">
+              Digite exatamente "APAGAR TUDO" abaixo pra confirmar. Isso é irreversível.
+            </p>
+            <input
+              value={resetConfirmText}
+              onChange={e => setResetConfirmText(e.target.value)}
+              placeholder="APAGAR TUDO"
+              className="w-full bg-white border border-red-200 rounded-2xl p-4 outline-none focus:border-red-400 transition-all text-sm"
+            />
+            <div className="flex gap-4">
+              <button
+                onClick={() => { setShowResetConfirm(false); setResetConfirmText(''); }}
+                className="flex-1 py-4 text-[#9CA3AF] font-bold text-[10px] uppercase"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleResetTestData}
+                disabled={resetConfirmText !== 'APAGAR TUDO' || resetting}
+                className="flex-1 py-4 bg-red-500 text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-red-600 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {resetting ? 'Apagando...' : 'Confirmar e Apagar Permanentemente'}
+              </button>
+            </div>
+          </div>
+        )}
+        {resetResult && (
+          <div className="mt-6 p-4 bg-white rounded-2xl">
+            <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2">Resultado:</p>
+            <pre className="text-[10px] text-[#4A433D] whitespace-pre-wrap font-mono">{resetResult}</pre>
+          </div>
+        )}
       </div>
       </>
       )}
