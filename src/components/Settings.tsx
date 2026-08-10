@@ -978,6 +978,19 @@ export default function Settings({ user }: { user: User }) {
                   valor que dê uma margem de lucro menor que essa, considerando o custo dos insumos.
                 </p>
               </div>
+              <div>
+                <SettingField 
+                  label="Google Drive — Client ID (OAuth)" 
+                  value={settings.googleDriveClientId || ''} 
+                  onChange={v => setSettings({...settings, googleDriveClientId: v})}
+                  icon={<Cloud size={18} />}
+                  placeholder="xxxxxxxxxx.apps.googleusercontent.com"
+                />
+                <p className="text-[10px] text-[#9CA3AF] font-light mt-2 ml-1">
+                  Usado pra enviar os backups direto pro Google Drive. Precisa ser criado uma vez no Google Cloud
+                  Console (peça o passo a passo).
+                </p>
+              </div>
             </div>
           </section>
 

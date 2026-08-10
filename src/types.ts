@@ -576,6 +576,10 @@ export interface ClinicSettings {
   // contra o custo do seu Kit de Insumos, impedindo salvar um valor que dê menos que
   // esse percentual de lucro.
   minProfitMarginPercent?: number;
+  // Client ID OAuth do Google, criado pelo próprio administrador no Google Cloud
+  // Console — usado só pra enviar backups direto pro Google Drive dele, sem precisar
+  // de servidor próprio nem guardar nenhuma credencial secreta do lado do app.
+  googleDriveClientId?: string;
 }
 
 // Documento público (legível por qualquer um, sem login) usado pela página de agendamento

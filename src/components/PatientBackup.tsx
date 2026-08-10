@@ -6,6 +6,7 @@ import { Patient, ClinicSettings } from '../types';
 import { User } from 'firebase/auth';
 import { generatePatientPdf, patientPdfFileName } from '../lib/patientPdf';
 import { getClinicOwnerId } from '../lib/slots';
+import { uploadToGoogleDrive } from '../lib/googleDrive';
 import { FileDown, Search, Download, Loader2, Cloud, Database } from 'lucide-react';
 import { showToast } from '../lib/toast';
 
@@ -108,33 +109,61 @@ export default function PatientBackup({ user }: { user: User }) {
   // separadamente. Pensado pra guardar uma cópia bruta e completa dos dados fora do
   // sistema (segunda nuvem, HD, etc.) — não é feito pra reimportar automaticamente,
   // é uma cópia de segurança em caso de perda de acesso ao Firebase.
+  const [sendingFullToDrive, setSendingFullToDrive] = useState(false);
+  const [sendingPatientsToDrive, setSendingPatientsToDrive] = useState(false);
+
+  const buildFullBackupBlob = async (): Promise<{ blob: Blob; filename: string }> => {
+    const ownerId = await getClinicOwnerId(db).catch(() => user.uid);
+    const collectionsToExport = [
+      'patients', 'transactions', 'fixedCosts', 'inventory',
+      'inventory_movements', 'procedureRevenue', 'appointments', 'stockAlerts',
+    ];
+    const exportData: Record<string, any> = {
+      geradoEm: new Date().toISOString(),
+      clinica: ownerId,
+    };
+    for (const c of collectionsToExport) {
+      const snap = await getDocs(collection(db, c));
+      exportData[c] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }
+    const settingsSnap = await getDoc(doc(db, 'settings', ownerId));
+    exportData.settings = settingsSnap.exists() ? settingsSnap.data() : null;
+    const json = JSON.stringify(exportData, null, 2);
+    return {
+      blob: new Blob([json], { type: 'application/json' }),
+      filename: `backup-completo-${new Date().toISOString().split('T')[0]}.json`,
+    };
+  };
+
+  const buildPatientsZipBlob = async (onProgress?: (pct: number) => void): Promise<{ blob: Blob; filename: string }> => {
+    const JSZip = (await import('jszip')).default;
+    const zip = new JSZip();
+    for (let i = 0; i < patients.length; i++) {
+      const pdfBlob = await generatePatientPdf(patients[i], clinicSettings);
+      zip.file(patientPdfFileName(patients[i]), pdfBlob);
+      onProgress?.(Math.round(((i + 1) / patients.length) * 100));
+    }
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    return {
+      blob: zipBlob,
+      filename: `prontuarios-backup-${new Date().toISOString().split('T')[0]}.zip`,
+    };
+  };
+
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handleDownloadFullBackup = async () => {
     setDownloadingFull(true);
     try {
-      const ownerId = await getClinicOwnerId(db).catch(() => user.uid);
-      const collectionsToExport = [
-        'patients', 'transactions', 'fixedCosts', 'inventory',
-        'inventory_movements', 'procedureRevenue', 'appointments', 'stockAlerts',
-      ];
-      const exportData: Record<string, any> = {
-        geradoEm: new Date().toISOString(),
-        clinica: ownerId,
-      };
-      for (const c of collectionsToExport) {
-        const snap = await getDocs(collection(db, c));
-        exportData[c] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      }
-      const settingsSnap = await getDoc(doc(db, 'settings', ownerId));
-      exportData.settings = settingsSnap.exists() ? settingsSnap.data() : null;
-
-      const json = JSON.stringify(exportData, null, 2);
-      const blob = new Blob([json], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `backup-completo-${new Date().toISOString().split('T')[0]}.json`;
-      link.click();
-      URL.revokeObjectURL(url);
+      const { blob, filename } = await buildFullBackupBlob();
+      downloadBlob(blob, filename);
       showToast('Backup completo baixado');
     } catch (err) {
       showToast('Erro ao gerar backup completo', 'error');
@@ -147,25 +176,42 @@ export default function PatientBackup({ user }: { user: User }) {
     setDownloadingAll(true);
     setAllProgress(0);
     try {
-      const JSZip = (await import('jszip')).default;
-      const zip = new JSZip();
-      for (let i = 0; i < patients.length; i++) {
-        const blob = await generatePatientPdf(patients[i], clinicSettings);
-        zip.file(patientPdfFileName(patients[i]), blob);
-        setAllProgress(Math.round(((i + 1) / patients.length) * 100));
-      }
-      const zipBlob = await zip.generateAsync({ type: 'blob' });
-      const url = URL.createObjectURL(zipBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `prontuarios-backup-${new Date().toISOString().split('T')[0]}.zip`;
-      link.click();
-      URL.revokeObjectURL(url);
+      const { blob, filename } = await buildPatientsZipBlob(setAllProgress);
+      downloadBlob(blob, filename);
       showToast(`${patients.length} prontuário(s) baixado(s)`);
     } catch (err) {
       showToast('Erro ao gerar backup', 'error');
     }
     setDownloadingAll(false);
+  };
+
+  // Sugere a conta do próprio e-mail da clínica na tela de login do Google — não a
+  // conta pessoal de quem estiver operando o sistema no momento
+  const CLINIC_GOOGLE_ACCOUNT = 'contato.dravitoriaoliveira@gmail.com';
+
+  const handleSendFullToDrive = async () => {
+    setSendingFullToDrive(true);
+    try {
+      const { blob, filename } = await buildFullBackupBlob();
+      await uploadToGoogleDrive(blob, filename, clinicSettings?.googleDriveClientId || '', CLINIC_GOOGLE_ACCOUNT);
+      showToast('Backup completo enviado ao Google Drive');
+    } catch (err: any) {
+      showToast(err?.message || 'Erro ao enviar ao Google Drive', 'error');
+    }
+    setSendingFullToDrive(false);
+  };
+
+  const handleSendPatientsToDrive = async () => {
+    if (patients.length === 0) return;
+    setSendingPatientsToDrive(true);
+    try {
+      const { blob, filename } = await buildPatientsZipBlob();
+      await uploadToGoogleDrive(blob, filename, clinicSettings?.googleDriveClientId || '', CLINIC_GOOGLE_ACCOUNT);
+      showToast('Prontuários enviados ao Google Drive');
+    } catch (err: any) {
+      showToast(err?.message || 'Erro ao enviar ao Google Drive', 'error');
+    }
+    setSendingPatientsToDrive(false);
   };
 
   return (
@@ -182,41 +228,76 @@ export default function PatientBackup({ user }: { user: User }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-        <button
-          onClick={handleDownloadFullBackup}
-          disabled={downloadingFull}
-          className="py-5 bg-[#4A433D] text-white rounded-2xl font-bold text-[11px] uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-[#5C544E] transition-all disabled:opacity-50"
-        >
-          {downloadingFull ? (
-            <>
-              <Loader2 size={16} className="animate-spin" /> Gerando...
-            </>
-          ) : (
-            <>
-              <Database size={16} /> Backup Completo (Tudo) — .json
-            </>
-          )}
-        </button>
-        <button
-          onClick={handleDownloadAll}
-          disabled={downloadingAll || patients.length === 0}
-          className="py-5 bg-white border-2 border-[#4A433D] text-[#4A433D] rounded-2xl font-bold text-[11px] uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-[#FDFBF9] transition-all disabled:opacity-50"
-        >
-          {downloadingAll ? (
-            <>
-              <Loader2 size={16} className="animate-spin" /> Gerando... {allProgress}%
-            </>
-          ) : (
-            <>
-              <Download size={16} /> Só Prontuários ({patients.length}) — .zip
-            </>
-          )}
-        </button>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+        <div className="space-y-3">
+          <button
+            onClick={handleDownloadFullBackup}
+            disabled={downloadingFull}
+            className="w-full py-5 bg-[#4A433D] text-white rounded-2xl font-bold text-[11px] uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-[#5C544E] transition-all disabled:opacity-50"
+          >
+            {downloadingFull ? (
+              <>
+                <Loader2 size={16} className="animate-spin" /> Gerando...
+              </>
+            ) : (
+              <>
+                <Database size={16} /> Backup Completo (Tudo) — .json
+              </>
+            )}
+          </button>
+          <button
+            onClick={handleSendFullToDrive}
+            disabled={sendingFullToDrive}
+            className="w-full py-3 bg-white border border-[#F5F2F0] text-[#4A433D] rounded-2xl font-bold text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:border-[#EADFD4] transition-all disabled:opacity-50"
+          >
+            {sendingFullToDrive ? (
+              <>
+                <Loader2 size={14} className="animate-spin" /> Enviando...
+              </>
+            ) : (
+              <>
+                <Cloud size={14} /> Enviar ao Google Drive
+              </>
+            )}
+          </button>
+        </div>
+        <div className="space-y-3">
+          <button
+            onClick={handleDownloadAll}
+            disabled={downloadingAll || patients.length === 0}
+            className="w-full py-5 bg-white border-2 border-[#4A433D] text-[#4A433D] rounded-2xl font-bold text-[11px] uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-[#FDFBF9] transition-all disabled:opacity-50"
+          >
+            {downloadingAll ? (
+              <>
+                <Loader2 size={16} className="animate-spin" /> Gerando... {allProgress}%
+              </>
+            ) : (
+              <>
+                <Download size={16} /> Só Prontuários ({patients.length}) — .zip
+              </>
+            )}
+          </button>
+          <button
+            onClick={handleSendPatientsToDrive}
+            disabled={sendingPatientsToDrive || patients.length === 0}
+            className="w-full py-3 bg-white border border-[#F5F2F0] text-[#4A433D] rounded-2xl font-bold text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:border-[#EADFD4] transition-all disabled:opacity-50"
+          >
+            {sendingPatientsToDrive ? (
+              <>
+                <Loader2 size={14} className="animate-spin" /> Enviando...
+              </>
+            ) : (
+              <>
+                <Cloud size={14} /> Enviar ao Google Drive
+              </>
+            )}
+          </button>
+        </div>
       </div>
-      <p className="text-[10px] text-[#9CA3AF] font-light -mt-4 mb-8">
+      <p className="text-[10px] text-[#9CA3AF] font-light mb-8">
         <strong>Backup Completo</strong> puxa tudo — pacientes, financeiro, estoque, configurações — num arquivo
-        JSON só. <strong>Só Prontuários</strong> gera um PDF legível por paciente, num .zip.
+        JSON só. <strong>Só Prontuários</strong> gera um PDF legível por paciente, num .zip. "Enviar ao Google
+        Drive" pede login com a conta {CLINIC_GOOGLE_ACCOUNT} — exige o Client ID configurado em Gestão.
       </p>
 
       <div className="pt-6 border-t border-[#F5F2F0]">
