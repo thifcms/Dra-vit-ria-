@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { fetchWithRetry } from '../lib/retryFetch';
 import { motion } from 'motion/react';
 import SignaturePad from 'react-signature-canvas';
 import { CheckCircle2, RotateCcw } from 'lucide-react';
@@ -120,8 +121,9 @@ export default function IntakeQuestionnaire({ appointmentId, patientId, patientN
   const [loadingPatient, setLoadingPatient] = useState(true);
 
   React.useEffect(() => {
-    getDoc(doc(db, 'patients', patientId))
+    fetchWithRetry(() => getDoc(doc(db, 'patients', patientId)))
       .then(snap => { if (snap.exists()) setPatient(snap.data() as Patient); })
+      .catch(() => { /* segue sem pré-preenchimento — o formulário ainda funciona, só não vem com os dados já conhecidos */ })
       .finally(() => setLoadingPatient(false));
   }, [patientId]);
 

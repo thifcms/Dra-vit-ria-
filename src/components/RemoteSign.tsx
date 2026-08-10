@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { fetchWithRetry } from '../lib/retryFetch';
 import { motion } from 'motion/react';
 import SignaturePad from 'react-signature-canvas';
 import { CheckCircle2, XCircle, RotateCcw } from 'lucide-react';
@@ -17,17 +18,20 @@ export default function RemoteSign() {
   const [loading, setLoading] = useState(true);
   const [request, setRequest] = useState<SignRequest | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [networkError, setNetworkError] = useState(false);
   const [signing, setSigning] = useState(false);
   const [done, setDone] = useState(false);
   const sigPad = useRef<any>(null);
 
-  React.useEffect(() => {
+  const loadRequest = () => {
     if (!requestId) {
       setNotFound(true);
       setLoading(false);
       return;
     }
-    getDoc(doc(db, 'signRequests', requestId))
+    setLoading(true);
+    setNetworkError(false);
+    fetchWithRetry(() => getDoc(doc(db, 'signRequests', requestId)))
       .then(snap => {
         if (!snap.exists()) {
           setNotFound(true);
@@ -37,9 +41,11 @@ export default function RemoteSign() {
           if (data.status === 'signed') setDone(true);
         }
       })
-      .catch(() => setNotFound(true))
+      .catch(() => setNetworkError(true))
       .finally(() => setLoading(false));
-  }, [requestId]);
+  };
+
+  React.useEffect(() => { loadRequest(); }, [requestId]);
 
   const handleSign = async () => {
     if (!sigPad.current || sigPad.current.isEmpty() || !request) return;
@@ -62,6 +68,21 @@ export default function RemoteSign() {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-[#FDFBF9]">
         <div className="w-8 h-8 border-2 border-[#EADFD4] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (networkError) {
+    return (
+      <div className="h-screen w-screen flex flex-col items-center justify-center bg-[#FDFBF9] p-6 text-center gap-4">
+        <p className="text-[#4A433D] font-medium">Não foi possível conectar agora.</p>
+        <p className="text-sm text-[#9CA3AF] font-light">Verifique sua conexão e tente de novo — o link continua válido.</p>
+        <button
+          onClick={loadRequest}
+          className="px-8 py-3 bg-[#EADFD4] text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest"
+        >
+          Tentar Novamente
+        </button>
       </div>
     );
   }

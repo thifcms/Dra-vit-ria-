@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
+import { fetchWithRetry } from '../lib/retryFetch';
+import { showToast } from '../lib/toast';
 import { db } from '../lib/firebase';
 import { slotId, checkinLink, cancelLink, generateTimeSlots, phoneIndexKey, cpfIndexKey, normalizeCpf, isValidCpfFormat, EMAIL_SERVICE_URL, localDateStr, todayLocalStr } from '../lib/slots';
 import { buildReminderMessage, whatsappLink } from '../lib/reminders';
@@ -172,16 +174,16 @@ export default function PublicBooking() {
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
-    getDoc(doc(db, 'publicConfig', 'booking'))
+    fetchWithRetry(() => getDoc(doc(db, 'publicConfig', 'booking')))
       .then(snap => {
         if (snap.exists()) setConfig(snap.data() as PublicBookingConfig);
         else setConfigError(true);
       })
       .catch(() => setConfigError(true))
       .finally(() => setLoadingConfig(false));
-    getDocs(collection(db, 'professionals')).then(snap => {
+    fetchWithRetry(() => getDocs(collection(db, 'professionals'))).then(snap => {
       setProfessionals(snap.docs.map(d => ({ id: d.id, ...d.data() } as Professional)));
-    });
+    }).catch(() => { /* sem profissionais cadastrados ainda, cai no comportamento padrão */ });
   }, []);
 
   // Só mostra a etapa de escolha de profissional quando há mais de 1 disponível — com só
@@ -451,9 +453,17 @@ export default function PublicBooking() {
   if (configError || !config) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-[#FDFBF9] p-6 text-center">
-        <p className="text-[#9CA3AF] font-light">
-          Não foi possível carregar a página de agendamento no momento. Tente novamente mais tarde.
-        </p>
+        <div>
+          <p className="text-[#9CA3AF] font-light mb-6">
+            Não foi possível carregar a página de agendamento no momento. Verifique sua conexão e tente de novo.
+          </p>
+          <button
+            onClick={() => { setConfigError(false); setLoadingConfig(true); window.location.reload(); }}
+            className="px-8 py-3 bg-[#EADFD4] text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest"
+          >
+            Tentar Novamente
+          </button>
+        </div>
       </div>
     );
   }
@@ -479,6 +489,15 @@ export default function PublicBooking() {
 
           <button
             onClick={() => {
+              // Se o telefone digitado estiver incompleto (menos de 10 dígitos, ou seja,
+              // sem DDD+número válido), o WhatsApp mostra um erro sobre o número em vez
+              // de abrir a conversa — melhor avisar aqui antes, com uma mensagem clara,
+              // do que deixar a pessoa ver um erro genérico do próprio WhatsApp.
+              const digitCount = phone.replace(/\D/g, '').length;
+              if (digitCount < 10 || digitCount > 13) {
+                showToast('O telefone informado parece incompleto — confira o número (com DDD) antes de tentar salvar no WhatsApp.', 'error');
+                return;
+              }
               const msg = buildReminderMessage({
                 patientName: name,
                 clinicName: config.clinicName,

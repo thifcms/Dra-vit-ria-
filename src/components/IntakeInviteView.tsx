@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { fetchWithRetry } from '../lib/retryFetch';
 import IntakeQuestionnaire from './IntakeQuestionnaire';
 
 // Página pública de convite pra Ficha Clínica — diferente do fluxo original (que só
@@ -12,12 +13,19 @@ export default function IntakeInviteView() {
   const [invite, setInvite] = useState<{ patientId: string; patientName: string; ownerId: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  // Diferente de "link não existe" — aqui é uma falha de conexão passageira, retry
+  // automático já tentou e não conseguiu. Mostra mensagem diferente, com botão de tentar
+  // de novo, em vez de dizer que o link está errado (o que não é verdade e só confunde
+  // o paciente a pedir um link novo sem necessidade).
+  const [networkError, setNetworkError] = useState(false);
   // Gera uma chave nova pra essa submissão — não está presa a um agendamento existente
   const [submissionKey] = useState(() => crypto.randomUUID());
 
-  useEffect(() => {
+  const loadInvite = () => {
     if (!token) { setNotFound(true); setLoading(false); return; }
-    getDoc(doc(db, 'intakeInvites', token))
+    setLoading(true);
+    setNetworkError(false);
+    fetchWithRetry(() => getDoc(doc(db, 'intakeInvites', token)))
       .then(snap => {
         if (snap.exists()) {
           const data = snap.data();
@@ -26,14 +34,31 @@ export default function IntakeInviteView() {
           setNotFound(true);
         }
       })
-      .catch(() => setNotFound(true))
+      .catch(() => setNetworkError(true))
       .finally(() => setLoading(false));
-  }, [token]);
+  };
+
+  useEffect(() => { loadInvite(); }, [token]);
 
   if (loading) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-[#FDFBF9]">
         <div className="w-8 h-8 border-2 border-[#EADFD4] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (networkError) {
+    return (
+      <div className="h-screen w-screen flex flex-col items-center justify-center bg-[#FDFBF9] p-6 text-center gap-4">
+        <p className="text-[#4A433D] font-medium serif text-lg">Não foi possível conectar agora.</p>
+        <p className="text-sm text-[#9CA3AF]">Verifique sua conexão com a internet e tente de novo — o link continua válido.</p>
+        <button
+          onClick={loadInvite}
+          className="px-8 py-3 bg-[#EADFD4] text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest"
+        >
+          Tentar Novamente
+        </button>
       </div>
     );
   }
