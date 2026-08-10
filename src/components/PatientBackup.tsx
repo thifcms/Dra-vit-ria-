@@ -5,7 +5,8 @@ import { ref, listAll, getDownloadURL, getMetadata } from 'firebase/storage';
 import { Patient, ClinicSettings } from '../types';
 import { User } from 'firebase/auth';
 import { generatePatientPdf, patientPdfFileName } from '../lib/patientPdf';
-import { FileDown, Search, Download, Loader2, Cloud } from 'lucide-react';
+import { getClinicOwnerId } from '../lib/slots';
+import { FileDown, Search, Download, Loader2, Cloud, Database } from 'lucide-react';
 import { showToast } from '../lib/toast';
 
 // Só aparece pra administrador — mesma checagem usada no AdminPanel. Deixa baixar o
@@ -18,6 +19,7 @@ export default function PatientBackup({ user }: { user: User }) {
   const [search, setSearch] = useState('');
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [downloadingAll, setDownloadingAll] = useState(false);
+  const [downloadingFull, setDownloadingFull] = useState(false);
   const [allProgress, setAllProgress] = useState(0);
 
   const [cloudBackups, setCloudBackups] = useState<{ path: string; name: string; patientId: string; created: string; url: string; size: number }[] | null>(null);
@@ -98,6 +100,48 @@ export default function PatientBackup({ user }: { user: User }) {
     setDownloadingId(null);
   };
 
+  // Backup Completo (Tudo) — diferente do backup de prontuários acima (que só cobre
+  // pacientes, em PDF), esse puxa TODAS as coleções do sistema num arquivo JSON só:
+  // financeiro, estoque, configurações da clínica, receita por procedimento. Os
+  // prontuários (patients) já trazem embutido dentro deles todo o histórico de
+  // anamnese/orçamento/termos de cada paciente, então não precisa buscar essas partes
+  // separadamente. Pensado pra guardar uma cópia bruta e completa dos dados fora do
+  // sistema (segunda nuvem, HD, etc.) — não é feito pra reimportar automaticamente,
+  // é uma cópia de segurança em caso de perda de acesso ao Firebase.
+  const handleDownloadFullBackup = async () => {
+    setDownloadingFull(true);
+    try {
+      const ownerId = await getClinicOwnerId(db).catch(() => user.uid);
+      const collectionsToExport = [
+        'patients', 'transactions', 'fixedCosts', 'inventory',
+        'inventory_movements', 'procedureRevenue', 'appointments', 'stockAlerts',
+      ];
+      const exportData: Record<string, any> = {
+        geradoEm: new Date().toISOString(),
+        clinica: ownerId,
+      };
+      for (const c of collectionsToExport) {
+        const snap = await getDocs(collection(db, c));
+        exportData[c] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      }
+      const settingsSnap = await getDoc(doc(db, 'settings', ownerId));
+      exportData.settings = settingsSnap.exists() ? settingsSnap.data() : null;
+
+      const json = JSON.stringify(exportData, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `backup-completo-${new Date().toISOString().split('T')[0]}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      showToast('Backup completo baixado');
+    } catch (err) {
+      showToast('Erro ao gerar backup completo', 'error');
+    }
+    setDownloadingFull(false);
+  };
+
   const handleDownloadAll = async () => {
     if (patients.length === 0) return;
     setDownloadingAll(true);
@@ -131,28 +175,49 @@ export default function PatientBackup({ user }: { user: User }) {
           <FileDown size={20} />
         </div>
         <div>
-          <h3 className="serif text-2xl text-[#4A433D]">Backup de Prontuários (PDF)</h3>
+          <h3 className="serif text-2xl text-[#4A433D]">Backup</h3>
           <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest mt-0.5">
             Pra guardar fora do sistema — HD, nuvem própria, etc.
           </p>
         </div>
       </div>
 
-      <button
-        onClick={handleDownloadAll}
-        disabled={downloadingAll || patients.length === 0}
-        className="w-full py-5 bg-[#4A433D] text-white rounded-2xl font-bold text-[11px] uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-[#5C544E] transition-all disabled:opacity-50 mb-8"
-      >
-        {downloadingAll ? (
-          <>
-            <Loader2 size={16} className="animate-spin" /> Gerando... {allProgress}%
-          </>
-        ) : (
-          <>
-            <Download size={16} /> Baixar Todos os Prontuários ({patients.length}) — .zip
-          </>
-        )}
-      </button>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+        <button
+          onClick={handleDownloadFullBackup}
+          disabled={downloadingFull}
+          className="py-5 bg-[#4A433D] text-white rounded-2xl font-bold text-[11px] uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-[#5C544E] transition-all disabled:opacity-50"
+        >
+          {downloadingFull ? (
+            <>
+              <Loader2 size={16} className="animate-spin" /> Gerando...
+            </>
+          ) : (
+            <>
+              <Database size={16} /> Backup Completo (Tudo) — .json
+            </>
+          )}
+        </button>
+        <button
+          onClick={handleDownloadAll}
+          disabled={downloadingAll || patients.length === 0}
+          className="py-5 bg-white border-2 border-[#4A433D] text-[#4A433D] rounded-2xl font-bold text-[11px] uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-[#FDFBF9] transition-all disabled:opacity-50"
+        >
+          {downloadingAll ? (
+            <>
+              <Loader2 size={16} className="animate-spin" /> Gerando... {allProgress}%
+            </>
+          ) : (
+            <>
+              <Download size={16} /> Só Prontuários ({patients.length}) — .zip
+            </>
+          )}
+        </button>
+      </div>
+      <p className="text-[10px] text-[#9CA3AF] font-light -mt-4 mb-8">
+        <strong>Backup Completo</strong> puxa tudo — pacientes, financeiro, estoque, configurações — num arquivo
+        JSON só. <strong>Só Prontuários</strong> gera um PDF legível por paciente, num .zip.
+      </p>
 
       <div className="pt-6 border-t border-[#F5F2F0]">
         <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-4">Ou baixe um paciente específico</p>
