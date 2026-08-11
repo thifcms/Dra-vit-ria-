@@ -201,11 +201,17 @@ export default function IntakeQuestionnaire({ appointmentId, patientId, patientN
 
   const sigPad = React.useRef<any>(null);
 
+  // isBreastfeeding/isPregnant só aparecem (e precisam ser respondidas) se o paciente
+  // não for homem — antes essas duas entravam aqui incondicionalmente, o que fazia essa
+  // checagem nunca passar pra paciente homem (as perguntas nem apareciam pra responder,
+  // então o valor ficava sempre null), travando o envio mesmo com tudo preenchido.
+  const isMale = patient?.sex === 'M';
   const allHealthAnswered = [
     usedToxinBefore, usedPMMA, hadPastComplications, hasFoodAllergy, hasInsectAllergy,
-    hadFillerBefore, isBreastfeeding, isPregnant, hasMedicalConditions,
+    hadFillerBefore, hasMedicalConditions,
     hasCoagulationDisease, bleedsEasily, hadHemorrhageOrHerpes,
     hasAnemia, hasMedicationAllergy, usesContinuousMedication,
+    ...(isMale ? [] : [isBreastfeeding, isPregnant]),
   ].every(v => v !== null);
 
   const handleSubmit = async () => {
@@ -349,7 +355,7 @@ export default function IntakeQuestionnaire({ appointmentId, patientId, patientN
           <Question label="Já realizou preenchimento facial?" value={hadFillerBefore} onChange={setHadFillerBefore}>
             <TextField label="Qual produto?" value={fillerProduct} onChange={setFillerProduct} />
           </Question>
-          {patient?.sex !== 'M' && (
+          {!isMale && (
             <>
               <Question label="(Mulheres) Está amamentando?" value={isBreastfeeding} onChange={setIsBreastfeeding} />
               <Question label="(Mulheres) Está grávida?" value={isPregnant} onChange={setIsPregnant} />
