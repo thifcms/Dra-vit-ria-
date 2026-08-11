@@ -1118,17 +1118,22 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
           ...(data.sentVia ? { sentVia: data.sentVia } : {}),
           ...(data.sentTo ? { sentTo: data.sentTo } : {}),
         };
+        const freshSnap = await getDoc(doc(db, 'patients', patient.id!));
+        const freshHistory = freshSnap.exists() ? ((freshSnap.data() as Patient).anamnesisHistory || []) : (patient.anamnesisHistory || []);
         await updateDoc(doc(db, 'patients', patient.id!), {
           anamnesis,
           anamnesisReleased: true,
           anamnesisReleasedAt: releasedAt,
           anamnesisReleasedBy: 'Paciente (assinatura remota)',
-          anamnesisHistory: [...(patient.anamnesisHistory || []), historyEntry],
+          anamnesisHistory: [...freshHistory, historyEntry],
           updatedAt: releasedAt,
         });
         await Promise.all(toMerge.map(d => updateDoc(doc(db, 'signRequests', d.id), { mergedIntoRecord: true })));
         showToast('Assinatura remota da anamnese recebida — anamnese liberada');
-      } catch { /* melhor esforço */ }
+      } catch (err: any) {
+        console.error('Erro ao mesclar assinatura remota da anamnese:', err);
+        showToast(`Não foi possível liberar a anamnese: ${err?.code || err?.message || 'erro desconhecido'}`, 'error');
+      }
     });
     return () => unsubscribe();
   }, [patient.id, patient.anamnesisReleased]);
@@ -3433,13 +3438,16 @@ function ConsentTermsModule({ user, patient, onAnamnesisMerged }: { user: User, 
             ...(data.sentTo ? { sentTo: data.sentTo } : {}),
           };
         });
+        const freshSnap = await getDoc(doc(db, 'patients', patient.id!));
+        const freshTerms = freshSnap.exists() ? ((freshSnap.data() as Patient).consentTerms || []) : (patient.consentTerms || []);
         await updateDoc(doc(db, 'patients', patient.id!), {
-          consentTerms: [...(patient.consentTerms || []), ...newTerms],
+          consentTerms: [...freshTerms, ...newTerms],
         });
         await Promise.all(toMerge.map(d => updateDoc(doc(db, 'signRequests', d.id), { mergedIntoRecord: true })));
         showToast(`${newTerms.length} assinatura(s) remota(s) recebida(s)`);
-      } catch (err) {
-        // Melhor esforço — não impede o resto da tela de funcionar
+      } catch (err: any) {
+        console.error('Erro ao mesclar termo assinado remotamente:', err);
+        showToast(`Não foi possível salvar o termo assinado: ${err?.code || err?.message || 'erro desconhecido'}`, 'error');
       }
     });
     return () => unsubscribe();
@@ -3459,25 +3467,35 @@ function ConsentTermsModule({ user, patient, onAnamnesisMerged }: { user: User, 
         const toMerge = snap.docs.filter(d => !d.data().mergedIntoRecord);
         if (toMerge.length === 0) return;
 
+        // Busca o paciente ATUALIZADO agora, em vez de usar a variável "patient" —
+        // essa variável fica presa (fechamento do React) no que era verdade quando a
+        // tela abriu, e esse efeito só roda de novo se o ID do paciente mudar, não a
+        // cada atualização do cadastro. Sem isso, se algo no cadastro tivesse mudado
+        // depois que essa tela abriu (outra aba, outro profissional), a mesclagem usaria
+        // a versão antiga como base — e em alguns casos isso podia fazer a gravação
+        // falhar silenciosamente, sem a ficha nunca chegar na anamnese.
+        const freshSnap = await getDoc(doc(db, 'patients', patient.id!));
+        const freshPatient = freshSnap.exists() ? (freshSnap.data() as Patient) : patient;
+
         // Só existe 1 ficha por check-in — se por acaso houver mais de uma pendente,
         // usa a mais recente
         const sorted = toMerge.sort((a, b) => (b.data().submittedAt || '').localeCompare(a.data().submittedAt || ''));
         const s = sorted[0].data();
 
-        const currentAnamnesis = patient.anamnesis || ({} as any);
+        const currentAnamnesis = freshPatient.anamnesis || ({} as any);
         const patientUpdate: any = {
           // Só preenche o que ainda não existia — nunca sobrescreve o que já estava
           // certo no cadastro
-          birthDate: patient.birthDate || s.birthDate || '',
-          address: patient.address || s.address || '',
-          email: patient.email || s.email || '',
-          profession: patient.profession || s.profession || '',
-          maritalStatus: patient.maritalStatus || s.maritalStatus || '',
-          howHeardAboutClinic: patient.howHeardAboutClinic || s.howHeardAboutClinic || '',
-          emergencyContactName: patient.emergencyContactName || s.emergencyContactName || '',
-          emergencyContactPhone: patient.emergencyContactPhone || s.emergencyContactPhone || '',
+          birthDate: freshPatient.birthDate || s.birthDate || '',
+          address: freshPatient.address || s.address || '',
+          email: freshPatient.email || s.email || '',
+          profession: freshPatient.profession || s.profession || '',
+          maritalStatus: freshPatient.maritalStatus || s.maritalStatus || '',
+          howHeardAboutClinic: freshPatient.howHeardAboutClinic || s.howHeardAboutClinic || '',
+          emergencyContactName: freshPatient.emergencyContactName || s.emergencyContactName || '',
+          emergencyContactPhone: freshPatient.emergencyContactPhone || s.emergencyContactPhone || '',
           consentTerms: [
-            ...(patient.consentTerms || []),
+            ...(freshPatient.consentTerms || []),
             {
               templateId: 'intake-full-form',
               templateTitle: 'Ficha Clínica do Paciente (Completa)',
@@ -3575,8 +3593,12 @@ function ConsentTermsModule({ user, patient, onAnamnesisMerged }: { user: User, 
         onAnamnesisMerged?.(patientUpdate.anamnesis);
         await Promise.all(toMerge.map(d => updateDoc(doc(db, 'intakeSubmissions', d.id), { mergedIntoRecord: true })));
         showToast('Ficha clínica preenchida pelo paciente recebida e mesclada no prontuário');
-      } catch (err) {
-        // Melhor esforço — não impede o resto da tela de funcionar
+      } catch (err: any) {
+        // Antes ficava em silêncio total aqui — se a gravação falhasse por qualquer
+        // motivo (permissão, rede, regra do Firestore), ninguém saberia por quê, e a
+        // ficha simplesmente nunca chegava na anamnese sem nenhuma pista do motivo.
+        console.error('Erro ao mesclar ficha clínica na anamnese:', err);
+        showToast(`Não foi possível mesclar a ficha clínica: ${err?.code || err?.message || 'erro desconhecido'}`, 'error');
       }
     });
     return () => unsubscribe();
