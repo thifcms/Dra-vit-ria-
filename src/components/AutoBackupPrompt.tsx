@@ -1,29 +1,34 @@
-import React, { useState, useEffect } from 'react';
-import { collection, query, where, getDocs, doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import React, { useState, useEffect, useRef } from 'react';
+import { collection, query, where, doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { User } from 'firebase/auth';
 import { Patient, ClinicSettings } from '../types';
 import { getClinicOwnerId } from '../lib/slots';
-import { buildFullBackupBlob, buildPatientsZipBlob, downloadBlob, CLINIC_GOOGLE_ACCOUNT } from '../lib/backupBuilders';
+import { buildFullBackupBlob, buildPatientsZipBlob, uploadToFirebaseStorage, CLINIC_GOOGLE_ACCOUNT } from '../lib/backupBuilders';
 import { uploadToGoogleDrive } from '../lib/googleDrive';
 import { showToast } from '../lib/toast';
 import { motion, AnimatePresence } from 'motion/react';
 import { Cloud, X, CheckCircle2, Loader2 } from 'lucide-react';
 
-// Não existe como um app estático (sem servidor próprio) rodar algo sozinho à meia-noite
-// sem ninguém com a tela aberta — isso vale tanto pra baixar o arquivo quanto pra
-// autorizar o Google Drive, que sempre exige clique humano por segurança. O jeito viável
-// de aproximar disso é checar, toda vez que um administrador usa o app, se: (1) hoje já
-// teve atendimento, (2) todos os atendimentos de hoje já estão concluídos ou cancelados
-// (ou seja, o último foi finalizado — não sobrou nenhum ainda pendente/agendado), e
-// (3) o backup de hoje ainda não foi feito. Se as três forem verdade, mostra um aviso
-// simples pedindo só um clique pra disparar os dois backups de uma vez (Completo + Só
-// Prontuários), local e Drive.
+// Backup automático de fim de dia — só roda se "Backup em Nuvem" estiver ativo em
+// Configurações. Não existe como um app estático (sem servidor próprio) rodar algo
+// sozinho à meia-noite sem ninguém com a tela aberta — mas dá pra aproximar bastante:
+//
+// - O envio pro Firebase Storage é 100% automático e silencioso, sem nenhum clique — quem
+//   está usando o app já está autenticado, então isso acontece sozinho assim que o último
+//   atendimento do dia é marcado como concluído (ou, se ninguém estiver com o app aberto
+//   nesse momento, na próxima vez que alguém abrir o app naquele mesmo dia).
+// - O envio pro Google Drive é a ÚNICA parte que não dá pra automatizar de verdade — o
+//   Google exige um clique humano por segurança (bloqueio de pop-up), não tem contorno
+//   possível de um app sem servidor. Por isso aparece um aviso mínimo só pra essa parte.
+// - Nunca baixa nada no computador — isso só acontece se alguém for em Configurações e
+//   clicar manualmente nos botões de backup.
 export default function AutoBackupPrompt({ user, isAdminUser }: { user: User; isAdminUser: boolean }) {
-  const [shouldShow, setShouldShow] = useState(false);
+  const [needsDriveClick, setNeedsDriveClick] = useState(false);
   const [dismissedThisSession, setDismissedThisSession] = useState(false);
   const [running, setRunning] = useState(false);
   const [clinicSettings, setClinicSettings] = useState<ClinicSettings | null>(null);
+  const firebasePartTriedRef = useRef(false);
 
   useEffect(() => {
     if (!isAdminUser) return;
@@ -31,68 +36,92 @@ export default function AutoBackupPrompt({ user, isAdminUser }: { user: User; is
     (async () => {
       try {
         const ownerId = await getClinicOwnerId(db).catch(() => user.uid);
-        const todayStr = new Date().toISOString().split('T')[0];
-
-        // Já foi feito hoje? Se sim, nem precisa ficar de olho no resto
-        const lastBackupSnap = await getDoc(doc(db, 'system', 'lastAutoBackup'));
-        if (lastBackupSnap.exists() && lastBackupSnap.data().date === todayStr) return;
-
         const settingsSnap = await getDoc(doc(db, 'settings', ownerId));
         const settings = settingsSnap.exists() ? (settingsSnap.data() as ClinicSettings) : null;
         setClinicSettings(settings);
 
-        // onSnapshot (não getDocs) pra reagir na hora se o app já estiver aberto quando
-        // o último atendimento do dia for marcado como concluído — sem precisar fechar
-        // e abrir o app de novo pra ver o aviso aparecer.
+        // Interruptor desligado — nem fica de olho em nada
+        if (!settings?.cloudBackupEnabled) return;
+
+        const todayStr = new Date().toISOString().split('T')[0];
+        const lastBackupSnap = await getDoc(doc(db, 'system', 'lastAutoBackup'));
+        const lastBackupData = lastBackupSnap.exists() ? lastBackupSnap.data() : null;
+        const alreadyDoneToday = lastBackupData?.date === todayStr;
+        const firebaseAlreadyDone = alreadyDoneToday && lastBackupData?.firebaseDone;
+        const driveAlreadyDone = alreadyDoneToday && lastBackupData?.driveDone;
+
+        if (firebaseAlreadyDone && (driveAlreadyDone || !settings?.googleDriveClientId)) return; // nada pendente hoje
+
+        // onSnapshot pra reagir na hora se o app já estiver aberto quando o último
+        // atendimento do dia for marcado como concluído
         const q = query(collection(db, 'appointments'), where('date', '==', todayStr));
-        unsubscribe = onSnapshot(q, snap => {
-          if (snap.empty) { setShouldShow(false); return; } // sem atendimento hoje ainda
+        unsubscribe = onSnapshot(q, async snap => {
+          if (snap.empty) return; // sem atendimento hoje ainda
           const stillPending = snap.docs.some(d => {
             const status = d.data().status;
-            return status !== 'completed' && status !== 'cancelled';
+            return status !== 'completed' && status !== 'cancelled' && status !== 'no_show';
           });
-          setShouldShow(!stillPending);
+          if (stillPending) return; // ainda não é o último
+
+          // Parte silenciosa: sobe pro Firebase Storage sozinho, sem pedir nada — só
+          // tenta uma vez por carregamento da página, pra não ficar repetindo à toa se
+          // o listener disparar de novo por outro motivo
+          if (!firebaseAlreadyDone && !firebasePartTriedRef.current) {
+            firebasePartTriedRef.current = true;
+            try {
+              const patientsSnap = await import('firebase/firestore').then(m => m.getDocs(collection(db, 'patients')));
+              const patients = patientsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Patient));
+              const full = await buildFullBackupBlob(user.uid);
+              const zip = await buildPatientsZipBlob(patients, settings);
+              await uploadToFirebaseStorage(full.blob, full.filename);
+              await uploadToFirebaseStorage(zip.blob, zip.filename);
+              await setDoc(doc(db, 'system', 'lastAutoBackup'), {
+                date: todayStr,
+                firebaseDone: true,
+                driveDone: driveAlreadyDone || false,
+                doneAt: new Date().toISOString(),
+                doneBy: user.email,
+              }, { merge: true });
+            } catch { /* melhor esforço — o backup manual em Configurações continua disponível */ }
+          }
+
+          // Parte que precisa de clique: só mostra se o Drive estiver configurado e
+          // ainda não tiver sido feito hoje
+          if (settings?.googleDriveClientId && !driveAlreadyDone) {
+            setNeedsDriveClick(true);
+          }
         });
       } catch { /* melhor esforço — não trava o resto do app se essa checagem falhar */ }
     })();
     return () => unsubscribe?.();
   }, [isAdminUser]);
 
-  const handleRunBackup = async () => {
+  const handleSendToDrive = async () => {
     setRunning(true);
     try {
-      const ownerId = await getClinicOwnerId(db).catch(() => user.uid);
-      const patientsSnap = await getDocs(collection(db, 'patients'));
+      const patientsSnap = await import('firebase/firestore').then(m => m.getDocs(collection(db, 'patients')));
       const patients = patientsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Patient));
-
       const full = await buildFullBackupBlob(user.uid);
       const zip = await buildPatientsZipBlob(patients, clinicSettings);
-      downloadBlob(full.blob, full.filename);
-      downloadBlob(zip.blob, zip.filename);
 
-      if (clinicSettings?.googleDriveClientId) {
-        await uploadToGoogleDrive(full.blob, full.filename, clinicSettings.googleDriveClientId, CLINIC_GOOGLE_ACCOUNT).catch(() =>
-          showToast('Backup local ok, mas falhou o envio do Backup Completo ao Drive', 'error')
-        );
-        await uploadToGoogleDrive(zip.blob, zip.filename, clinicSettings.googleDriveClientId, CLINIC_GOOGLE_ACCOUNT).catch(() =>
-          showToast('Backup local ok, mas falhou o envio dos Prontuários ao Drive', 'error')
-        );
-      }
+      await uploadToGoogleDrive(full.blob, full.filename, clinicSettings!.googleDriveClientId!, CLINIC_GOOGLE_ACCOUNT);
+      await uploadToGoogleDrive(zip.blob, zip.filename, clinicSettings!.googleDriveClientId!, CLINIC_GOOGLE_ACCOUNT);
 
       await setDoc(doc(db, 'system', 'lastAutoBackup'), {
         date: new Date().toISOString().split('T')[0],
+        driveDone: true,
         doneAt: new Date().toISOString(),
         doneBy: user.email,
-      });
-      showToast('Backup do dia concluído');
-      setShouldShow(false);
+      }, { merge: true });
+      showToast('Backup do dia enviado ao Google Drive');
+      setNeedsDriveClick(false);
     } catch (err) {
-      showToast('Erro ao gerar o backup do dia — tente de novo em Configurações → Gestão', 'error');
+      showToast('Erro ao enviar ao Drive — tente de novo em Configurações → Gestão', 'error');
     }
     setRunning(false);
   };
 
-  if (!shouldShow || dismissedThisSession) return null;
+  if (!needsDriveClick || dismissedThisSession) return null;
 
   return (
     <AnimatePresence>
@@ -110,10 +139,10 @@ export default function AutoBackupPrompt({ user, isAdminUser }: { user: User; is
             <X size={18} />
           </button>
         </div>
-        <p className="text-sm text-[#4A433D] font-medium mb-1">Backup do dia</p>
+        <p className="text-sm text-[#4A433D] font-medium mb-1">Backup do dia — falta só o Drive</p>
         <p className="text-xs text-[#9CA3AF] font-light mb-5">
-          Houve atendimento hoje e o backup ainda não foi feito. Fazer agora (Completo + Prontuários, local e
-          Google Drive se configurado)?
+          Já salvo no Firebase automaticamente. O Google exige um clique humano por segurança pra autorizar o
+          envio ao Drive — não dá pra pular essa etapa.
         </p>
         <div className="flex gap-3">
           <button
@@ -124,12 +153,12 @@ export default function AutoBackupPrompt({ user, isAdminUser }: { user: User; is
             Agora Não
           </button>
           <button
-            onClick={handleRunBackup}
+            onClick={handleSendToDrive}
             disabled={running}
             className="flex-1 py-3 bg-[#4A433D] text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-[#5C544E] transition-all disabled:opacity-50"
           >
             {running ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-            {running ? 'Fazendo...' : 'Fazer Backup'}
+            {running ? 'Enviando...' : 'Enviar ao Drive'}
           </button>
         </div>
       </motion.div>

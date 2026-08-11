@@ -1098,6 +1098,11 @@ export default function Settings({ user }: { user: User }) {
               <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-sm transition-all ${settings.cloudBackupEnabled ? 'right-1' : 'left-1'}`} />
             </div>
           </button>
+          <p className="text-[10px] text-[#9CA3AF] font-light -mt-3 px-2">
+            Ativado: assim que o último atendimento do dia é concluído, salva sozinho no Firebase e (se
+            configurado) pede 1 clique pra enviar ao Google Drive também. Nunca baixa nada no computador — pra
+            isso, use os botões de baixar abaixo.
+          </p>
 
           <button 
             onClick={handleFullBackup}

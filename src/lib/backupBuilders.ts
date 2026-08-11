@@ -59,6 +59,17 @@ export function downloadBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
+// Sobe um blob pro Firebase Storage, dentro de "backups/auto/{filename}" — diferente do
+// Google Drive, isso não precisa de nenhum clique nem popup: como quem está usando o app
+// já está autenticado no Firebase, o upload acontece direto, em silêncio, sem interromper
+// ninguém. É a metade "automática de verdade" do backup em nuvem duplo.
+export async function uploadToFirebaseStorage(blob: Blob, filename: string): Promise<void> {
+  const { ref, uploadBytes } = await import('firebase/storage');
+  const { storage } = await import('./firebase');
+  const fileRef = ref(storage, `backups/auto/${filename}`);
+  await uploadBytes(fileRef, blob);
+}
+
 // E-mail da conta Google da própria clínica — usado como sugestão (login_hint) na hora
 // de autenticar no Drive, pra não autorizar sem querer com a conta pessoal de quem
 // estiver operando o sistema

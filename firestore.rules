@@ -141,7 +141,7 @@ service cloud.firestore {
         && data.time is string
         && (!('patientId' in data) || (data.patientId is string && isValidId(data.patientId)))
         && (!('guestPhone' in data) || (data.guestPhone is string && data.guestPhone.size() <= 30))
-        && (!('status' in data) || data.status in ['scheduled', 'confirmed', 'completed', 'cancelled']);
+        && (!('status' in data) || data.status in ['scheduled', 'confirmed', 'completed', 'cancelled', 'no_show']);
     }
 
     // Criação normal, pelo dono autenticado (uso interno do app)

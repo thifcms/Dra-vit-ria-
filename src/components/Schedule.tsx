@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, setDoc, doc, getDoc, getDocs, where, orderBy } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Appointment, Patient, ClinicSettings } from '../types';
@@ -87,6 +87,31 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
       unsubscribePatients();
     };
   }, [user.uid]);
+
+  // Ao virar o dia, qualquer atendimento de um dia ANTERIOR que ainda estava "agendado"
+  // ou "confirmado" (nunca foi marcado como realizado nem cancelado) é automaticamente
+  // marcado como "Faltou" — evita esquecer de fechar consultas antigas que ficaram
+  // penduradas. Roda uma vez por carregamento da Agenda, não fica repetindo à toa.
+  const noShowCheckDoneRef = useRef(false);
+  useEffect(() => {
+    if (noShowCheckDoneRef.current || appointments.length === 0) return;
+    noShowCheckDoneRef.current = true;
+    const todayStr = todayLocalStr();
+    const stale = appointments.filter(a => a.date < todayStr && (a.status === 'scheduled' || a.status === 'confirmed'));
+    if (stale.length === 0) return;
+    (async () => {
+      let marked = 0;
+      for (const appt of stale) {
+        try {
+          await updateDoc(doc(db, 'appointments', appt.id!), { status: 'no_show' });
+          marked++;
+        } catch { /* segue tentando os outros mesmo se um falhar */ }
+      }
+      if (marked > 0) {
+        showToast(`${marked} atendimento(s) de dias anteriores marcado(s) como falta automaticamente`);
+      }
+    })();
+  }, [appointments]);
 
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
@@ -466,6 +491,7 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
               <LegendItem color="bg-[#EADFD4]" label="Confirmado" />
               <LegendItem color="bg-[#4A433D]" label="Agendado" />
               <LegendItem color="bg-red-400" label="Cancelado" />
+              <LegendItem color="bg-amber-400" label="Faltou" />
               <LegendItem color="bg-[#F0F7F0]" label="Realizado" />
             </div>
           </div>
@@ -498,6 +524,7 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
                             appt.status === 'confirmed' ? 'bg-[#EADFD4]/10 border border-[#EADFD4]/20' :
                             appt.status === 'completed' ? 'bg-[#F0F7F0] border border-[#E5EFE5]' :
                             appt.status === 'cancelled' ? 'bg-red-50 border border-red-100' :
+                            appt.status === 'no_show' ? 'bg-amber-50 border border-amber-100' :
                             'bg-[#FDFBF9] border border-[#F5F2F0]'
                           }`}
                         >
@@ -557,6 +584,7 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
                                   )}
                                   <MenuOption onClick={() => handleSetStatus(appt.id!, 'confirmed')} label="Confirmar" color="text-[#EADFD4]" />
                                   <MenuOption onClick={() => handleSetStatus(appt.id!, 'completed')} label="Marcar como realizado" color="text-[#8BA888]" />
+                                  <MenuOption onClick={() => handleSetStatus(appt.id!, 'no_show')} label="Marcar Falta" color="text-amber-500" />
                                   {appt.status === 'completed' && (
                                     <MenuOption onClick={() => handleSetStatus(appt.id!, 'confirmed')} label="Desfazer marcação de realizado" color="text-amber-500" />
                                   )}
@@ -643,12 +671,14 @@ function StatusBadge({ status }: { status: string }) {
     confirmed: 'bg-[#EADFD4] text-white',
     completed: 'bg-[#F0F7F0] text-[#8BA888]',
     cancelled: 'bg-red-50 text-red-400 border border-red-100',
+    no_show: 'bg-amber-50 text-amber-600 border border-amber-100',
     scheduled: 'bg-[#FDFBF9] text-[#9CA3AF] border border-[#F5F2F0]'
   };
   const labels: any = {
     confirmed: 'Confirmado',
     completed: 'Realizado',
     cancelled: 'Cancelado',
+    no_show: 'Faltou',
     scheduled: 'Agendado'
   };
   return (

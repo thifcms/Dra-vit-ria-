@@ -389,7 +389,7 @@ export interface Appointment {
   guestPhone?: string; // telefone informado pelo paciente na página pública (quando não há cadastro ainda)
   date: string;
   time: string;
-  status: 'scheduled' | 'confirmed' | 'completed' | 'cancelled';
+  status: 'scheduled' | 'confirmed' | 'completed' | 'cancelled' | 'no_show';
   notes?: string; // usado como descrição do procedimento
   value?: number;
   financeGenerated?: boolean; // evita duplicar lançamento financeiro ao concluir
