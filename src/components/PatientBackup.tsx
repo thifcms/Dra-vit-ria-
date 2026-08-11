@@ -7,6 +7,7 @@ import { User } from 'firebase/auth';
 import { generatePatientPdf, patientPdfFileName } from '../lib/patientPdf';
 import { getClinicOwnerId } from '../lib/slots';
 import { uploadToGoogleDrive } from '../lib/googleDrive';
+import { buildFullBackupBlob, buildPatientsZipBlob, downloadBlob, CLINIC_GOOGLE_ACCOUNT } from '../lib/backupBuilders';
 import { FileDown, Search, Download, Loader2, Cloud, Database } from 'lucide-react';
 import { showToast } from '../lib/toast';
 
@@ -112,57 +113,10 @@ export default function PatientBackup({ user }: { user: User }) {
   const [sendingFullToDrive, setSendingFullToDrive] = useState(false);
   const [sendingPatientsToDrive, setSendingPatientsToDrive] = useState(false);
 
-  const buildFullBackupBlob = async (): Promise<{ blob: Blob; filename: string }> => {
-    const ownerId = await getClinicOwnerId(db).catch(() => user.uid);
-    const collectionsToExport = [
-      'patients', 'transactions', 'fixedCosts', 'inventory',
-      'inventory_movements', 'procedureRevenue', 'appointments', 'stockAlerts',
-    ];
-    const exportData: Record<string, any> = {
-      geradoEm: new Date().toISOString(),
-      clinica: ownerId,
-    };
-    for (const c of collectionsToExport) {
-      const snap = await getDocs(collection(db, c));
-      exportData[c] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    }
-    const settingsSnap = await getDoc(doc(db, 'settings', ownerId));
-    exportData.settings = settingsSnap.exists() ? settingsSnap.data() : null;
-    const json = JSON.stringify(exportData, null, 2);
-    return {
-      blob: new Blob([json], { type: 'application/json' }),
-      filename: `backup-completo-${new Date().toISOString().split('T')[0]}.json`,
-    };
-  };
-
-  const buildPatientsZipBlob = async (onProgress?: (pct: number) => void): Promise<{ blob: Blob; filename: string }> => {
-    const JSZip = (await import('jszip')).default;
-    const zip = new JSZip();
-    for (let i = 0; i < patients.length; i++) {
-      const pdfBlob = await generatePatientPdf(patients[i], clinicSettings);
-      zip.file(patientPdfFileName(patients[i]), pdfBlob);
-      onProgress?.(Math.round(((i + 1) / patients.length) * 100));
-    }
-    const zipBlob = await zip.generateAsync({ type: 'blob' });
-    return {
-      blob: zipBlob,
-      filename: `prontuarios-backup-${new Date().toISOString().split('T')[0]}.zip`,
-    };
-  };
-
-  const downloadBlob = (blob: Blob, filename: string) => {
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
   const handleDownloadFullBackup = async () => {
     setDownloadingFull(true);
     try {
-      const { blob, filename } = await buildFullBackupBlob();
+      const { blob, filename } = await buildFullBackupBlob(user.uid);
       downloadBlob(blob, filename);
       showToast('Backup completo baixado');
     } catch (err) {
@@ -176,7 +130,7 @@ export default function PatientBackup({ user }: { user: User }) {
     setDownloadingAll(true);
     setAllProgress(0);
     try {
-      const { blob, filename } = await buildPatientsZipBlob(setAllProgress);
+      const { blob, filename } = await buildPatientsZipBlob(patients, clinicSettings, setAllProgress);
       downloadBlob(blob, filename);
       showToast(`${patients.length} prontuário(s) baixado(s)`);
     } catch (err) {
@@ -185,14 +139,10 @@ export default function PatientBackup({ user }: { user: User }) {
     setDownloadingAll(false);
   };
 
-  // Sugere a conta do próprio e-mail da clínica na tela de login do Google — não a
-  // conta pessoal de quem estiver operando o sistema no momento
-  const CLINIC_GOOGLE_ACCOUNT = 'contato.dravitoriaoliveira@gmail.com';
-
   const handleSendFullToDrive = async () => {
     setSendingFullToDrive(true);
     try {
-      const { blob, filename } = await buildFullBackupBlob();
+      const { blob, filename } = await buildFullBackupBlob(user.uid);
       await uploadToGoogleDrive(blob, filename, clinicSettings?.googleDriveClientId || '', CLINIC_GOOGLE_ACCOUNT);
       showToast('Backup completo enviado ao Google Drive');
     } catch (err: any) {
@@ -205,7 +155,7 @@ export default function PatientBackup({ user }: { user: User }) {
     if (patients.length === 0) return;
     setSendingPatientsToDrive(true);
     try {
-      const { blob, filename } = await buildPatientsZipBlob();
+      const { blob, filename } = await buildPatientsZipBlob(patients, clinicSettings);
       await uploadToGoogleDrive(blob, filename, clinicSettings?.googleDriveClientId || '', CLINIC_GOOGLE_ACCOUNT);
       showToast('Prontuários enviados ao Google Drive');
     } catch (err: any) {

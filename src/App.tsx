@@ -39,6 +39,7 @@ const IntakeInviteView = lazy(() => import('./components/IntakeInviteView'));
 const Cancel = lazy(() => import('./components/Cancel'));
 const ComingSoon = lazy(() => import('./components/ComingSoon'));
 const TestSite = lazy(() => import('./components/TestSite'));
+import AutoBackupPrompt from './components/AutoBackupPrompt';
 
 type View = 'dashboard' | 'patients' | 'schedule' | 'inventory' | 'finance' | 'settings';
 
@@ -710,6 +711,7 @@ function AuthenticatedApp() {
           </AnimatePresence>
         </div>
       </main>
+      <AutoBackupPrompt user={user} isAdminUser={isAdminUser} />
     </motion.div>
     )}
     </AnimatePresence>
