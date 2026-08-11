@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, getDocs, doc, getDoc, setDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { User } from 'firebase/auth';
 import { Patient, ClinicSettings } from '../types';
@@ -14,9 +14,11 @@ import { Cloud, X, CheckCircle2, Loader2 } from 'lucide-react';
 // sem ninguém com a tela aberta — isso vale tanto pra baixar o arquivo quanto pra
 // autorizar o Google Drive, que sempre exige clique humano por segurança. O jeito viável
 // de aproximar disso é checar, toda vez que um administrador usa o app, se: (1) hoje já
-// teve atendimento, (2) o backup de hoje ainda não foi feito, e (3) já passou do horário
-// de expediente. Se as três forem verdade, mostra um aviso simples pedindo só um clique
-// pra disparar os dois backups de uma vez (Completo + Só Prontuários), local e Drive.
+// teve atendimento, (2) todos os atendimentos de hoje já estão concluídos ou cancelados
+// (ou seja, o último foi finalizado — não sobrou nenhum ainda pendente/agendado), e
+// (3) o backup de hoje ainda não foi feito. Se as três forem verdade, mostra um aviso
+// simples pedindo só um clique pra disparar os dois backups de uma vez (Completo + Só
+// Prontuários), local e Drive.
 export default function AutoBackupPrompt({ user, isAdminUser }: { user: User; isAdminUser: boolean }) {
   const [shouldShow, setShouldShow] = useState(false);
   const [dismissedThisSession, setDismissedThisSession] = useState(false);
@@ -25,29 +27,35 @@ export default function AutoBackupPrompt({ user, isAdminUser }: { user: User; is
 
   useEffect(() => {
     if (!isAdminUser) return;
+    let unsubscribe: (() => void) | undefined;
     (async () => {
       try {
         const ownerId = await getClinicOwnerId(db).catch(() => user.uid);
         const todayStr = new Date().toISOString().split('T')[0];
 
-        // Já foi feito hoje? Se sim, nem precisa checar o resto
+        // Já foi feito hoje? Se sim, nem precisa ficar de olho no resto
         const lastBackupSnap = await getDoc(doc(db, 'system', 'lastAutoBackup'));
         if (lastBackupSnap.exists() && lastBackupSnap.data().date === todayStr) return;
 
-        // Teve atendimento hoje?
-        const apptSnap = await getDocs(query(collection(db, 'appointments'), where('date', '==', todayStr)));
-        if (apptSnap.empty) return;
-
-        // Já passou do horário de expediente configurado (ou 18h como padrão razoável)?
         const settingsSnap = await getDoc(doc(db, 'settings', ownerId));
         const settings = settingsSnap.exists() ? (settingsSnap.data() as ClinicSettings) : null;
         setClinicSettings(settings);
-        const [endH] = (settings?.workingHoursEnd || '18:00').split(':').map(Number);
-        if (new Date().getHours() < endH) return;
 
-        setShouldShow(true);
+        // onSnapshot (não getDocs) pra reagir na hora se o app já estiver aberto quando
+        // o último atendimento do dia for marcado como concluído — sem precisar fechar
+        // e abrir o app de novo pra ver o aviso aparecer.
+        const q = query(collection(db, 'appointments'), where('date', '==', todayStr));
+        unsubscribe = onSnapshot(q, snap => {
+          if (snap.empty) { setShouldShow(false); return; } // sem atendimento hoje ainda
+          const stillPending = snap.docs.some(d => {
+            const status = d.data().status;
+            return status !== 'completed' && status !== 'cancelled';
+          });
+          setShouldShow(!stillPending);
+        });
       } catch { /* melhor esforço — não trava o resto do app se essa checagem falhar */ }
     })();
+    return () => unsubscribe?.();
   }, [isAdminUser]);
 
   const handleRunBackup = async () => {
