@@ -2107,34 +2107,6 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
                         {startingNewAnamnesis ? 'Iniciando...' : 'Nova Anamnese'}
                       </button>
                     )}
-                    {!patient.anamnesisReleased && (
-                    <>
-                      <button 
-                        onClick={handleSaveAnamnesis} 
-                        disabled={savingAnamnesis || releasingAnamnesis}
-                        className="bg-[#F0F7F0] text-[#8BA888] flex items-center gap-2 hover:bg-[#E5EFE5] px-6 py-3 rounded-2xl transition-all font-bold text-[10px] uppercase tracking-widest shadow-sm disabled:opacity-50"
-                      >
-                        <Save size={16} />
-                        {savingAnamnesis ? 'Salvando...' : 'Salvar'}
-                      </button>
-                      <button 
-                        onClick={handleReleaseAnamnesis} 
-                        disabled={savingAnamnesis || releasingAnamnesis}
-                        className="bg-[#B8846E] text-white flex items-center gap-2 hover:bg-[#A6735E] px-6 py-3 rounded-2xl transition-all font-bold text-[10px] uppercase tracking-widest shadow-sm disabled:opacity-50"
-                      >
-                        <Lock size={16} />
-                        {releasingAnamnesis ? 'Liberando...' : 'Liberar'}
-                      </button>
-                      <button 
-                        onClick={() => setShowAnamnesisSignSend(true)} 
-                        disabled={savingAnamnesis || releasingAnamnesis}
-                        className="text-[#9CA3AF] hover:text-[#4A433D] flex items-center gap-2 px-6 py-3 rounded-2xl transition-all font-bold text-[10px] uppercase tracking-widest border border-[#F5F2F0] disabled:opacity-50"
-                      >
-                        <MessageCircle size={16} />
-                        Assinatura Remota
-                      </button>
-                    </>
-                    )}
                   </div>
                 </div>
                 
@@ -2247,7 +2219,7 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
                             <p className="text-xs font-bold text-[#4A433D] mb-2">Estilo de vida marcado:</p>
                             <div className="flex flex-wrap gap-2">
                               {Object.entries(anamnesis.intakeQuestionnaire.lifestyle).filter(([, v]) => v).map(([k]) => (
-                                <span key={k} className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-[#EADFD4] text-white">
+                                <span key={k} className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-[#8BA888] text-white">
                                   {lifestyleLabels[k] || k}
                                 </span>
                               ))}
@@ -2348,6 +2320,35 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
                       )}
                     </div>
                   </section>
+
+                  {!patient.anamnesisReleased && (
+                    <div className="flex flex-wrap gap-3 pt-6 border-t border-[#F5F2F0]">
+                      <button 
+                        onClick={handleSaveAnamnesis} 
+                        disabled={savingAnamnesis || releasingAnamnesis}
+                        className="bg-[#F0F7F0] text-[#8BA888] flex items-center gap-2 hover:bg-[#E5EFE5] px-6 py-3 rounded-2xl transition-all font-bold text-[10px] uppercase tracking-widest shadow-sm disabled:opacity-50"
+                      >
+                        <Save size={16} />
+                        {savingAnamnesis ? 'Salvando...' : 'Salvar'}
+                      </button>
+                      <button 
+                        onClick={handleReleaseAnamnesis} 
+                        disabled={savingAnamnesis || releasingAnamnesis}
+                        className="bg-[#B8846E] text-white flex items-center gap-2 hover:bg-[#A6735E] px-6 py-3 rounded-2xl transition-all font-bold text-[10px] uppercase tracking-widest shadow-sm disabled:opacity-50"
+                      >
+                        <Lock size={16} />
+                        {releasingAnamnesis ? 'Liberando...' : 'Liberar'}
+                      </button>
+                      <button 
+                        onClick={() => setShowAnamnesisSignSend(true)} 
+                        disabled={savingAnamnesis || releasingAnamnesis}
+                        className="text-[#9CA3AF] hover:text-[#4A433D] flex items-center gap-2 px-6 py-3 rounded-2xl transition-all font-bold text-[10px] uppercase tracking-widest border border-[#F5F2F0] disabled:opacity-50"
+                      >
+                        <MessageCircle size={16} />
+                        Assinatura Remota
+                      </button>
+                    </div>
+                  )}
                 </div>
               </motion.div>
             )}
