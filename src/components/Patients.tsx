@@ -1138,6 +1138,205 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
     return () => unsubscribe();
   }, [patient.id, patient.anamnesisReleased]);
 
+  // Assinaturas feitas remotamente (link enviado por WhatsApp) ficam guardadas em
+  // signRequests até serem "puxadas" pro prontuário — onSnapshot detecta a assinatura
+  // em tempo real, mesmo que o profissional já esteja com essa tela aberta no momento
+  // em que o paciente assina (antes usava getDocs, uma checagem única que só rodava ao
+  // abrir a tela — se o paciente assinasse depois, o profissional só via a atualização
+  // fechando e abrindo o prontuário de novo).
+  useEffect(() => {
+    const q = query(
+      collection(db, 'signRequests'),
+      where('patientId', '==', patient.id),
+      where('status', '==', 'signed')
+    );
+    const unsubscribe = onSnapshot(q, async (snap) => {
+      try {
+        const toMerge = snap.docs.filter(d => !d.data().mergedIntoRecord && (!d.data().docType || d.data().docType === 'consent'));
+        if (toMerge.length === 0) return;
+
+        const newTerms = toMerge.map(d => {
+          const data = d.data();
+          return {
+            templateId: data.templateId,
+            templateTitle: data.templateTitle,
+            content: data.templateContent || '',
+            signedAt: data.signedAt,
+            signatureUrl: data.signatureUrl,
+            // Pedidos de assinatura criados antes desses campos existirem não têm
+            // sentVia/sentTo gravados — incluir undefined explicitamente aqui quebraria
+            // o updateDoc (Firestore rejeita undefined mesmo dentro de itens de array,
+            // não só no nível principal do documento)
+            ...(data.sentVia ? { sentVia: data.sentVia } : {}),
+            ...(data.sentTo ? { sentTo: data.sentTo } : {}),
+          };
+        });
+        const freshSnap = await getDoc(doc(db, 'patients', patient.id!));
+        const freshTerms = freshSnap.exists() ? ((freshSnap.data() as Patient).consentTerms || []) : (patient.consentTerms || []);
+        await updateDoc(doc(db, 'patients', patient.id!), {
+          consentTerms: [...freshTerms, ...newTerms],
+        });
+        await Promise.all(toMerge.map(d => updateDoc(doc(db, 'signRequests', d.id), { mergedIntoRecord: true })));
+        showToast(`${newTerms.length} assinatura(s) remota(s) recebida(s)`);
+      } catch (err: any) {
+        console.error('Erro ao mesclar termo assinado remotamente:', err);
+        showToast(`Não foi possível salvar o termo assinado: ${err?.code || err?.message || 'erro desconhecido'}`, 'error');
+      }
+    });
+    return () => unsubscribe();
+  }, [patient.id]);
+
+  // Ficha clínica de harmonização facial, preenchida pelo próprio paciente na sala de
+  // espera (logo após o check-in) — puxa tudo pro prontuário sozinho assim que o
+  // profissional abre essa aba: dados de cadastro, anamnese (questionário de saúde e
+  // queixa principal) e os dois termos de autorização, com a assinatura do paciente.
+  useEffect(() => {
+    const q = query(
+      collection(db, 'intakeSubmissions'),
+      where('patientId', '==', patient.id)
+    );
+    const unsubscribe = onSnapshot(q, async (snap) => {
+      try {
+        const toMerge = snap.docs.filter(d => !d.data().mergedIntoRecord);
+        if (toMerge.length === 0) return;
+
+        // Busca o paciente ATUALIZADO agora, em vez de usar a variável "patient" —
+        // essa variável fica presa (fechamento do React) no que era verdade quando a
+        // tela abriu, e esse efeito só roda de novo se o ID do paciente mudar, não a
+        // cada atualização do cadastro. Sem isso, se algo no cadastro tivesse mudado
+        // depois que essa tela abriu (outra aba, outro profissional), a mesclagem usaria
+        // a versão antiga como base — e em alguns casos isso podia fazer a gravação
+        // falhar silenciosamente, sem a ficha nunca chegar na anamnese.
+        const freshSnap = await getDoc(doc(db, 'patients', patient.id!));
+        const freshPatient = freshSnap.exists() ? (freshSnap.data() as Patient) : patient;
+
+        // Só existe 1 ficha por check-in — se por acaso houver mais de uma pendente,
+        // usa a mais recente
+        const sorted = toMerge.sort((a, b) => (b.data().submittedAt || '').localeCompare(a.data().submittedAt || ''));
+        const s = sorted[0].data();
+
+        const currentAnamnesis = freshPatient.anamnesis || ({} as any);
+        const patientUpdate: any = {
+          // Só preenche o que ainda não existia — nunca sobrescreve o que já estava
+          // certo no cadastro
+          birthDate: freshPatient.birthDate || s.birthDate || '',
+          address: freshPatient.address || s.address || '',
+          email: freshPatient.email || s.email || '',
+          profession: freshPatient.profession || s.profession || '',
+          maritalStatus: freshPatient.maritalStatus || s.maritalStatus || '',
+          howHeardAboutClinic: freshPatient.howHeardAboutClinic || s.howHeardAboutClinic || '',
+          emergencyContactName: freshPatient.emergencyContactName || s.emergencyContactName || '',
+          emergencyContactPhone: freshPatient.emergencyContactPhone || s.emergencyContactPhone || '',
+          consentTerms: [
+            ...(freshPatient.consentTerms || []),
+            {
+              templateId: 'intake-full-form',
+              templateTitle: 'Ficha Clínica do Paciente (Completa)',
+              content: buildIntakeFullText(s),
+              signedAt: s.submittedAt,
+              signatureUrl: s.signatureUrl,
+            },
+            {
+              templateId: 'intake-photo-consent',
+              templateTitle: 'Autorização de Documentação Fotográfica (Ficha Clínica)',
+              content: 'Autorizo a realização de documentação fotográfica referente ao procedimento realizado, que poderá ser utilizada para fins de acompanhamento do procedimento e para uso do médico em atividades científicas.',
+              signedAt: s.submittedAt,
+              signatureUrl: s.signatureUrl,
+            },
+            // A divulgação de imagens é opcional na ficha — só entra aqui como termo
+            // assinado se o paciente realmente marcou essa caixa. Gravar sempre, mesmo
+            // desmarcada, faria o prontuário mostrar uma autorização que a pessoa nunca deu.
+            ...(s.imageDisclosureConsent ? [{
+              templateId: 'intake-image-disclosure',
+              templateTitle: 'Autorização de Divulgação de Imagens (Ficha Clínica)',
+              content: 'Autorizo divulgação de autorretrato (selfies) e imagens relativas ao "antes e depois" do procedimento, nos perfis pessoais nas redes sociais da CONTRATADA, conforme permissão da Resolução nº 196/2019 do Conselho Federal de Odontologia (CFO), desde que a divulgação contenha o nome da CONTRATADA, acompanhado do número de inscrição junto ao Conselho Regional de Odontologia (CRO).',
+              signedAt: s.submittedAt,
+              signatureUrl: s.signatureUrl,
+            }] : []),
+          ],
+          anamnesis: {
+            ...currentAnamnesis,
+            mainComplaint: currentAnamnesis.mainComplaint || s.mainComplaint || '',
+            conditions: {
+              ...(currentAnamnesis.conditions || {}),
+              pregnant: currentAnamnesis.conditions?.pregnant || !!s.isPregnant,
+              breastfeeding: currentAnamnesis.conditions?.breastfeeding || !!s.isBreastfeeding,
+              anticoagulant: currentAnamnesis.conditions?.anticoagulant || !!s.medicalConditions?.anticoagulant,
+              // As demais condições médicas (diabetes, hipertensão, autoimune, etc.) vêm
+              // todas do checklist único "Tem alguma condição médica?" da ficha — nunca
+              // sobrescreve um "sim" que já existia, só adiciona o que o paciente marcou
+              diabetes: currentAnamnesis.conditions?.diabetes || !!s.medicalConditions?.diabetes,
+              hypertension: currentAnamnesis.conditions?.hypertension || !!s.medicalConditions?.hypertension,
+              heartProblems: currentAnamnesis.conditions?.heartProblems || !!s.medicalConditions?.heartProblems,
+              autoimmune: currentAnamnesis.conditions?.autoimmune || !!s.medicalConditions?.autoimmune,
+              cancerHistory: currentAnamnesis.conditions?.cancerHistory || !!s.medicalConditions?.cancerHistory,
+              keloid: currentAnamnesis.conditions?.keloid || !!s.medicalConditions?.keloid,
+              herpes: currentAnamnesis.conditions?.herpes || !!s.medicalConditions?.herpes,
+              epilepsy: currentAnamnesis.conditions?.epilepsy || !!s.medicalConditions?.epilepsy,
+              hivHepatitis: currentAnamnesis.conditions?.hivHepatitis || !!s.medicalConditions?.hivHepatitis,
+              pacemaker: currentAnamnesis.conditions?.pacemaker || !!s.medicalConditions?.pacemaker,
+              isotretinoin: currentAnamnesis.conditions?.isotretinoin || !!s.medicalConditions?.isotretinoin,
+            },
+            hasAllergies: currentAnamnesis.hasAllergies || !!s.hasMedicationAllergy,
+            allergiesDetails: currentAnamnesis.allergiesDetails || s.medicationAllergyDetail || '',
+            hasContinuousMedication: currentAnamnesis.hasContinuousMedication || !!s.usesContinuousMedication,
+            medicationsDetails: currentAnamnesis.medicationsDetails || s.continuousMedicationDetail || '',
+            habits: {
+              ...(currentAnamnesis.habits || {}),
+              smoking: currentAnamnesis.habits?.smoking || !!s.lifestyle?.smoking,
+              alcohol: currentAnamnesis.habits?.alcohol || !!s.lifestyle?.alcohol,
+              exercise: currentAnamnesis.habits?.exercise || !!s.lifestyle?.exercise,
+              sunExposure: currentAnamnesis.habits?.sunExposure || !!s.lifestyle?.sunExposure,
+              sunscreen: currentAnamnesis.habits?.sunscreen || !!s.lifestyle?.sunscreen,
+            },
+            intakeQuestionnaire: {
+              usedToxinBefore: !!s.usedToxinBefore,
+              lastToxinDate: s.lastToxinDate || '',
+              toxinTimes: s.toxinTimes || '',
+              usedPMMA: !!s.usedPMMA,
+              hadPastComplications: !!s.hadPastComplications,
+              pastComplicationsDetail: s.pastComplicationsDetail || '',
+              hasFoodAllergy: !!s.hasFoodAllergy,
+              foodAllergyDetail: s.foodAllergyDetail || '',
+              hasInsectAllergy: !!s.hasInsectAllergy,
+              insectAllergyDetail: s.insectAllergyDetail || '',
+              hadFillerBefore: !!s.hadFillerBefore,
+              fillerProduct: s.fillerProduct || '',
+              hasCoagulationDisease: !!s.hasCoagulationDisease,
+              coagulationDiseaseDetail: s.coagulationDiseaseDetail || '',
+              bleedsEasily: !!s.bleedsEasily,
+              hadHemorrhageOrHerpes: !!s.hadHemorrhageOrHerpes,
+              hemorrhageOrHerpesDetail: s.hemorrhageOrHerpesDetail || '',
+              hasAnemia: !!s.hasAnemia,
+              hasMedicalConditions: !!s.hasMedicalConditions,
+              medicalConditions: s.medicalConditions || undefined,
+              lifestyle: s.lifestyle || undefined,
+              emergencyContactName: s.emergencyContactName || '',
+              emergencyContactPhone: s.emergencyContactPhone || '',
+              howHeardAboutClinic: s.howHeardAboutClinic || '',
+              submittedAt: s.submittedAt,
+            },
+          },
+        };
+        await updateDoc(doc(db, 'patients', patient.id!), patientUpdate);
+        // Sem isso, a tela do profissional continuava com o estado local antigo (sem os
+        // dados da ficha) mesmo depois do Firestore já ter sido atualizado — qualquer
+        // gravação seguinte (ex: clicar em "Liberar") sobrescrevia a mesclagem que
+        // acabou de acontecer, fazendo a anamnese "voltar" a ficar em branco.
+        setAnamnesis(normalizeAnamnesis(patientUpdate.anamnesis));
+        await Promise.all(toMerge.map(d => updateDoc(doc(db, 'intakeSubmissions', d.id), { mergedIntoRecord: true })));
+        showToast('Ficha clínica preenchida pelo paciente recebida e mesclada no prontuário');
+      } catch (err: any) {
+        // Antes ficava em silêncio total aqui — se a gravação falhasse por qualquer
+        // motivo (permissão, rede, regra do Firestore), ninguém saberia por quê, e a
+        // ficha simplesmente nunca chegava na anamnese sem nenhuma pista do motivo.
+        console.error('Erro ao mesclar ficha clínica na anamnese:', err);
+        showToast(`Não foi possível mesclar a ficha clínica: ${err?.code || err?.message || 'erro desconhecido'}`, 'error');
+      }
+    });
+    return () => unsubscribe();
+  }, [patient.id]);
+
   const [startingNewAnamnesis, setStartingNewAnamnesis] = useState(false);
 
   // Paciente que volta pedindo um tratamento novo — a anamnese anterior já está travada
@@ -2324,7 +2523,7 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
 
             {activeTab === 'consent' && (
               <motion.div key="consent" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                <ConsentTermsModule user={user} patient={patient} onAnamnesisMerged={(fresh) => setAnamnesis(normalizeAnamnesis(fresh))} />
+                <ConsentTermsModule user={user} patient={patient} />
               </motion.div>
             )}
 
@@ -3312,7 +3511,7 @@ function AtestadoModule({ user, patient, getReleaserName }: { user: User, patien
   );
 }
 
-function ConsentTermsModule({ user, patient, onAnamnesisMerged }: { user: User, patient: Patient, onAnamnesisMerged?: (freshAnamnesis: any) => void }) {
+function ConsentTermsModule({ user, patient }: { user: User, patient: Patient }) {
   const [isSigning, setIsSigning] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
   const [templates, setTemplates] = useState<{ id: string, title: string, content: string }[]>([]);
@@ -3405,204 +3604,6 @@ function ConsentTermsModule({ user, patient, onAnamnesisMerged }: { user: User, 
       .replace(/\[NOME DO PROFISSIONAL\]/g, clinicSettings?.professionalName || '_______________________');
   };
 
-  // Assinaturas feitas remotamente (link enviado por WhatsApp) ficam guardadas em
-  // signRequests até serem "puxadas" pro prontuário — onSnapshot detecta a assinatura
-  // em tempo real, mesmo que o profissional já esteja com essa tela aberta no momento
-  // em que o paciente assina (antes usava getDocs, uma checagem única que só rodava ao
-  // abrir a tela — se o paciente assinasse depois, o profissional só via a atualização
-  // fechando e abrindo o prontuário de novo).
-  useEffect(() => {
-    const q = query(
-      collection(db, 'signRequests'),
-      where('patientId', '==', patient.id),
-      where('status', '==', 'signed')
-    );
-    const unsubscribe = onSnapshot(q, async (snap) => {
-      try {
-        const toMerge = snap.docs.filter(d => !d.data().mergedIntoRecord && (!d.data().docType || d.data().docType === 'consent'));
-        if (toMerge.length === 0) return;
-
-        const newTerms = toMerge.map(d => {
-          const data = d.data();
-          return {
-            templateId: data.templateId,
-            templateTitle: data.templateTitle,
-            content: data.templateContent || '',
-            signedAt: data.signedAt,
-            signatureUrl: data.signatureUrl,
-            // Pedidos de assinatura criados antes desses campos existirem não têm
-            // sentVia/sentTo gravados — incluir undefined explicitamente aqui quebraria
-            // o updateDoc (Firestore rejeita undefined mesmo dentro de itens de array,
-            // não só no nível principal do documento)
-            ...(data.sentVia ? { sentVia: data.sentVia } : {}),
-            ...(data.sentTo ? { sentTo: data.sentTo } : {}),
-          };
-        });
-        const freshSnap = await getDoc(doc(db, 'patients', patient.id!));
-        const freshTerms = freshSnap.exists() ? ((freshSnap.data() as Patient).consentTerms || []) : (patient.consentTerms || []);
-        await updateDoc(doc(db, 'patients', patient.id!), {
-          consentTerms: [...freshTerms, ...newTerms],
-        });
-        await Promise.all(toMerge.map(d => updateDoc(doc(db, 'signRequests', d.id), { mergedIntoRecord: true })));
-        showToast(`${newTerms.length} assinatura(s) remota(s) recebida(s)`);
-      } catch (err: any) {
-        console.error('Erro ao mesclar termo assinado remotamente:', err);
-        showToast(`Não foi possível salvar o termo assinado: ${err?.code || err?.message || 'erro desconhecido'}`, 'error');
-      }
-    });
-    return () => unsubscribe();
-  }, [patient.id]);
-
-  // Ficha clínica de harmonização facial, preenchida pelo próprio paciente na sala de
-  // espera (logo após o check-in) — puxa tudo pro prontuário sozinho assim que o
-  // profissional abre essa aba: dados de cadastro, anamnese (questionário de saúde e
-  // queixa principal) e os dois termos de autorização, com a assinatura do paciente.
-  useEffect(() => {
-    const q = query(
-      collection(db, 'intakeSubmissions'),
-      where('patientId', '==', patient.id)
-    );
-    const unsubscribe = onSnapshot(q, async (snap) => {
-      try {
-        const toMerge = snap.docs.filter(d => !d.data().mergedIntoRecord);
-        if (toMerge.length === 0) return;
-
-        // Busca o paciente ATUALIZADO agora, em vez de usar a variável "patient" —
-        // essa variável fica presa (fechamento do React) no que era verdade quando a
-        // tela abriu, e esse efeito só roda de novo se o ID do paciente mudar, não a
-        // cada atualização do cadastro. Sem isso, se algo no cadastro tivesse mudado
-        // depois que essa tela abriu (outra aba, outro profissional), a mesclagem usaria
-        // a versão antiga como base — e em alguns casos isso podia fazer a gravação
-        // falhar silenciosamente, sem a ficha nunca chegar na anamnese.
-        const freshSnap = await getDoc(doc(db, 'patients', patient.id!));
-        const freshPatient = freshSnap.exists() ? (freshSnap.data() as Patient) : patient;
-
-        // Só existe 1 ficha por check-in — se por acaso houver mais de uma pendente,
-        // usa a mais recente
-        const sorted = toMerge.sort((a, b) => (b.data().submittedAt || '').localeCompare(a.data().submittedAt || ''));
-        const s = sorted[0].data();
-
-        const currentAnamnesis = freshPatient.anamnesis || ({} as any);
-        const patientUpdate: any = {
-          // Só preenche o que ainda não existia — nunca sobrescreve o que já estava
-          // certo no cadastro
-          birthDate: freshPatient.birthDate || s.birthDate || '',
-          address: freshPatient.address || s.address || '',
-          email: freshPatient.email || s.email || '',
-          profession: freshPatient.profession || s.profession || '',
-          maritalStatus: freshPatient.maritalStatus || s.maritalStatus || '',
-          howHeardAboutClinic: freshPatient.howHeardAboutClinic || s.howHeardAboutClinic || '',
-          emergencyContactName: freshPatient.emergencyContactName || s.emergencyContactName || '',
-          emergencyContactPhone: freshPatient.emergencyContactPhone || s.emergencyContactPhone || '',
-          consentTerms: [
-            ...(freshPatient.consentTerms || []),
-            {
-              templateId: 'intake-full-form',
-              templateTitle: 'Ficha Clínica do Paciente (Completa)',
-              content: buildIntakeFullText(s),
-              signedAt: s.submittedAt,
-              signatureUrl: s.signatureUrl,
-            },
-            {
-              templateId: 'intake-photo-consent',
-              templateTitle: 'Autorização de Documentação Fotográfica (Ficha Clínica)',
-              content: 'Autorizo a realização de documentação fotográfica referente ao procedimento realizado, que poderá ser utilizada para fins de acompanhamento do procedimento e para uso do médico em atividades científicas.',
-              signedAt: s.submittedAt,
-              signatureUrl: s.signatureUrl,
-            },
-            // A divulgação de imagens é opcional na ficha — só entra aqui como termo
-            // assinado se o paciente realmente marcou essa caixa. Gravar sempre, mesmo
-            // desmarcada, faria o prontuário mostrar uma autorização que a pessoa nunca deu.
-            ...(s.imageDisclosureConsent ? [{
-              templateId: 'intake-image-disclosure',
-              templateTitle: 'Autorização de Divulgação de Imagens (Ficha Clínica)',
-              content: 'Autorizo divulgação de autorretrato (selfies) e imagens relativas ao "antes e depois" do procedimento, nos perfis pessoais nas redes sociais da CONTRATADA, conforme permissão da Resolução nº 196/2019 do Conselho Federal de Odontologia (CFO), desde que a divulgação contenha o nome da CONTRATADA, acompanhado do número de inscrição junto ao Conselho Regional de Odontologia (CRO).',
-              signedAt: s.submittedAt,
-              signatureUrl: s.signatureUrl,
-            }] : []),
-          ],
-          anamnesis: {
-            ...currentAnamnesis,
-            mainComplaint: currentAnamnesis.mainComplaint || s.mainComplaint || '',
-            conditions: {
-              ...(currentAnamnesis.conditions || {}),
-              pregnant: currentAnamnesis.conditions?.pregnant || !!s.isPregnant,
-              breastfeeding: currentAnamnesis.conditions?.breastfeeding || !!s.isBreastfeeding,
-              anticoagulant: currentAnamnesis.conditions?.anticoagulant || !!s.medicalConditions?.anticoagulant,
-              // As demais condições médicas (diabetes, hipertensão, autoimune, etc.) vêm
-              // todas do checklist único "Tem alguma condição médica?" da ficha — nunca
-              // sobrescreve um "sim" que já existia, só adiciona o que o paciente marcou
-              diabetes: currentAnamnesis.conditions?.diabetes || !!s.medicalConditions?.diabetes,
-              hypertension: currentAnamnesis.conditions?.hypertension || !!s.medicalConditions?.hypertension,
-              heartProblems: currentAnamnesis.conditions?.heartProblems || !!s.medicalConditions?.heartProblems,
-              autoimmune: currentAnamnesis.conditions?.autoimmune || !!s.medicalConditions?.autoimmune,
-              cancerHistory: currentAnamnesis.conditions?.cancerHistory || !!s.medicalConditions?.cancerHistory,
-              keloid: currentAnamnesis.conditions?.keloid || !!s.medicalConditions?.keloid,
-              herpes: currentAnamnesis.conditions?.herpes || !!s.medicalConditions?.herpes,
-              epilepsy: currentAnamnesis.conditions?.epilepsy || !!s.medicalConditions?.epilepsy,
-              hivHepatitis: currentAnamnesis.conditions?.hivHepatitis || !!s.medicalConditions?.hivHepatitis,
-              pacemaker: currentAnamnesis.conditions?.pacemaker || !!s.medicalConditions?.pacemaker,
-              isotretinoin: currentAnamnesis.conditions?.isotretinoin || !!s.medicalConditions?.isotretinoin,
-            },
-            hasAllergies: currentAnamnesis.hasAllergies || !!s.hasMedicationAllergy,
-            allergiesDetails: currentAnamnesis.allergiesDetails || s.medicationAllergyDetail || '',
-            hasContinuousMedication: currentAnamnesis.hasContinuousMedication || !!s.usesContinuousMedication,
-            medicationsDetails: currentAnamnesis.medicationsDetails || s.continuousMedicationDetail || '',
-            habits: {
-              ...(currentAnamnesis.habits || {}),
-              smoking: currentAnamnesis.habits?.smoking || !!s.lifestyle?.smoking,
-              alcohol: currentAnamnesis.habits?.alcohol || !!s.lifestyle?.alcohol,
-              exercise: currentAnamnesis.habits?.exercise || !!s.lifestyle?.exercise,
-              sunExposure: currentAnamnesis.habits?.sunExposure || !!s.lifestyle?.sunExposure,
-              sunscreen: currentAnamnesis.habits?.sunscreen || !!s.lifestyle?.sunscreen,
-            },
-            intakeQuestionnaire: {
-              usedToxinBefore: !!s.usedToxinBefore,
-              lastToxinDate: s.lastToxinDate || '',
-              toxinTimes: s.toxinTimes || '',
-              usedPMMA: !!s.usedPMMA,
-              hadPastComplications: !!s.hadPastComplications,
-              pastComplicationsDetail: s.pastComplicationsDetail || '',
-              hasFoodAllergy: !!s.hasFoodAllergy,
-              foodAllergyDetail: s.foodAllergyDetail || '',
-              hasInsectAllergy: !!s.hasInsectAllergy,
-              insectAllergyDetail: s.insectAllergyDetail || '',
-              hadFillerBefore: !!s.hadFillerBefore,
-              fillerProduct: s.fillerProduct || '',
-              hasCoagulationDisease: !!s.hasCoagulationDisease,
-              coagulationDiseaseDetail: s.coagulationDiseaseDetail || '',
-              bleedsEasily: !!s.bleedsEasily,
-              hadHemorrhageOrHerpes: !!s.hadHemorrhageOrHerpes,
-              hemorrhageOrHerpesDetail: s.hemorrhageOrHerpesDetail || '',
-              hasAnemia: !!s.hasAnemia,
-              hasMedicalConditions: !!s.hasMedicalConditions,
-              medicalConditions: s.medicalConditions || undefined,
-              lifestyle: s.lifestyle || undefined,
-              emergencyContactName: s.emergencyContactName || '',
-              emergencyContactPhone: s.emergencyContactPhone || '',
-              howHeardAboutClinic: s.howHeardAboutClinic || '',
-              submittedAt: s.submittedAt,
-            },
-          },
-        };
-        await updateDoc(doc(db, 'patients', patient.id!), patientUpdate);
-        // Sem isso, a tela do profissional continuava com o estado local antigo (sem os
-        // dados da ficha) mesmo depois do Firestore já ter sido atualizado — qualquer
-        // gravação seguinte (ex: clicar em "Liberar") sobrescrevia a mesclagem que
-        // acabou de acontecer, fazendo a anamnese "voltar" a ficar em branco.
-        onAnamnesisMerged?.(patientUpdate.anamnesis);
-        await Promise.all(toMerge.map(d => updateDoc(doc(db, 'intakeSubmissions', d.id), { mergedIntoRecord: true })));
-        showToast('Ficha clínica preenchida pelo paciente recebida e mesclada no prontuário');
-      } catch (err: any) {
-        // Antes ficava em silêncio total aqui — se a gravação falhasse por qualquer
-        // motivo (permissão, rede, regra do Firestore), ninguém saberia por quê, e a
-        // ficha simplesmente nunca chegava na anamnese sem nenhuma pista do motivo.
-        console.error('Erro ao mesclar ficha clínica na anamnese:', err);
-        showToast(`Não foi possível mesclar a ficha clínica: ${err?.code || err?.message || 'erro desconhecido'}`, 'error');
-      }
-    });
-    return () => unsubscribe();
-  }, [patient.id]);
 
   const openWhatsAppPreparation = (template: { id: string, title: string, content: string }) => {
     if (!patient.phone) {
