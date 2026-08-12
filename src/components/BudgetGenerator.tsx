@@ -506,6 +506,35 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
       docPdf.setFontSize(9);
       docPdf.setTextColor(154, 144, 132);
       docPdf.text(`Este orçamento é válido por ${validityDays} dias a partir da data de emissão.`, margin, y);
+      y += 16;
+
+      // Dados do profissional — nome e CRO, logo abaixo do orçamento, mesmo padrão dos
+      // outros documentos (receituário, atestado)
+      const professionalName = settings?.professionalName || '';
+      const registrationNumber = settings?.registrationNumber || '';
+      if (professionalName || registrationNumber) {
+        docPdf.setDrawColor(234, 223, 212);
+        docPdf.line(margin, y, pageWidth - margin, y);
+        y += 8;
+        docPdf.setFontSize(10);
+        docPdf.setTextColor(92, 84, 78);
+        docPdf.setFont('helvetica', 'bold');
+        if (professionalName) docPdf.text(professionalName, margin, y);
+        docPdf.setFont('helvetica', 'normal');
+        docPdf.setTextColor(154, 144, 132);
+        docPdf.setFontSize(9);
+        if (registrationNumber) docPdf.text(`CRO nº ${registrationNumber}`, margin, y + (professionalName ? 5 : 0));
+      }
+
+      // Rodapé com os dados da clínica — nome, endereço e WhatsApp, no pé da página,
+      // mesmo padrão visual usado nos outros documentos impressos do app
+      const footerParts = [clinicName, settings?.clinicAddress, settings?.whatsappNumber].filter(Boolean);
+      if (footerParts.length > 0) {
+        docPdf.setFontSize(8);
+        docPdf.setTextColor(154, 144, 132);
+        docPdf.setFont('helvetica', 'normal');
+        docPdf.text(footerParts.join(' · '), pageWidth / 2, pageHeight - 12, { align: 'center' });
+      }
 
       // Marca d'água grande e bem clara, por cima de todo o resto — desenhada por
       // último de propósito, já que no jsPDF quem desenha depois fica visualmente em

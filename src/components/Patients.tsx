@@ -895,6 +895,25 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
     setSavingAnamnesis(false);
   };
 
+  // Descarta qualquer alteração digitada e ainda não salva, recarregando a versão mais
+  // recente do banco — útil se alguém mudou de ideia no meio do preenchimento. Como
+  // existe auto-save (2.5s depois de parar de digitar), "cancelar" não desfaz o que já
+  // foi salvo automaticamente, só o que ainda estava "no ar" nesse exato momento.
+  const [cancelingAnamnesis, setCancelingAnamnesis] = useState(false);
+  const handleCancelAnamnesis = async () => {
+    if (!window.confirm('Descartar as alterações feitas agora e voltar pra última versão salva?')) return;
+    setCancelingAnamnesis(true);
+    try {
+      const freshSnap = await getDoc(doc(db, 'patients', patient.id!));
+      const freshAnamnesis = freshSnap.exists() ? (freshSnap.data() as Patient).anamnesis : undefined;
+      setAnamnesis(normalizeAnamnesis(freshAnamnesis));
+      showToast('Alterações descartadas');
+    } catch (err) {
+      showToast('Erro ao descartar alterações', 'error');
+    }
+    setCancelingAnamnesis(false);
+  };
+
   // Auto-save: antes só salvava clicando em "Salvar" — se a pessoa saísse da tela do
   // paciente (ou fechasse o app) no meio do preenchimento, tudo que tinha digitado se
   // perdia. Agora, 2.5s depois de parar de digitar/mexer em algo, salva sozinho em
@@ -1382,12 +1401,12 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
         <div class="box-label">Anamnese</div>
         <p><strong>Queixa Principal:</strong> ${s.mainComplaint || '—'}</p>
         <p><strong>Expectativas:</strong> ${s.expectations || '—'}</p>
-        <p><strong>Condições Médicas:</strong> ${activeConditions.length ? activeConditions.join(', ') : 'Nenhuma marcada'}</p>
+        <p><strong>Condições Médicas:</strong> ${activeConditions.length ? activeConditions.map(k => conditionFilterOptions.find(c => c.key === k)?.label || k).join(', ') : 'Nenhuma marcada'}</p>
         ${s.otherConditions ? `<p><strong>Outras Condições:</strong> ${s.otherConditions}</p>` : ''}
         <p><strong>Alergias:</strong> ${s.hasAllergies ? (s.allergiesDetails || 'Sim') : 'Não'}</p>
         <p><strong>Medicação Contínua:</strong> ${s.hasContinuousMedication ? (s.medicationsDetails || 'Sim') : 'Não'}</p>
         ${s.familyHistory ? `<p><strong>Histórico Familiar:</strong> ${s.familyHistory}</p>` : ''}
-        <p><strong>Estilo de Vida:</strong> ${activeHabits.length ? activeHabits.join(', ') : 'Nenhum marcado'}</p>
+        <p><strong>Estilo de Vida:</strong> ${activeHabits.length ? activeHabits.map(k => lifestyleLabels[k] || k).join(', ') : 'Nenhum marcado'}</p>
         ${s.fitzpatrickType ? `<p><strong>Fototipo:</strong> ${s.fitzpatrickType}</p>` : ''}
         <p><strong>Avaliação da Pele:</strong> ${s.skinEvaluation || '—'}</p>
         <p><strong>Avaliação Facial:</strong> ${s.faceEvaluation || '—'}</p>
@@ -2347,6 +2366,14 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
                         <MessageCircle size={16} />
                         Assinatura Remota
                       </button>
+                      <button 
+                        onClick={handleCancelAnamnesis} 
+                        disabled={savingAnamnesis || releasingAnamnesis || cancelingAnamnesis}
+                        className="text-[#9CA3AF] hover:text-red-400 flex items-center gap-2 px-6 py-3 rounded-2xl transition-all font-bold text-[10px] uppercase tracking-widest disabled:opacity-50"
+                      >
+                        <X size={16} />
+                        {cancelingAnamnesis ? 'Descartando...' : 'Cancelar'}
+                      </button>
                     </div>
                   )}
                 </div>
@@ -2982,12 +3009,12 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
                   <div className="p-6 pt-0 space-y-3 text-xs text-[#4A433D] font-light">
                     <p><strong>Queixa Principal:</strong> {s.mainComplaint || '—'}</p>
                     <p><strong>Expectativas:</strong> {s.expectations || '—'}</p>
-                    <p><strong>Condições Médicas:</strong> {activeConditions.length ? activeConditions.join(', ') : 'Nenhuma marcada'}</p>
+                    <p><strong>Condições Médicas:</strong> {activeConditions.length ? activeConditions.map(k => conditionFilterOptions.find(c => c.key === k)?.label || k).join(', ') : 'Nenhuma marcada'}</p>
                     {s.otherConditions && <p><strong>Outras Condições:</strong> {s.otherConditions}</p>}
                     <p><strong>Alergias:</strong> {s.hasAllergies ? (s.allergiesDetails || 'Sim') : 'Não'}</p>
                     <p><strong>Medicação Contínua:</strong> {s.hasContinuousMedication ? (s.medicationsDetails || 'Sim') : 'Não'}</p>
                     {s.familyHistory && <p><strong>Histórico Familiar:</strong> {s.familyHistory}</p>}
-                    <p><strong>Estilo de Vida:</strong> {activeHabits.length ? activeHabits.join(', ') : 'Nenhum marcado'}{s.habits?.diet ? ` — ${s.habits.diet}` : ''}</p>
+                    <p><strong>Estilo de Vida:</strong> {activeHabits.length ? activeHabits.map(k => lifestyleLabels[k] || k).join(', ') : 'Nenhum marcado'}{s.habits?.diet ? ` — ${s.habits.diet}` : ''}</p>
                     {s.fitzpatrickType && <p><strong>Fototipo:</strong> {s.fitzpatrickType}</p>}
                     <p><strong>Avaliação da Pele:</strong> {s.skinEvaluation || '—'}</p>
                     <p><strong>Avaliação Facial:</strong> {s.faceEvaluation || '—'}</p>
