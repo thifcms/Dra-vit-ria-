@@ -3536,7 +3536,11 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
       <div class="box" style="text-align: center;">
         <div class="box-label">Assinatura do Paciente</div>
         <img src="${term.signatureUrl}" alt="Assinatura" style="max-height: 100px; margin: 10px auto; display: block; mix-blend-mode: multiply;" />
-        ${term.sentVia ? `<p style="font-size: 11px; color: #9CA3AF; margin-top: 6px;">Assinado remotamente — link enviado por ${term.sentVia === 'whatsapp' ? 'WhatsApp' : 'e-mail'} para ${term.sentTo}</p>` : ''}
+        ${term.sentVia
+          ? `<p style="font-size: 11px; color: #9CA3AF; margin-top: 6px;">Assinado remotamente — link enviado por ${term.sentVia === 'whatsapp' ? 'WhatsApp' : 'e-mail'} para ${term.sentTo}</p>`
+          : (term.templateId.startsWith('intake-') && patient.phone
+            ? `<p style="font-size: 11px; color: #9CA3AF; margin-top: 6px;">Assinado remotamente — link enviado por WhatsApp para ${patient.phone}</p>`
+            : '')}
       </div>
       ${clinicSettings?.professionalSignatureUrl ? `
       <div class="box" style="text-align: center;">
@@ -3734,7 +3738,10 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
             <div className="flex justify-between items-start">
               <div>
                 <h4 className="text-lg font-normal text-[#4A433D] serif leading-tight">{term.templateTitle}</h4>
-                <p className="text-[9px] text-[#9CA3AF] font-bold uppercase tracking-[0.2em] mt-2">Assinado em {new Date(term.signedAt).toLocaleDateString('pt-BR')}</p>
+                <p className="text-[9px] text-[#9CA3AF] font-bold uppercase tracking-[0.2em] mt-2">
+                  Assinado em {new Date(term.signedAt).toLocaleDateString('pt-BR')}
+                  {term.sentVia ? ` — via ${term.sentVia === 'whatsapp' ? 'WhatsApp' : 'e-mail'} (${term.sentTo})` : ''}
+                </p>
               </div>
               <div className="p-3 bg-[#FDFBF9] rounded-xl text-[#9CA3AF] group-hover:bg-[#F0F7F0] group-hover:text-[#8BA888] transition-all">
                 <CheckCircle2 size={24} />
@@ -3764,7 +3771,8 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
             <div>
               <h4 className="text-lg font-normal text-[#4A433D] serif leading-tight">{term.templateTitle}</h4>
               <p className="text-[9px] text-[#9CA3AF] font-bold uppercase tracking-[0.2em] mt-2">
-                Assinado em {new Date(term.signedAt).toLocaleDateString('pt-BR')} — Questionário enviado ao paciente
+                Assinado em {new Date(term.signedAt).toLocaleDateString('pt-BR')}
+                {patient.phone ? ` — link enviado por WhatsApp para ${patient.phone}` : ' — Questionário enviado ao paciente'}
               </p>
             </div>
             <div className="h-24 bg-[#FDFBF9] rounded-2xl flex items-center justify-center border border-dashed border-[#F5F2F0] p-4 shadow-sm">
@@ -3784,7 +3792,7 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
               <h4 className="text-lg font-normal text-[#4A433D] serif leading-tight">Anamnese e Plano de Tratamento</h4>
               <p className="text-[9px] text-[#9CA3AF] font-bold uppercase tracking-[0.2em] mt-2">
                 Assinado em {new Date(h.releasedAt).toLocaleDateString('pt-BR')}
-                {(h as any).sentVia ? ` — enviado por ${(h as any).sentVia === 'whatsapp' ? 'WhatsApp' : 'e-mail'}` : ''}
+                {(h as any).sentVia ? ` — enviado por ${(h as any).sentVia === 'whatsapp' ? 'WhatsApp' : 'e-mail'} para ${(h as any).sentTo}` : ''}
               </p>
             </div>
             <div className="h-24 bg-[#FDFBF9] rounded-2xl flex items-center justify-center border border-dashed border-[#F5F2F0] p-4 shadow-sm">
@@ -3800,7 +3808,7 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
               </h4>
               <p className="text-[9px] text-[#9CA3AF] font-bold uppercase tracking-[0.2em] mt-2">
                 Assinado em {new Date(b.signedAt).toLocaleDateString('pt-BR')}
-                {b.sentVia ? ` — enviado por ${b.sentVia === 'whatsapp' ? 'WhatsApp' : 'e-mail'}` : ''}
+                {b.sentVia ? ` — enviado por ${b.sentVia === 'whatsapp' ? 'WhatsApp' : 'e-mail'} para ${b.sentTo}` : ''}
               </p>
             </div>
             <div className="h-24 bg-[#FDFBF9] rounded-2xl flex items-center justify-center border border-dashed border-[#F5F2F0] p-4 shadow-sm">
