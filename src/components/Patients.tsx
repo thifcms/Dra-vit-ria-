@@ -2416,6 +2416,14 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
                       </button>
                     </div>
                   )}
+                  <button
+                    onClick={() => setShowFinishConsultConfirm(true)}
+                    disabled={finishingConsultation}
+                    className="w-full mt-6 py-5 bg-[#8BA888] text-white rounded-[28px] font-bold text-xs uppercase tracking-widest shadow-md hover:bg-[#7C9979] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                  >
+                    <CheckCircle2 size={20} />
+                    Finalizar Atendimento
+                  </button>
                 </div>
               </motion.div>
             )}
@@ -2595,6 +2603,14 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
                     </div>
                   )}
                 </div>
+                <button
+                  onClick={() => setShowFinishConsultConfirm(true)}
+                  disabled={finishingConsultation}
+                  className="w-full mt-6 py-5 bg-[#8BA888] text-white rounded-[28px] font-bold text-xs uppercase tracking-widest shadow-md hover:bg-[#7C9979] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                >
+                  <CheckCircle2 size={20} />
+                  Finalizar Atendimento
+                </button>
               </motion.div>
             )}
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { doc, getDoc, updateDoc, collection, query, where, onSnapshot, addDoc, increment } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { getClinicOwnerId } from '../lib/slots';
@@ -40,9 +40,14 @@ function guessRegionFromPosition(x: number, y: number): string {
     return 'Região Supraorbital';
   }
 
-  if (y < 62) {
-    // Triângulo do nariz alargando: estreito perto da glabela, mais largo perto da base
-    const nasalHalfWidth = 6 + ((y - 40) / (62 - 40)) * 9;
+  if (y < 66) {
+    // Triângulo do nariz alargando: estreito perto da glabela, mais largo na asa do
+    // nariz (base) — a faixa vai até y=66 (não 62) porque a asa do nariz, a parte mais
+    // larga, fica um pouco abaixo da base "oficial" medida na grade; cortar em 62 fazia
+    // cliques na asa do nariz caírem em "Região Oral" por engano.
+    const nasalHalfWidth = y < 62
+      ? 6 + ((y - 40) / (62 - 40)) * 9
+      : 15 - ((y - 62) / (66 - 62)) * 4; // vai estreitando de novo depois da asa, até a base do lábio
     if (x >= 50 - nasalHalfWidth && x <= 50 + nasalHalfWidth) return 'Região Nasal';
     const lateral = x < 22 || x > 78;
     if (lateral) return y < 50 ? 'Região Temporal' : 'Região Zigomática';
@@ -133,6 +138,19 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
     const y = ((e.clientY - rect.top) / rect.height) * 100;
     setPoints(prev => [...prev, { x, y, label: guessRegionFromPosition(x, y), color: activeColor }]);
     setSelectedPointIdx(points.length);
+  };
+
+  // Arrastar um ponto já colocado, pra corrigir a posição sem precisar apagar e marcar
+  // de novo — reaproveita o mesmo container relativo usado pra desenhar os pontos.
+  const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
+  const diagramContainerRef = useRef<HTMLDivElement>(null);
+
+  const handlePointDrag = (e: React.PointerEvent) => {
+    if (draggingIdx === null || !diagramContainerRef.current) return;
+    const rect = diagramContainerRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+    const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+    setPoints(prev => prev.map((p, i) => (i === draggingIdx ? { ...p, x, y, label: guessRegionFromPosition(x, y) } : p)));
   };
 
   const updatePointLabel = (idx: number, label: string) => {
@@ -300,7 +318,14 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
         <div className="fixed inset-0 bg-[#4A433D]/20 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-4xl max-h-[92vh] rounded-[40px] shadow-2xl flex flex-col md:flex-row overflow-hidden">
             <div className="flex-1 bg-[#FDFBF9] p-8 flex items-center justify-center relative min-h-[400px]">
-              <div className="relative w-full max-w-[320px] mx-auto" style={{ aspectRatio: patient.sex === 'F' ? '538/490' : '524/490' }}>
+              <div
+                ref={diagramContainerRef}
+                className="relative w-full max-w-[320px] mx-auto"
+                style={{ aspectRatio: patient.sex === 'F' ? '538/490' : '524/490' }}
+                onPointerMove={handlePointDrag}
+                onPointerUp={() => setDraggingIdx(null)}
+                onPointerLeave={() => setDraggingIdx(null)}
+              >
                 <GenericFaceDiagram sex={patient.sex} />
                 <svg
                   viewBox="0 0 300 380"
@@ -312,9 +337,10 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
                 {points.map((p, i) => (
                   <button
                     key={i}
-                    onClick={(e) => { e.stopPropagation(); setSelectedPointIdx(i); }}
-                    className="absolute w-5 h-5 rounded-full border-2 border-white shadow-md -translate-x-1/2 -translate-y-1/2 flex items-center justify-center text-[9px] font-bold text-white"
-                    style={{ left: `${p.x}%`, top: `${p.y}%`, backgroundColor: p.color }}
+                    onPointerDown={(e) => { e.stopPropagation(); setDraggingIdx(i); setSelectedPointIdx(i); }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="absolute w-5 h-5 rounded-full border-2 border-white shadow-md -translate-x-1/2 -translate-y-1/2 flex items-center justify-center text-[9px] font-bold text-white cursor-grab active:cursor-grabbing"
+                    style={{ left: `${p.x}%`, top: `${p.y}%`, backgroundColor: p.color, touchAction: 'none' }}
                   >
                     {i + 1}
                   </button>
