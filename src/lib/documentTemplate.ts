@@ -119,6 +119,15 @@ export function buildLetterheadHtml({
         }
         @media print {
           .print-btn { display: none; }
+          /* Repete o rodapé (dados da clínica) em toda folha impressa, não só na
+             última — comum em documentos com mais de uma página de conteúdo */
+          .print-footer-fixed {
+            position: fixed;
+            bottom: 10mm;
+            left: 20mm;
+            right: 20mm;
+          }
+          .content { padding-bottom: 25mm; }
         }
       </style>
     </head>
@@ -128,6 +137,8 @@ export function buildLetterheadHtml({
       <div class="title-bar">${title}</div>
       <div class="content">
         ${bodyHtml}
+      </div>
+      <div class="print-footer-fixed">
         ${footerHtml || ''}
       </div>
       <img class="watermark" src="${logoUrl}" alt="" />

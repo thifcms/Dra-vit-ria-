@@ -1447,6 +1447,46 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
     }
   };
 
+  const handlePrintEvolution = (entry: any) => {
+    const clinicName = clinicSettingsForInvoice?.clinicName || clinicSettingsForInvoice?.professionalName || 'Clínica';
+    const bodyHtml = `
+      <div class="box">
+        <div class="box-label">Paciente</div>
+        <p>${patient.name}</p>
+      </div>
+      <div class="box">
+        <div class="box-label">Evolução — ${entry.procedure}</div>
+        <p><strong>Data:</strong> ${new Date(entry.date).toLocaleDateString('pt-BR')}</p>
+        <p><strong>Observações Clínicas:</strong> ${entry.notes || '—'}</p>
+        ${entry.bucoMaxiloNotes ? `<p><strong>Detalhes Técnicos:</strong> ${entry.bucoMaxiloNotes}</p>` : ''}
+        ${entry.numericValue !== undefined ? `<p><strong>Medida Registrada:</strong> ${entry.numericValue}</p>` : ''}
+      </div>
+      ${clinicSettingsForInvoice?.professionalSignatureUrl ? `
+      <div class="box" style="text-align: center;">
+        <img src="${clinicSettingsForInvoice.professionalSignatureUrl}" alt="Assinatura" style="max-height: 80px; margin: 10px auto; display: block; mix-blend-mode: multiply;" />
+        <p style="font-size: 12px; color: #4A433D; margin-top: 4px;">
+          ${clinicSettingsForInvoice?.professionalName || ''}${clinicSettingsForInvoice?.registrationNumber ? ` — CRO nº ${clinicSettingsForInvoice.registrationNumber}` : ''}
+        </p>
+      </div>
+      ` : ''}
+    `;
+    const footerHtml = `
+      <p style="text-align: center; font-size: 11px; color: #9CA3AF; margin-bottom: 12px;">
+        ${[clinicName, clinicSettingsForInvoice?.clinicAddress, clinicSettingsForInvoice?.whatsappNumber].filter(Boolean).join(' · ')}
+      </p>
+      <div class="footer-row">
+        <span>Liberado em ${new Date(entry.releasedAt).toLocaleString('pt-BR')} — ${entry.releasedBy}</span>
+      </div>
+    `;
+    const html = buildLetterheadHtml({ title: 'Evolução de Tratamento', clinicName, bodyHtml, footerHtml, documentLabel: `Evolução — ${patient.name}` });
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.onload = () => printWindow.print();
+    }
+  };
+
   const handleFinishConsultation = async () => {
     setShowFinishConsultConfirm(false);
     setFinishingConsultation(true);
@@ -3175,6 +3215,12 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
                     {entry.bucoMaxiloNotes && <p><strong>Detalhes Técnicos:</strong> {entry.bucoMaxiloNotes}</p>}
                     {entry.numericValue !== undefined && <p><strong>Medida Registrada:</strong> {entry.numericValue}</p>}
                     <p className="text-[10px] text-[#9CA3AF] pt-2 border-t border-[#F5F2F0]">Liberado em {new Date(entry.releasedAt).toLocaleString('pt-BR')}</p>
+                    <button
+                      onClick={() => handlePrintEvolution(entry)}
+                      className="flex items-center gap-1.5 text-[10px] font-bold text-[#B8846E] hover:text-[#A6735E] uppercase tracking-widest pt-2"
+                    >
+                      <Printer size={12} /> Imprimir
+                    </button>
                   </div>
                 </details>
               ))}
@@ -4158,6 +4204,7 @@ function PrescriptionModule({ user, patient }: { user: User, patient: Patient })
       setNotes('');
       rxSigPad.current?.clear();
       showToast('Receituário salvo');
+      handleViewPrescription(newPrescription);
     } catch (err) {
       showToast('Erro ao salvar', 'error');
     }

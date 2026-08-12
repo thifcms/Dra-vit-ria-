@@ -3,7 +3,7 @@ import { doc, getDoc, addDoc, updateDoc, collection, query, where, getDocs, onSn
 import { db } from '../lib/firebase';
 import { Patient, ClinicSettings, InventoryItem } from '../types';
 import { User } from 'firebase/auth';
-import { Plus, Trash2, FileDown, CheckCircle2, MessageCircle, History, X, Eye, Clock } from 'lucide-react';
+import { Plus, Trash2, FileDown, CheckCircle2, MessageCircle, History, X, Eye, Clock, Printer } from 'lucide-react';
 import { showToast } from '../lib/toast';
 import { getClinicOwnerId, parseCurrencyInput, remoteSignLink } from '../lib/slots';
 import { whatsappLink, genericEmailLink, openWhatsApp } from '../lib/reminders';
@@ -91,6 +91,32 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
   }, [liveAnamnesis?.plannedProcedures, liveAnamnesis?.plannedSubstances, availableProcedures]);
 
   const addItem = () => setItems(prev => [...prev, { description: '', value: '' }]);
+
+  // Descarta edições manuais (itens extras, descontos aplicados, observações) e
+  // reconstrói o orçamento do zero, só com o que está marcado na anamnese agora
+  const handleCancelBudget = () => {
+    if (!window.confirm('Descartar as alterações feitas neste orçamento?')) return;
+    const plannedNames = liveAnamnesis?.plannedProcedures || [];
+    const rebuilt: BudgetItem[] = [];
+    plannedNames.forEach(name => {
+      const proc = availableProcedures?.find(p => p.name === name);
+      if (!proc) return;
+      rebuilt.push({
+        description: name,
+        value: proc.price.toFixed(2).replace('.', ','),
+        originalValue: proc.price.toFixed(2).replace('.', ','),
+        fromAnamnesis: true,
+        procedureId: proc.id,
+        insumoKit: proc.insumoKit,
+        allowDiscount: proc.allowDiscount,
+        maxDiscountPercent: proc.maxDiscountPercent,
+      });
+    });
+    setItems(rebuilt.length > 0 ? rebuilt : [{ description: '', value: '' }]);
+    setNotes('');
+    showToast('Alterações descartadas');
+  };
+
   const addFromCatalog = (item: { name: string; price: number }) => {
     setItems(prev => [...prev, { description: item.name, value: item.price.toFixed(2).replace('.', ',') }]);
   };
@@ -329,6 +355,14 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
         docType: 'budget' as const,
         sentVia: via,
         sentTo,
+        // Guarda os dados estruturados de verdade (não só o texto resumido acima) —
+        // sem isso, a mesclagem dependia do estado da tela no momento em que o
+        // paciente assinasse, que podia já estar diferente (ou zerado) se o
+        // profissional tivesse saído da aba de Orçamento nesse meio tempo.
+        budgetItems: validItems.map(it => ({ description: it.description, value: it.value })),
+        budgetTotal: total,
+        budgetValidityDays: validityDays,
+        budgetNotes: notes,
       };
       const docRef = await addDoc(collection(db, 'signRequests'), requestData);
       const link = remoteSignLink(docRef.id);
@@ -369,10 +403,10 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
           return {
             id: crypto.randomUUID(),
             date: new Date().toISOString(),
-            items: validItems.map(it => ({ description: it.description, value: it.value })),
-            total,
-            validityDays,
-            notes,
+            items: data.budgetItems || validItems.map(it => ({ description: it.description, value: it.value })),
+            total: data.budgetTotal ?? total,
+            validityDays: data.budgetValidityDays || validityDays,
+            notes: data.budgetNotes ?? notes,
             signedAt: data.signedAt,
             signatureUrl: data.signatureUrl,
             ...(data.sentVia ? { sentVia: data.sentVia } : {}),
@@ -390,8 +424,14 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
     return () => unsubscribe();
   }, [patient.id, isLocked]);
 
-  const handleGenerate = async (mode: 'download' | 'view' = 'download') => {
-    const validItems = items.filter(it => it.description.trim() && parseCurrencyInput(it.value) > 0);
+  const handleGenerate = async (
+    mode: 'download' | 'view' = 'download',
+    override?: { items: { description: string; value: string }[]; total: number; notes?: string; validityDays: string }
+  ) => {
+    const validItems = override ? override.items : items.filter(it => it.description.trim() && parseCurrencyInput(it.value) > 0);
+    const genTotal = override ? override.total : total;
+    const genNotes = override ? (override.notes || '') : notes;
+    const genValidityDays = override ? override.validityDays : validityDays;
     if (validItems.length === 0) {
       showToast('Adicione ao menos um item com descrição e valor', 'error');
       return;
@@ -490,14 +530,14 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
       docPdf.setFontSize(13);
       docPdf.setTextColor(92, 84, 78);
       docPdf.text('Total', margin, y);
-      docPdf.text(`R$ ${total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, pageWidth - margin - 2, y, { align: 'right' });
+      docPdf.text(`R$ ${genTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, pageWidth - margin - 2, y, { align: 'right' });
       y += 16;
 
       // Observações
-      if (notes) {
+      if (genNotes) {
         docPdf.setFontSize(9);
         docPdf.setTextColor(154, 144, 132);
-        const noteLines = docPdf.splitTextToSize(notes, pageWidth - margin * 2);
+        const noteLines = docPdf.splitTextToSize(genNotes, pageWidth - margin * 2);
         docPdf.text(noteLines, margin, y);
         y += noteLines.length * 5 + 6;
       }
@@ -505,7 +545,7 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
       // Validade
       docPdf.setFontSize(9);
       docPdf.setTextColor(154, 144, 132);
-      docPdf.text(`Este orçamento é válido por ${validityDays} dias a partir da data de emissão.`, margin, y);
+      docPdf.text(`Este orçamento é válido por ${genValidityDays} dias a partir da data de emissão.`, margin, y);
       y += 16;
 
       // Dados do profissional — nome e CRO, logo abaixo do orçamento, mesmo padrão dos
@@ -750,6 +790,14 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
             Confirmar Lançamento
           </button>
         </div>
+        {!isLocked && (
+          <button
+            onClick={handleCancelBudget}
+            className="w-full mt-3 py-3 text-[#9CA3AF] hover:text-red-400 font-bold text-[10px] uppercase tracking-widest transition-all"
+          >
+            Cancelar
+          </button>
+        )}
         <p className="text-[10px] text-[#9CA3AF] font-light text-center mt-2">
           "Paciente Não Aceitou Agora" salva o orçamento por 15 dias sem lançar nada no financeiro — quando ele
           pagar, marque como pago na lista abaixo.
@@ -861,6 +909,12 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
                         </p>
                       </div>
                     )}
+                    <button
+                      onClick={() => handleGenerate('view', { items: entry.items, total: entry.total, notes: entry.notes, validityDays: entry.validityDays })}
+                      className="flex items-center gap-1.5 text-[10px] font-bold text-[#B8846E] hover:text-[#A6735E] uppercase tracking-widest pt-2"
+                    >
+                      <Printer size={12} /> Reimprimir
+                    </button>
                   </div>
                 </details>
               ))}
