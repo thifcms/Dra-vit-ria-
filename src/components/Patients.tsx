@@ -94,6 +94,17 @@ const conditionFilterOptions: { key: string, label: string }[] = [
   { key: 'contraceptive', label: 'Anticoncepcional' },
 ];
 
+// Rótulos em português dos hábitos marcados no questionário enviado pelo paciente —
+// mesma ideia do conditionFilterOptions acima, só que pra "estilo de vida" em vez de
+// condições médicas.
+const lifestyleLabels: Record<string, string> = {
+  smoking: 'Fuma',
+  alcohol: 'Consome álcool',
+  exercise: 'Pratica exercícios',
+  sunExposure: 'Exposição solar frequente',
+  sunscreen: 'Usa protetor solar',
+};
+
 export default function Patients({ user, initialPatientId, onReturnToSchedule }: { user: User, initialPatientId?: string | null, onReturnToSchedule?: () => void }) {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
@@ -2224,7 +2235,9 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
                             <p className="text-xs font-bold text-[#4A433D] mb-2">Condições médicas marcadas:</p>
                             <div className="flex flex-wrap gap-2">
                               {Object.entries(anamnesis.intakeQuestionnaire.medicalConditions).filter(([, v]) => v).map(([k]) => (
-                                <span key={k} className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-[#8BA888] text-white">{k}</span>
+                                <span key={k} className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-[#8BA888] text-white">
+                                  {conditionFilterOptions.find(c => c.key === k)?.label || k}
+                                </span>
                               ))}
                             </div>
                           </div>
@@ -2234,7 +2247,9 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
                             <p className="text-xs font-bold text-[#4A433D] mb-2">Estilo de vida marcado:</p>
                             <div className="flex flex-wrap gap-2">
                               {Object.entries(anamnesis.intakeQuestionnaire.lifestyle).filter(([, v]) => v).map(([k]) => (
-                                <span key={k} className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-[#EADFD4] text-white">{k}</span>
+                                <span key={k} className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-[#EADFD4] text-white">
+                                  {lifestyleLabels[k] || k}
+                                </span>
                               ))}
                               {Object.values(anamnesis.intakeQuestionnaire.lifestyle).every(v => !v) && (
                                 <span className="text-[10px] text-[#9CA3AF] italic">Nenhum hábito marcado</span>
