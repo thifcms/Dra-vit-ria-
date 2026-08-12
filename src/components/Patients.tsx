@@ -1447,6 +1447,50 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
     }
   };
 
+  const handlePrintBudgetHistory = (entry: NonNullable<Patient['budgetHistory']>[number]) => {
+    const clinicName = clinicSettingsForInvoice?.clinicName || clinicSettingsForInvoice?.professionalName || 'Clínica';
+    const itemsHtml = entry.items.map(it => `<p>${it.description} — R$ ${parseCurrencyInput(it.value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>`).join('');
+    const bodyHtml = `
+      <div class="box">
+        <div class="box-label">Paciente</div>
+        <p>${patient.name}</p>
+      </div>
+      <div class="box">
+        <div class="box-label">Orçamento</div>
+        ${itemsHtml}
+        <p style="margin-top: 10px;"><strong>Total:</strong> R$ ${entry.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+        ${entry.notes ? `<p><strong>Observações:</strong> ${entry.notes}</p>` : ''}
+        <p><strong>Validade:</strong> ${entry.validityDays} dias a partir da assinatura</p>
+      </div>
+      <div class="box" style="text-align: center;">
+        <div class="box-label">Assinatura do Paciente</div>
+        <img src="${entry.signatureUrl}" alt="Assinatura" style="max-height: 80px; margin: 10px auto; display: block; mix-blend-mode: multiply;" />
+        ${entry.sentVia ? `<p style="font-size: 11px; color: #9CA3AF; margin-top: 6px;">Assinado remotamente — link enviado por ${entry.sentVia === 'whatsapp' ? 'WhatsApp' : 'e-mail'} para ${entry.sentTo}</p>` : ''}
+      </div>
+      ${clinicSettingsForInvoice?.professionalSignatureUrl ? `
+      <div class="box" style="text-align: center;">
+        <img src="${clinicSettingsForInvoice.professionalSignatureUrl}" alt="Assinatura do Profissional" style="max-height: 80px; margin: 10px auto; display: block; mix-blend-mode: multiply;" />
+        <p style="font-size: 12px; color: #4A433D; margin-top: 4px;">
+          ${clinicSettingsForInvoice?.professionalName || ''}${clinicSettingsForInvoice?.registrationNumber ? ` — CRO nº ${clinicSettingsForInvoice.registrationNumber}` : ''}
+        </p>
+      </div>
+      ` : ''}
+    `;
+    const footerHtml = `
+      <p style="text-align: center; font-size: 11px; color: #9CA3AF; margin-bottom: 12px;">
+        ${[clinicName, clinicSettingsForInvoice?.clinicAddress, clinicSettingsForInvoice?.whatsappNumber].filter(Boolean).join(' · ')}
+      </p>
+      <div class="footer-row"><span>Assinado em ${new Date(entry.signedAt).toLocaleString('pt-BR')}</span></div>
+    `;
+    const html = buildLetterheadHtml({ title: 'Orçamento de Procedimento', clinicName, bodyHtml, footerHtml, documentLabel: `Orçamento — ${patient.name}` });
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.onload = () => printWindow.print();
+    }
+  };
+
   const handlePrintEvolution = (entry: any) => {
     const clinicName = clinicSettingsForInvoice?.clinicName || clinicSettingsForInvoice?.professionalName || 'Clínica';
     const bodyHtml = `
@@ -2622,7 +2666,7 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
 
             {activeTab === 'consent' && (
               <motion.div key="consent" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                <ConsentTermsModule user={user} patient={patient} />
+                <ConsentTermsModule user={user} patient={patient} onPrintAnamnesisHistory={handlePrintAnamnesisHistory} onPrintBudgetHistory={handlePrintBudgetHistory} />
               </motion.div>
             )}
 
@@ -3235,7 +3279,7 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
                       onClick={() => handlePrintEvolution(entry)}
                       className="flex items-center gap-1.5 text-[10px] font-bold text-[#B8846E] hover:text-[#A6735E] uppercase tracking-widest pt-2"
                     >
-                      <Printer size={12} /> Imprimir
+                      <Printer size={12} /> Visualizar e Imprimir
                     </button>
                   </div>
                 </details>
@@ -3473,7 +3517,7 @@ function AtestadoModule({ user, patient, getReleaserName }: { user: User, patien
             onClick={() => handlePrint()}
             className="bg-[#EADFD4] text-white px-8 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest shadow-md hover:bg-[#DFCFBF] transition-all flex items-center gap-2"
           >
-            <Printer size={16} /> Imprimir
+            <Printer size={16} /> Visualizar e Imprimir
           </button>
         </div>
       </div>
@@ -3602,7 +3646,7 @@ function AtestadoModule({ user, patient, getReleaserName }: { user: User, patien
                         onClick={() => handlePrint(entry.documentTitle, entry.bodyText)}
                         className="flex items-center gap-1.5 text-[10px] font-bold text-[#B8846E] hover:text-[#A6735E] uppercase tracking-widest"
                       >
-                        <Printer size={12} /> Imprimir
+                        <Printer size={12} /> Visualizar e Imprimir
                       </button>
                     </div>
                   </div>
@@ -3616,7 +3660,7 @@ function AtestadoModule({ user, patient, getReleaserName }: { user: User, patien
   );
 }
 
-function ConsentTermsModule({ user, patient }: { user: User, patient: Patient }) {
+function ConsentTermsModule({ user, patient, onPrintAnamnesisHistory, onPrintBudgetHistory }: { user: User, patient: Patient, onPrintAnamnesisHistory: (entry: any) => void, onPrintBudgetHistory: (entry: any) => void }) {
   const [isSigning, setIsSigning] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
   const [templates, setTemplates] = useState<{ id: string, title: string, content: string }[]>([]);
@@ -3903,6 +3947,12 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
             <div className="h-24 bg-[#FDFBF9] rounded-2xl flex items-center justify-center border border-dashed border-[#F5F2F0] p-4 shadow-sm">
               <img src={(h as any).signatureUrl} alt="Assinatura" className="h-full object-contain mix-blend-multiply opacity-80" />
             </div>
+            <button
+              onClick={() => onPrintAnamnesisHistory(h)}
+              className="w-full py-3 bg-white border border-[#F5F2F0] text-[#5C544E] rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:border-[#EADFD4]/40 transition-all"
+            >
+              <Eye size={14} /> Visualizar e Imprimir
+            </button>
           </div>
         ))}
         {(patient.budgetHistory || []).map((b, i) => (
@@ -3919,6 +3969,12 @@ function ConsentTermsModule({ user, patient }: { user: User, patient: Patient })
             <div className="h-24 bg-[#FDFBF9] rounded-2xl flex items-center justify-center border border-dashed border-[#F5F2F0] p-4 shadow-sm">
               <img src={b.signatureUrl} alt="Assinatura" className="h-full object-contain mix-blend-multiply opacity-80" />
             </div>
+            <button
+              onClick={() => onPrintBudgetHistory(b)}
+              className="w-full py-3 bg-white border border-[#F5F2F0] text-[#5C544E] rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:border-[#EADFD4]/40 transition-all"
+            >
+              <Eye size={14} /> Visualizar e Imprimir
+            </button>
           </div>
         ))}
         {(patient.anamnesisHistory || []).filter(h => (h as any).signatureUrl).length === 0

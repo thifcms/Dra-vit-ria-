@@ -40,6 +40,7 @@ const Cancel = lazy(() => import('./components/Cancel'));
 const ComingSoon = lazy(() => import('./components/ComingSoon'));
 const TestSite = lazy(() => import('./components/TestSite'));
 import AutoBackupPrompt from './components/AutoBackupPrompt';
+import NoShowAutoMarker from './components/NoShowAutoMarker';
 
 type View = 'dashboard' | 'patients' | 'schedule' | 'inventory' | 'finance' | 'settings';
 
@@ -712,6 +713,7 @@ function AuthenticatedApp() {
         </div>
       </main>
       <AutoBackupPrompt user={user} isAdminUser={isAdminUser} />
+      <NoShowAutoMarker user={user} />
     </motion.div>
     )}
     </AnimatePresence>

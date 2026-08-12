@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, setDoc, doc, getDoc, getDocs, where, orderBy } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Appointment, Patient, ClinicSettings } from '../types';
@@ -88,30 +88,9 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
     };
   }, [user.uid]);
 
-  // Ao virar o dia, qualquer atendimento de um dia ANTERIOR que ainda estava "agendado"
-  // ou "confirmado" (nunca foi marcado como realizado nem cancelado) é automaticamente
-  // marcado como "Faltou" — evita esquecer de fechar consultas antigas que ficaram
-  // penduradas. Roda uma vez por carregamento da Agenda, não fica repetindo à toa.
-  const noShowCheckDoneRef = useRef(false);
-  useEffect(() => {
-    if (noShowCheckDoneRef.current || appointments.length === 0) return;
-    noShowCheckDoneRef.current = true;
-    const todayStr = todayLocalStr();
-    const stale = appointments.filter(a => a.date < todayStr && (a.status === 'scheduled' || a.status === 'confirmed'));
-    if (stale.length === 0) return;
-    (async () => {
-      let marked = 0;
-      for (const appt of stale) {
-        try {
-          await updateDoc(doc(db, 'appointments', appt.id!), { status: 'no_show' });
-          marked++;
-        } catch { /* segue tentando os outros mesmo se um falhar */ }
-      }
-      if (marked > 0) {
-        showToast(`${marked} atendimento(s) de dias anteriores marcado(s) como falta automaticamente`);
-      }
-    })();
-  }, [appointments]);
+  // A marcação automática de falta ao virar o dia foi movida pro nível do app
+  // (NoShowAutoMarker.tsx, sempre montado) — antes vivia só aqui, o que significava que
+  // só rodava se alguém abrisse a Agenda naquele dia. Ver App.tsx.
 
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
