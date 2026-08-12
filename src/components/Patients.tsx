@@ -4236,22 +4236,18 @@ function PrescriptionModule({ user, patient }: { user: User, patient: Patient })
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-6 border-b border-[#F5F2F0]">
         <h3 className="serif text-2xl text-[#4A433D]">Receituários & Prescrições</h3>
         <div className="flex flex-wrap items-center gap-3">
-          <a
-            href="https://receita.mevosaude.com.br/"
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            onClick={() => window.open('https://receita.mevosaude.com.br/', '_blank')}
             className="bg-white text-[#EADFD4] border border-[#F5F2F0] px-6 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 hover:bg-[#FDFBF9] transition-all shadow-sm"
           >
             <ExternalLink size={18} /> Mevo Prescrição Digital
-          </a>
-          <a
-            href="https://memed.com.br/login"
-            target="_blank"
-            rel="noopener noreferrer"
+          </button>
+          <button
+            onClick={() => window.open('https://memed.com.br/login', '_blank')}
             className="bg-white text-[#EADFD4] border border-[#F5F2F0] px-6 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 hover:bg-[#FDFBF9] transition-all shadow-sm"
           >
             <ExternalLink size={18} /> Memed Prescrição Digital
-          </a>
+          </button>
           <button 
             onClick={() => setIsAdding(true)}
             className="bg-[#EADFD4] text-white px-8 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest shadow-md hover:bg-[#DFCFBF] transition-all flex items-center gap-2"
