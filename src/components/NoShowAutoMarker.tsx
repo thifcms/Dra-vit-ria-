@@ -14,6 +14,12 @@ import { showToast } from '../lib/toast';
 // independente de qual aba está ativa.
 export default function NoShowAutoMarker({ user }: { user: User }) {
   const checkedTodayRef = useRef<string | null>(null);
+  // Evita ficar tentando de novo sem parar dentro da mesma sessão do app quando a
+  // causa é permanente (ex: erro de permissão) — sem isso, cada pequena mudança na
+  // coleção de agendamentos disparava uma nova tentativa, empilhando o mesmo erro
+  // repetidas vezes na tela.
+  const attemptsThisSessionRef = useRef(0);
+  const MAX_ATTEMPTS_PER_SESSION = 2;
 
   useEffect(() => {
     const q = query(collection(db, 'appointments'));
@@ -21,6 +27,7 @@ export default function NoShowAutoMarker({ user }: { user: User }) {
       const todayStr = todayLocalStr();
       // Já rodou hoje — evita ficar reprocessando à toa a cada mudança na coleção
       if (checkedTodayRef.current === todayStr) return;
+      if (attemptsThisSessionRef.current >= MAX_ATTEMPTS_PER_SESSION) return;
 
       const appointments = snap.docs.map(d => ({ id: d.id, ...d.data() } as Appointment));
       const stale = appointments.filter(a => a.date < todayStr && (a.status === 'scheduled' || a.status === 'confirmed'));
@@ -30,6 +37,7 @@ export default function NoShowAutoMarker({ user }: { user: User }) {
       }
 
       checkedTodayRef.current = todayStr;
+      attemptsThisSessionRef.current += 1;
       (async () => {
         let marked = 0;
         const errors: string[] = [];
@@ -46,10 +54,11 @@ export default function NoShowAutoMarker({ user }: { user: User }) {
         }
         if (errors.length > 0) {
           console.error('NoShowAutoMarker — falhas ao marcar falta:', errors);
-          showToast(`Não foi possível marcar ${errors.length} falta(s) automaticamente — veja o console`, 'error');
+          showToast(`Falha ao marcar falta: ${errors[0]}`, 'error');
           // Se NENHUMA gravação passou, não marca como "verificado hoje" — assim, na
           // próxima mudança na coleção (ou próxima vez que o app carregar), tenta de
-          // novo em vez de desistir silenciosamente pelo resto do dia
+          // novo em vez de desistir silenciosamente pelo resto do dia. O limite de
+          // tentativas por sessão acima evita que isso vire um loop de erros.
           if (marked === 0) checkedTodayRef.current = null;
         }
       })();
