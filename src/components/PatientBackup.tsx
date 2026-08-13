@@ -79,6 +79,13 @@ export default function PatientBackup({ user }: { user: User }) {
     });
   }, [isAdminUser]);
 
+  // Precisam estar ANTES do "if (!isAdminUser) return null" abaixo — hooks declarados
+  // depois de um return condicional só são chamados em ALGUNS renders (quando
+  // isAdminUser já resolveu pra true), o que quebra a ordem de hooks do React e trava o
+  // app inteiro, exigindo recarregar a página pra voltar a funcionar.
+  const [sendingFullToDrive, setSendingFullToDrive] = useState(false);
+  const [sendingPatientsToDrive, setSendingPatientsToDrive] = useState(false);
+
   if (!isAdminUser) return null;
 
   const filtered = patients.filter(p =>
@@ -110,8 +117,6 @@ export default function PatientBackup({ user }: { user: User }) {
   // separadamente. Pensado pra guardar uma cópia bruta e completa dos dados fora do
   // sistema (segunda nuvem, HD, etc.) — não é feito pra reimportar automaticamente,
   // é uma cópia de segurança em caso de perda de acesso ao Firebase.
-  const [sendingFullToDrive, setSendingFullToDrive] = useState(false);
-  const [sendingPatientsToDrive, setSendingPatientsToDrive] = useState(false);
 
   const handleDownloadFullBackup = async () => {
     setDownloadingFull(true);
