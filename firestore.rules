@@ -278,18 +278,24 @@ service cloud.firestore {
 
     // Rules for Appointments
     match /appointments/{appointmentId} {
-      allow read: if isSharedAccess() || isOwnDataAccess();
+      // Qualquer funcionário autorizado (não só administrador, não só quem criou o
+      // agendamento específico) pode ler/criar/atualizar/apagar qualquer agendamento —
+      // reflete como a clínica funciona de verdade: mais de uma pessoa mexe na mesma
+      // agenda compartilhada, então travar em "só quem criou" (isOwnDataAccess) deixava
+      // pra trás quem não fosse dono do registro específico nem administrador completo,
+      // incluindo a marcação automática de falta ao virar o dia.
+      allow read: if isSharedAccess() || isOwnDataAccess() || isAuthorizedStaff();
       // Leitura pública, só de um documento específico por ID (nunca lista) — usada
       // depois do check-in pra saber qual paciente é, e mostrar a ficha clínica de
       // harmonização facial. Segura pelo mesmo motivo que signRequests: o ID é gerado
       // aleatoriamente pelo Firestore, ninguém adivinha o de outra pessoa.
       allow get: if true;
       allow create: if isValidAppointmentShape(incoming()) && isValidId(appointmentId)
-        && (isSharedAccess() || isOwnDataCreate() || isPublicAppointmentCreate(incoming()));
-      allow update: if ((isSharedAccess() || isOwnDataAccess()) && isValidAppointmentShape(incoming()))
+        && (isSharedAccess() || isOwnDataCreate() || isAuthorizedStaff() || isPublicAppointmentCreate(incoming()));
+      allow update: if ((isSharedAccess() || isOwnDataAccess() || isAuthorizedStaff()) && isValidAppointmentShape(incoming()))
         || isPublicCheckIn(incoming())
         || isPublicCancel(incoming());
-      allow delete: if isSharedAccess() || isOwnDataAccess();
+      allow delete: if isSharedAccess() || isOwnDataAccess() || isAuthorizedStaff();
     }
 
     // Pedido de assinatura remota de termo (link enviado por WhatsApp) — o ID do próprio
