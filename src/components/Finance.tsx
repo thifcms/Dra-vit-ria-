@@ -871,17 +871,26 @@ function BalanceteView({ transactions, fixedCostsTotal, settings }: { transactio
     let expense = filtered.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
     if (isCurrentMonth) expense += fixedCostsTotal;
     // Detalhamento por categoria — a origem de cada entrada/saída, não só o total —
-    // agrupa as transações do mês por categoria, somando cada uma
+    // agrupa as transações do mês por categoria, somando cada uma. Nas entradas,
+    // também mostra o paciente (extraído do final da descrição, que sempre termina em
+    // "— Nome do Paciente" nos lançamentos automáticos de procedimento).
     const byCategory = (type: 'income' | 'expense') => {
       const map = new Map<string, number>();
       filtered.filter(t => t.type === type).forEach(t => {
         const cat = t.category || 'Outros';
-        map.set(cat, (map.get(cat) || 0) + t.amount);
+        const patientName = type === 'income' ? t.description?.split(' — ').pop()?.trim() : null;
+        const key = patientName && patientName !== cat ? `${cat}|${patientName}` : cat;
+        map.set(key, (map.get(key) || 0) + t.amount);
       });
       if (type === 'expense' && isCurrentMonth && fixedCostsTotal > 0) {
         map.set('Custos Fixos', (map.get('Custos Fixos') || 0) + fixedCostsTotal);
       }
-      return Array.from(map.entries()).map(([category, total]) => ({ category, total })).sort((a, b) => b.total - a.total);
+      return Array.from(map.entries())
+        .map(([key, total]) => {
+          const [category, patientName] = key.split('|');
+          return { category, patientName, total };
+        })
+        .sort((a, b) => b.total - a.total);
     };
     return {
       income, expense, balance: income - expense, count: filtered.length,
@@ -938,7 +947,7 @@ function BalanceteView({ transactions, fixedCostsTotal, settings }: { transactio
 
     if (period === 'mensal') {
       periodLabel = `${monthNames[selectedMonth]} de ${selectedYear}`;
-      const incomeRows = monthlyData.incomeByCategory.map(c => `<p>${c.category}: R$ ${c.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>`).join('') || '<p>Nenhuma entrada neste mês.</p>';
+      const incomeRows = monthlyData.incomeByCategory.map(c => `<p>${c.category}${c.patientName ? ` — ${c.patientName}` : ''}: R$ ${c.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>`).join('') || '<p>Nenhuma entrada neste mês.</p>';
       const expenseRows = monthlyData.expenseByCategory.map(c => `<p>${c.category}: R$ ${c.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>`).join('') || '<p>Nenhuma saída neste mês.</p>';
       rows = `
         <p><strong>Lançamentos no período:</strong> ${monthlyData.count}</p>
@@ -1060,8 +1069,8 @@ function BalanceteView({ transactions, fixedCostsTotal, settings }: { transactio
               <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-5">Origem das Entradas</p>
               <div className="space-y-3">
                 {monthlyData.incomeByCategory.map(c => (
-                  <div key={c.category} className="flex items-center justify-between text-sm">
-                    <span className="text-[#4A433D]">{c.category}</span>
+                  <div key={`${c.category}-${c.patientName || ''}`} className="flex items-center justify-between text-sm">
+                    <span className="text-[#4A433D]">{c.category}{c.patientName ? ` — ${c.patientName}` : ''}</span>
                     <span className="text-[#8BA888] font-medium">R$ {c.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                   </div>
                 ))}

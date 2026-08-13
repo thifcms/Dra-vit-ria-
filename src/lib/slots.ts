@@ -1,4 +1,4 @@
-import { getDoc, doc, Firestore } from 'firebase/firestore';
+import { getDoc, doc, Firestore, runTransaction } from 'firebase/firestore';
 
 // Horário de atendimento padrão (usado só se a clínica ainda não configurou nada em
 // Configurações → Horário de Atendimento)
@@ -149,4 +149,18 @@ export function parseCurrencyInput(raw: string): number {
   }
   const value = parseFloat(normalized);
   return isNaN(value) ? 0 : value;
+}
+
+// Número sequencial de orçamento — cresce sempre, nunca repete, mesmo com duas pessoas
+// confirmando orçamentos ao mesmo tempo em dispositivos diferentes. Usa uma transação
+// atômica do Firestore: lê o último número usado e grava o próximo numa operação só,
+// que o próprio Firestore garante não se sobrepor entre execuções simultâneas.
+export async function getNextBudgetNumber(db: Firestore): Promise<number> {
+  const counterRef = doc(db, 'system', 'budgetCounter');
+  return runTransaction(db, async (transaction) => {
+    const snap = await transaction.get(counterRef);
+    const next = (snap.exists() ? snap.data().lastNumber : 0) + 1;
+    transaction.set(counterRef, { lastNumber: next }, { merge: true });
+    return next;
+  });
 }

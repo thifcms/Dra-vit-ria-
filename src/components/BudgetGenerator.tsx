@@ -11,6 +11,8 @@ import { whatsappLink, genericEmailLink, openWhatsApp } from '../lib/reminders';
 interface BudgetItem {
   description: string;
   value: string;
+  quantity?: number; // quantas vezes esse procedimento será realizado — o valor exibido
+                      // já vem multiplicado por isso quando o item vem da anamnese
   fromAnamnesis?: boolean; // marca item que veio automaticamente da Conduta da anamnese —
                             // diferencia de item adicionado manualmente, pra saber o que
                             // pode remover/atualizar sozinho sem mexer no que a pessoa
@@ -32,7 +34,7 @@ interface BudgetItem {
 export default function BudgetGenerator({ patient, user, liveAnamnesis, availableProcedures }: {
   patient: Patient;
   user: User;
-  liveAnamnesis?: { plannedProcedures?: string[]; plannedSubstances?: Record<string, string> };
+  liveAnamnesis?: { plannedProcedures?: string[]; plannedSubstances?: Record<string, string>; plannedProcedureQuantities?: Record<string, number> };
   availableProcedures?: { id: string; name: string; price: number; insumoKit?: { itemId: string; itemName: string; quantity: number }[]; allowDiscount?: boolean; maxDiscountPercent?: number }[];
 }) {
   const [settings, setSettings] = useState<ClinicSettings | null>(null);
@@ -61,22 +63,35 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
   useEffect(() => {
     if (!liveAnamnesis || !availableProcedures) return;
     const plannedNames = liveAnamnesis.plannedProcedures || [];
+    const quantities = liveAnamnesis.plannedProcedureQuantities || {};
     setItems(prev => {
       // Remove itens automáticos de procedimentos que não estão mais marcados
-      let next = prev.filter(it => !it.fromAnamnesis || plannedNames.includes(it.description.split(' — ')[0]));
+      let next = prev.filter(it => !it.fromAnamnesis || plannedNames.includes(it.description));
+      // Atualiza a quantidade/valor dos itens automáticos já presentes, caso tenha
+      // mudado na anamnese desde a última sincronização
+      next = next.map(it => {
+        if (!it.fromAnamnesis) return it;
+        const qty = quantities[it.description] || 1;
+        if (it.quantity === qty) return it;
+        const proc = availableProcedures.find(p => p.id === it.procedureId);
+        if (!proc) return it;
+        return { ...it, quantity: qty, value: (proc.price * qty).toFixed(2).replace('.', ','), originalValue: (proc.price * qty).toFixed(2).replace('.', ',') };
+      });
       // Adiciona os que estão marcados na anamnese mas ainda não têm item automático aqui
-      const alreadyPresent = new Set(next.filter(it => it.fromAnamnesis).map(it => it.description.split(' — ')[0]));
+      const alreadyPresent = new Set(next.filter(it => it.fromAnamnesis).map(it => it.description));
       plannedNames.forEach(name => {
         if (alreadyPresent.has(name)) return;
         const proc = availableProcedures.find(p => p.name === name);
         if (!proc) return;
+        const qty = quantities[name] || 1;
         // Só o nome do procedimento e o valor aparecem no orçamento — substância e
         // insumos do kit continuam guardados no item (usados no débito de estoque ao
         // confirmar), mas não aparecem pro paciente ver no orçamento.
         next.push({
           description: name,
-          value: proc.price.toFixed(2).replace('.', ','),
-          originalValue: proc.price.toFixed(2).replace('.', ','),
+          value: (proc.price * qty).toFixed(2).replace('.', ','),
+          originalValue: (proc.price * qty).toFixed(2).replace('.', ','),
+          quantity: qty,
           fromAnamnesis: true,
           procedureId: proc.id,
           insumoKit: proc.insumoKit,
@@ -88,7 +103,7 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
       if (next.length > 1) next = next.filter(it => it.fromAnamnesis || it.description.trim() || it.value.trim());
       return next;
     });
-  }, [liveAnamnesis?.plannedProcedures, liveAnamnesis?.plannedSubstances, availableProcedures]);
+  }, [liveAnamnesis?.plannedProcedures, liveAnamnesis?.plannedSubstances, liveAnamnesis?.plannedProcedureQuantities, availableProcedures]);
 
   const addItem = () => setItems(prev => [...prev, { description: '', value: '' }]);
 
@@ -97,14 +112,17 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
   const handleCancelBudget = () => {
     if (!window.confirm('Descartar as alterações feitas neste orçamento?')) return;
     const plannedNames = liveAnamnesis?.plannedProcedures || [];
+    const quantities = liveAnamnesis?.plannedProcedureQuantities || {};
     const rebuilt: BudgetItem[] = [];
     plannedNames.forEach(name => {
       const proc = availableProcedures?.find(p => p.name === name);
       if (!proc) return;
+      const qty = quantities[name] || 1;
       rebuilt.push({
         description: name,
-        value: proc.price.toFixed(2).replace('.', ','),
-        originalValue: proc.price.toFixed(2).replace('.', ','),
+        value: (proc.price * qty).toFixed(2).replace('.', ','),
+        originalValue: (proc.price * qty).toFixed(2).replace('.', ','),
+        quantity: qty,
         fromAnamnesis: true,
         procedureId: proc.id,
         insumoKit: proc.insumoKit,
@@ -386,6 +404,12 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
   // onSnapshot detecta a assinatura em tempo real (antes usava getDocs, só checava uma
   // vez ao abrir a tela) — e, assim que detectado, TRAVA o formulário atual: depois que
   // o paciente assina, não dá mais pra mexer nesse orçamento específico.
+  // Assinatura remota do orçamento: a gravação de verdade (criar a entrada em
+  // budgetHistory) agora acontece sempre, em PatientDetail — não só quando essa tela
+  // específica está aberta (ver o comentário lá pra entender por quê). Esse watcher
+  // aqui só cuida do travamento VISUAL da tela quando o paciente assina enquanto o
+  // profissional já está com o Orçamento aberto — não escreve nada no banco, pra não
+  // duplicar a entrada.
   useEffect(() => {
     if (isLocked) return;
     const q = query(
@@ -393,48 +417,39 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
       where('patientId', '==', patient.id),
       where('status', '==', 'signed')
     );
-    const unsubscribe = onSnapshot(q, async (snap) => {
-      try {
-        const toMerge = snap.docs.filter(d => !d.data().mergedIntoRecord && d.data().docType === 'budget');
-        if (toMerge.length === 0) return;
-        const validItems = items.filter(it => it.description.trim() && parseCurrencyInput(it.value) > 0);
-        const newEntries = toMerge.map(d => {
-          const data = d.data();
-          return {
-            id: crypto.randomUUID(),
-            date: new Date().toISOString(),
-            items: data.budgetItems || validItems.map(it => ({ description: it.description, value: it.value })),
-            total: data.budgetTotal ?? total,
-            validityDays: data.budgetValidityDays || validityDays,
-            notes: data.budgetNotes ?? notes,
-            signedAt: data.signedAt,
-            signatureUrl: data.signatureUrl,
-            ...(data.sentVia ? { sentVia: data.sentVia } : {}),
-            ...(data.sentTo ? { sentTo: data.sentTo } : {}),
-          };
-        });
-        await updateDoc(doc(db, 'patients', patient.id!), {
-          budgetHistory: [...(patient.budgetHistory || []), ...newEntries],
-        });
-        await Promise.all(toMerge.map(d => updateDoc(doc(db, 'signRequests', d.id), { mergedIntoRecord: true })));
+    const unsubscribe = onSnapshot(q, (snap) => {
+      const hasSignedBudget = snap.docs.some(d => d.data().docType === 'budget');
+      if (hasSignedBudget) {
         setIsLocked(true);
         showToast('Orçamento assinado remotamente — guardado no prontuário e travado pra edição');
-      } catch { /* melhor esforço */ }
+      }
     });
     return () => unsubscribe();
   }, [patient.id, isLocked]);
 
   const handleGenerate = async (
     mode: 'download' | 'view' = 'download',
-    override?: { items: { description: string; value: string }[]; total: number; notes?: string; validityDays: string }
+    override?: { items: { description: string; value: string }[]; total: number; notes?: string; validityDays: string; budgetNumber?: number }
   ) => {
     const validItems = override ? override.items : items.filter(it => it.description.trim() && parseCurrencyInput(it.value) > 0);
     const genTotal = override ? override.total : total;
     const genNotes = override ? (override.notes || '') : notes;
     const genValidityDays = override ? override.validityDays : validityDays;
     if (validItems.length === 0) {
-      showToast('Adicione ao menos um item com descrição e valor', 'error');
-      return;
+      if (override) {
+        // Reimpressão de um orçamento assinado antes da correção que passou a guardar
+        // os itens de verdade no momento do envio — pra esses mais antigos, só o total
+        // ficou salvo, os itens individuais genuinamente não existem mais. Ainda assim
+        // gera o documento com o que tem (total), em vez de travar com uma mensagem que
+        // não faz sentido nesse contexto ("adicione um item").
+        if (!genTotal) {
+          showToast('Esse orçamento foi assinado antes de uma correção no sistema e não tem dados suficientes salvos pra reimprimir.', 'error');
+          return;
+        }
+      } else {
+        showToast('Adicione ao menos um item com descrição e valor', 'error');
+        return;
+      }
     }
     setGenerating(true);
     try {
@@ -448,6 +463,17 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
       let watermarkLogoProps: { width: number; height: number } | null = null;
 
       const clinicName = settings?.clinicName || settings?.professionalName || 'Clínica';
+
+      // Desenha o rodapé (dados da clínica) na página atual — usado tanto ao trocar de
+      // página quanto no final do documento, pra repetir em todas, não só na última
+      const drawFooter = () => {
+        const footerParts = [clinicName, settings?.clinicAddress, settings?.whatsappNumber].filter(Boolean);
+        if (footerParts.length === 0) return;
+        docPdf.setFontSize(8);
+        docPdf.setTextColor(154, 144, 132);
+        docPdf.setFont('helvetica', 'normal');
+        docPdf.text(footerParts.join(' · '), pageWidth / 2, pageHeight - 12, { align: 'center' });
+      };
 
       // Logo centralizada no topo — mesmo espírito visual dos documentos impressos
       // (Atestados, Receituário, Termos): busca a imagem e converte pra base64, já que
@@ -489,8 +515,38 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
       docPdf.setFont('helvetica', 'bold');
       docPdf.setFontSize(10);
       docPdf.setTextColor(255, 255, 255);
-      docPdf.text('ORÇAMENTO DE PROCEDIMENTO', pageWidth / 2, y + 6.5, { align: 'center' });
+      docPdf.text(`ORÇAMENTO DE PROCEDIMENTO${override?.budgetNumber ? ` Nº ${override.budgetNumber}` : ''}`, pageWidth / 2, y + 6.5, { align: 'center' });
       y += 20;
+
+      // Antes de desenhar qualquer bloco de conteúdo, checa se está perto do fim da
+      // página — se estiver, desenha o rodapé na página atual, cria uma nova página,
+      // repete a logo pequena + faixa no topo (mesmo layout da primeira página) e volta
+      // o cursor pro corpo. Sem isso, orçamentos com muitos itens ou observações longas
+      // transbordavam sem nunca criar página 2, cortando conteúdo e nunca repetindo o
+      // cabeçalho nem o rodapé.
+      const checkPageBreak = (neededSpace: number = 20) => {
+        if (y > pageHeight - 30 - neededSpace) {
+          drawFooter();
+          docPdf.addPage();
+          y = 18;
+          if (watermarkLogoUrl && watermarkLogoProps) {
+            const logoWidth = 30;
+            const ratioHeight = (logoWidth * watermarkLogoProps.height) / watermarkLogoProps.width;
+            docPdf.addImage(watermarkLogoUrl, 'PNG', (pageWidth - logoWidth) / 2, y, logoWidth, ratioHeight);
+            y += ratioHeight + 6;
+          }
+          docPdf.setFillColor(234, 223, 212);
+          docPdf.rect(0, y, pageWidth, 8, 'F');
+          docPdf.setFont('helvetica', 'bold');
+          docPdf.setFontSize(8);
+          docPdf.setTextColor(255, 255, 255);
+          docPdf.text('ORÇAMENTO DE PROCEDIMENTO (continuação)', pageWidth / 2, y + 5.5, { align: 'center' });
+          y += 16;
+          docPdf.setFont('helvetica', 'normal');
+          docPdf.setFontSize(11);
+          docPdf.setTextColor(92, 84, 78);
+        }
+      };
 
       // Dados do paciente e data
       docPdf.setFont('helvetica', 'normal');
@@ -514,7 +570,16 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
       // Itens
       docPdf.setFontSize(11);
       docPdf.setTextColor(92, 84, 78);
+      if (validItems.length === 0) {
+        docPdf.setFontSize(9);
+        docPdf.setTextColor(154, 144, 132);
+        docPdf.text('Detalhes dos itens não disponíveis (orçamento assinado antes de uma correção no sistema).', margin + 2, y);
+        y += 8;
+        docPdf.setFontSize(11);
+        docPdf.setTextColor(92, 84, 78);
+      }
       validItems.forEach(it => {
+        checkPageBreak(10);
         const value = parseCurrencyInput(it.value);
         docPdf.text(it.description, margin + 2, y);
         docPdf.text(`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, pageWidth - margin - 2, y, { align: 'right' });
@@ -535,6 +600,7 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
 
       // Observações
       if (genNotes) {
+        checkPageBreak(20);
         docPdf.setFontSize(9);
         docPdf.setTextColor(154, 144, 132);
         const noteLines = docPdf.splitTextToSize(genNotes, pageWidth - margin * 2);
@@ -543,16 +609,21 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
       }
 
       // Validade
+      checkPageBreak(10);
       docPdf.setFontSize(9);
       docPdf.setTextColor(154, 144, 132);
       docPdf.text(`Este orçamento é válido por ${genValidityDays} dias a partir da data de emissão.`, margin, y);
       y += 16;
 
       // Dados do profissional — nome e CRO, logo abaixo do orçamento, mesmo padrão dos
-      // outros documentos (receituário, atestado)
+      // outros documentos (receituário, atestado). checkPageBreak(30) garante que o
+      // bloco inteiro (linha + nome + CRO) sempre caiba junto na mesma página, nunca
+      // quebrando entre a assinatura/nome e o resto — se não coubesse mais nada disso
+      // na página atual, tudo vai junto pra página seguinte.
       const professionalName = settings?.professionalName || '';
       const registrationNumber = settings?.registrationNumber || '';
       if (professionalName || registrationNumber) {
+        checkPageBreak(30);
         docPdf.setDrawColor(234, 223, 212);
         docPdf.line(margin, y, pageWidth - margin, y);
         y += 8;
@@ -566,15 +637,7 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
         if (registrationNumber) docPdf.text(`CRO nº ${registrationNumber}`, margin, y + (professionalName ? 5 : 0));
       }
 
-      // Rodapé com os dados da clínica — nome, endereço e WhatsApp, no pé da página,
-      // mesmo padrão visual usado nos outros documentos impressos do app
-      const footerParts = [clinicName, settings?.clinicAddress, settings?.whatsappNumber].filter(Boolean);
-      if (footerParts.length > 0) {
-        docPdf.setFontSize(8);
-        docPdf.setTextColor(154, 144, 132);
-        docPdf.setFont('helvetica', 'normal');
-        docPdf.text(footerParts.join(' · '), pageWidth / 2, pageHeight - 12, { align: 'center' });
-      }
+      drawFooter();
 
       // Marca d'água grande e bem clara, por cima de todo o resto — desenhada por
       // último de propósito, já que no jsPDF quem desenha depois fica visualmente em
@@ -633,7 +696,7 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
                 />
                 {item.fromAnamnesis && (
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[9px] font-bold text-[#8BA888] uppercase tracking-widest bg-[#F0F7F0] px-2 py-1 rounded-lg">
-                    Da anamnese
+                    Da anamnese{(item.quantity || 1) > 1 ? ` — ${item.quantity}x` : ''}
                   </span>
                 )}
               </div>
@@ -883,7 +946,7 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
               {[...(patient.budgetHistory || [])].reverse().map((entry, i) => (
                 <details key={i} className="bg-[#FDFBF9] rounded-3xl border border-[#F5F2F0] overflow-hidden">
                   <summary className="p-6 cursor-pointer flex items-center justify-between text-sm font-semibold text-[#4A433D]">
-                    <span>{new Date(entry.date).toLocaleDateString('pt-BR')} — R$ {entry.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                    <span>{entry.budgetNumber ? `Nº ${entry.budgetNumber} — ` : ''}{new Date(entry.date).toLocaleDateString('pt-BR')} — R$ {entry.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                   </summary>
                   <div className="p-6 pt-0 space-y-3 text-xs text-[#4A433D] font-light">
                     {entry.items.map((it, idx) => (
@@ -910,7 +973,7 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
                       </div>
                     )}
                     <button
-                      onClick={() => handleGenerate('view', { items: entry.items, total: entry.total, notes: entry.notes, validityDays: entry.validityDays })}
+                      onClick={() => handleGenerate('view', { items: entry.items, total: entry.total, notes: entry.notes, validityDays: entry.validityDays, budgetNumber: entry.budgetNumber })}
                       className="flex items-center gap-1.5 text-[10px] font-bold text-[#B8846E] hover:text-[#A6735E] uppercase tracking-widest pt-2"
                     >
                       <Printer size={12} /> Reimprimir

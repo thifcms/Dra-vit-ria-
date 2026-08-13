@@ -574,8 +574,9 @@ export default function Settings({ user }: { user: User }) {
       showToast('Assinatura salva — será usada automaticamente nos documentos');
       setShowSignaturePad(false);
       profileSigPad.current?.clear();
-    } catch (err) {
-      showToast('Erro ao salvar assinatura', 'error');
+    } catch (err: any) {
+      console.error('Erro ao salvar assinatura:', err);
+      showToast(`Erro ao salvar assinatura: ${err?.code || err?.message || 'desconhecido'}`, 'error');
     }
     setSavingSignature(false);
   };
@@ -591,8 +592,9 @@ export default function Settings({ user }: { user: User }) {
       setSettings(updated);
       await setDoc(doc(db, 'settings', ownerId), updated);
       showToast('Assinatura salva — será usada automaticamente nos documentos');
-    } catch (err) {
-      showToast('Erro ao salvar assinatura', 'error');
+    } catch (err: any) {
+      console.error('Erro ao salvar assinatura:', err);
+      showToast(`Erro ao salvar assinatura: ${err?.code || err?.message || 'desconhecido'}`, 'error');
     }
     setSavingSignature(false);
   };

@@ -90,6 +90,7 @@ const FACIAL_REGIONS = [
 
 export default function FaceMarkingTab({ patient, user }: { patient: Patient; user: User }) {
   const [editing, setEditing] = useState(false);
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [viewingSession, setViewingSession] = useState<FaceMarkingSession | null>(null);
   const [points, setPoints] = useState<FaceMarkingPoint[]>([]);
   const [activeColor, setActiveColor] = useState(MARK_COLORS[0].color);
@@ -128,6 +129,18 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
     setPoints([]);
     setNotes('');
     setSelectedPointIdx(null);
+    setEditingSessionId(null);
+    setEditing(true);
+  };
+
+  // Reabre um mapa já salvo pra edição — carrega os pontos e observações de volta no
+  // estado editável, em vez de abrir um mapa em branco
+  const editSession = (session: FaceMarkingSession) => {
+    setPoints(session.points.map(p => ({ ...p })));
+    setNotes(session.notes || '');
+    setSelectedPointIdx(null);
+    setEditingSessionId(session.id);
+    setViewingSession(null);
     setEditing(true);
   };
 
@@ -226,37 +239,48 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
     if (points.length === 0) return;
     setSaving(true);
     try {
+      const isEditingExisting = !!editingSessionId;
+      const existingSession = isEditingExisting
+        ? (patient.faceMarkings || []).find(s => s.id === editingSessionId)
+        : null;
       const session: FaceMarkingSession = {
-        id: crypto.randomUUID(),
-        date: new Date().toISOString(),
+        id: editingSessionId || crypto.randomUUID(),
+        date: existingSession?.date || new Date().toISOString(),
         sex: patient.sex!,
         notes: notes || undefined,
         points,
         substanceUsage: substanceUsage.length > 0 ? substanceUsage : undefined,
       };
-      const next = [...(patient.faceMarkings || []), session];
+      const next = isEditingExisting
+        ? (patient.faceMarkings || []).map(s => (s.id === editingSessionId ? session : s))
+        : [...(patient.faceMarkings || []), session];
       await updateDoc(doc(db, 'patients', patient.id!), { faceMarkings: next });
 
-      // Baixa automática no estoque — só pros pontos que foram vinculados a um item
-      const linkedPoints = points.filter(p => p.inventoryItemId && p.inventoryQuantity);
-      for (const p of linkedPoints) {
-        await updateDoc(doc(db, 'inventory', p.inventoryItemId!), {
-          quantity: increment(-p.inventoryQuantity!),
-        }).catch(() => {});
-        await addDoc(collection(db, 'inventory_movements'), {
-          userId: user.uid,
-          itemId: p.inventoryItemId,
-          itemName: p.inventoryItemName || '',
-          quantity: p.inventoryQuantity,
-          type: 'consumption',
-          date: session.date,
-        }).catch(() => {});
-      }
-      if (linkedPoints.length > 0) {
-        showToast(`Estoque atualizado (${linkedPoints.length} item(ns) baixado(s))`);
+      // Baixa automática no estoque — só quando é um mapa NOVO, não ao editar um já
+      // existente (senão debitaria o mesmo insumo duas vezes)
+      if (!isEditingExisting) {
+        const linkedPoints = points.filter(p => p.inventoryItemId && p.inventoryQuantity);
+        for (const p of linkedPoints) {
+          await updateDoc(doc(db, 'inventory', p.inventoryItemId!), {
+            quantity: increment(-p.inventoryQuantity!),
+          }).catch(() => {});
+          await addDoc(collection(db, 'inventory_movements'), {
+            userId: user.uid,
+            itemId: p.inventoryItemId,
+            itemName: p.inventoryItemName || '',
+            quantity: p.inventoryQuantity,
+            type: 'consumption',
+            date: session.date,
+          }).catch(() => {});
+        }
+        if (linkedPoints.length > 0) {
+          showToast(`Estoque atualizado (${linkedPoints.length} item(ns) baixado(s))`);
+        }
       }
 
+      setEditingSessionId(null);
       setEditing(false);
+      setViewingSession(session);
     } catch (err) {
       console.error(err);
     }
@@ -549,6 +573,12 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
               <p className="text-xs text-[#9CA3AF] font-light italic mb-6 p-4 bg-[#FDFBF9] rounded-2xl">{viewingSession.notes}</p>
             )}
 
+            <button
+              onClick={() => editSession(viewingSession)}
+              className="w-full py-3 bg-[#EADFD4] text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest hover:bg-[#DFCFBF] transition-all mb-2"
+            >
+              Editar este mapa
+            </button>
             <button
               onClick={() => deleteSession(viewingSession.id)}
               className="w-full py-3 text-red-300 hover:text-red-500 font-bold text-[10px] uppercase tracking-widest transition-all"

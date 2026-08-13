@@ -32,14 +32,20 @@ export default function NoShowAutoMarker({ user }: { user: User }) {
       checkedTodayRef.current = todayStr;
       (async () => {
         let marked = 0;
+        const errors: string[] = [];
         for (const appt of stale) {
           try {
             await updateDoc(doc(db, 'appointments', appt.id!), { status: 'no_show' });
             marked++;
-          } catch { /* segue tentando os outros mesmo se um falhar */ }
+          } catch (err: any) {
+            errors.push(`${appt.patientName || appt.id}: ${err?.code || err?.message}`);
+          }
         }
         if (marked > 0) {
           showToast(`${marked} atendimento(s) de dias anteriores marcado(s) como falta automaticamente`);
+        }
+        if (errors.length > 0) {
+          console.error('NoShowAutoMarker — falhas ao marcar falta:', errors);
         }
       })();
     });

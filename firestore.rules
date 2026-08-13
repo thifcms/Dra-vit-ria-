@@ -519,6 +519,13 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    // Contador de numeração sequencial dos orçamentos — mesmo padrão de acesso já usado
+    // pra escrever em pacientes (qualquer funcionário autorizado, não só administrador),
+    // já que qualquer um pode confirmar um orçamento assinado
+    match /system/budgetCounter {
+      allow read, write: if isSharedAccess() || isOwnDataAccess();
+    }
+
     // Senha do painel de administração — uma por administrador (guardada por UID), pra
     // cada um poder ter a própria senha em vez de uma só compartilhada.
     match /admin_security/{uid} {

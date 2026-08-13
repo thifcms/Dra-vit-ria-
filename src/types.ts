@@ -198,9 +198,15 @@ export interface Patient {
     // Quando um procedimento tem mais de uma substância vinculada, guarda aqui qual foi
     // escolhida pra esse paciente especificamente (nome do procedimento -> nome da substância)
     plannedSubstances?: Record<string, string>;
+    // Quantas vezes cada procedimento marcado será realizado — multiplica o valor
+    // lançado no financeiro e no orçamento (padrão 1 se não especificado)
+    plannedProcedureQuantities?: Record<string, number>;
     // Controla quais procedimentos já geraram lançamento no financeiro — evita duplicar
     // se o botão "Lançar no Financeiro" for clicado de novo por engano
     launchedProcedures?: string[];
+    // ID da transação criada automaticamente pra cada procedimento lançado — permite
+    // remover o lançamento sozinho se o procedimento for desmarcado depois
+    launchedProcedureTransactionIds?: Record<string, string>;
 
     // Questionário de saúde específico da Ficha Clínica — preenchido pelo próprio
     // paciente após o check-in. Guarda um retrato completo do que foi respondido (pra
@@ -279,6 +285,9 @@ export interface Patient {
   }[];
   budgetHistory?: {
     id: string;
+    // Número sequencial do orçamento — cresce sempre, nunca repete, gerado por
+    // transação atômica na hora da assinatura (system/budgetCounter)
+    budgetNumber?: number;
     date: string;
     items: { description: string; value: string }[];
     total: number;
