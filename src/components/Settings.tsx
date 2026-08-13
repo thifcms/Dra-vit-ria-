@@ -553,6 +553,23 @@ export default function Settings({ user }: { user: User }) {
     persist({ ...settings, cloudBackupEnabled: !settings.cloudBackupEnabled });
   };
 
+  // Converte o desenho do quadro de assinatura pra um arquivo binário (Blob) pronto
+  // pra subir no Storage. Prioriza o método nativo do canvas (toBlob) — mais confiável
+  // entre navegadores/celulares diferentes — com o método anterior (via fetch numa
+  // URL de dados) como reforço, caso o navegador específico não suporte o primeiro.
+  const canvasToBlob = (dataUrl: string, canvasEl?: HTMLCanvasElement | null): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      if (canvasEl && canvasEl.toBlob) {
+        canvasEl.toBlob(blob => {
+          if (blob) resolve(blob);
+          else fetch(dataUrl).then(res => res.blob()).then(resolve).catch(reject);
+        }, 'image/png');
+      } else {
+        fetch(dataUrl).then(res => res.blob()).then(resolve).catch(reject);
+      }
+    });
+  };
+
   const handleSaveDrawnSignature = async () => {
     if (!profileSigPad.current || profileSigPad.current.isEmpty()) {
       showToast('Assine no quadro antes de salvar', 'error');
@@ -561,7 +578,8 @@ export default function Settings({ user }: { user: User }) {
     setSavingSignature(true);
     try {
       const ownerId = await getClinicOwnerId(db).catch(() => user.uid);
-      const signatureBlob = await fetch(profileSigPad.current.toDataURL()).then(res => res.blob());
+      const canvasEl = profileSigPad.current.getCanvas?.();
+      const signatureBlob = await canvasToBlob(profileSigPad.current.toDataURL(), canvasEl);
       const sRef = ref(storage, `signatures/${ownerId}/professional.png`);
       await uploadBytes(sRef, signatureBlob);
       // Reassinar sobrescreve o mesmo arquivo — o Firebase costuma devolver a mesma URL

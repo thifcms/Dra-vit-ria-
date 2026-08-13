@@ -130,7 +130,26 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
         maxDiscountPercent: proc.maxDiscountPercent,
       });
     });
-    setItems(rebuilt.length > 0 ? rebuilt : [{ description: '', value: '' }]);
+    if (rebuilt.length > 0) {
+      setItems(rebuilt);
+      setNotes('');
+      showToast('Alterações descartadas');
+      return;
+    }
+    // Nada marcado na anamnese agora (ex: "Nova Anamnese" acabou de limpar os
+    // procedimentos planejados) — antes de deixar em branco, checa se sobrou um
+    // orçamento de hoje salvo como pendente (salvo automaticamente nesse momento,
+    // pra não perder o que já tinha sido preparado) e traz ele de volta pra tela.
+    const todayPending = (patient.pendingBudgets || [])
+      .filter(b => b.status === 'pending' && b.date.startsWith(new Date().toISOString().split('T')[0]))
+      .sort((a, b) => b.date.localeCompare(a.date))[0];
+    if (todayPending) {
+      setItems(todayPending.items.map(it => ({ ...it })));
+      setNotes(todayPending.notes || '');
+      showToast('Orçamento pendente de hoje trazido de volta pra revisão');
+      return;
+    }
+    setItems([{ description: '', value: '' }]);
     setNotes('');
     showToast('Alterações descartadas');
   };
@@ -548,6 +567,13 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
         }
       };
 
+      // Marca onde a "caixa" de conteúdo começa — desenhada por cima no final (só a
+      // borda, sem preencher, pra não cobrir o texto), envolvendo dados do paciente +
+      // itens + total, igual ao enquadramento em caixa arredondada usado nos outros
+      // documentos (Termos, Anamnese, etc, via buildLetterheadHtml)
+      const boxStartY = y - 4;
+      const boxStartPage = (docPdf as any).getNumberOfPages();
+
       // Dados do paciente e data
       docPdf.setFont('helvetica', 'normal');
       docPdf.setFontSize(10);
@@ -597,6 +623,16 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
       docPdf.text('Total', margin, y);
       docPdf.text(`R$ ${genTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, pageWidth - margin - 2, y, { align: 'right' });
       y += 16;
+
+      // Borda arredondada ao redor de tudo que foi desenhado desde o início (dados do
+      // paciente, itens, total) — só o contorno, sem preencher, pra não cobrir o texto
+      // que já está desenhado por baixo. Mesmo visual de "caixa" usado nos outros
+      // documentos do app.
+      docPdf.setDrawColor(240, 234, 227); // #F0EAE3, mesma cor de borda dos outros documentos
+      docPdf.setLineWidth(0.4);
+      if ((docPdf as any).getNumberOfPages() === boxStartPage) {
+        docPdf.roundedRect(margin - 6, boxStartY, pageWidth - (margin - 6) * 2, y - boxStartY - 6, 4, 4, 'S');
+      }
 
       // Observações
       if (genNotes) {

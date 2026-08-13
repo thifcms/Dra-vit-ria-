@@ -1664,6 +1664,44 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
     setShowNewAnamnesisConfirm(false);
     setStartingNewAnamnesis(true);
     try {
+      // Se havia um orçamento em andamento (procedimentos marcados na Conduta, ainda
+      // não confirmado nem assinado), ele nunca tinha sido salvo em lugar nenhum — só
+      // existia "vivo" enquanto os procedimentos continuassem marcados na anamnese.
+      // Zerar os procedimentos planejados (abaixo) fazia esse orçamento sumir sem
+      // deixar rastro. Pra não perder isso, salva como "pendente" antes de limpar —
+      // mesmo mecanismo do botão "Paciente Não Aceitou Agora" — e o botão Cancelar do
+      // Orçamento passa a trazer isso de volta pra tela em vez de começar em branco.
+      const plannedNames = anamnesis.plannedProcedures || [];
+      const alreadyHasPendingToday = (patient.pendingBudgets || []).some(
+        b => b.status === 'pending' && b.date.startsWith(todayLocalStr())
+      );
+      if (plannedNames.length > 0 && !alreadyHasPendingToday) {
+        const items = plannedNames
+          .map(name => procedures.find(p => p.name === name))
+          .filter((p): p is NonNullable<typeof p> => !!p)
+          .map(proc => ({
+            description: proc.name,
+            value: proc.price.toFixed(2).replace('.', ','),
+            procedureId: proc.id,
+            insumoKit: proc.insumoKit,
+          }));
+        if (items.length > 0) {
+          const total = items.reduce((s, it) => s + parseCurrencyInput(it.value), 0);
+          const nowIso = new Date().toISOString();
+          const pendingEntry = {
+            id: crypto.randomUUID(),
+            date: nowIso,
+            validUntil: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
+            items,
+            total,
+            status: 'pending' as const,
+          };
+          await updateDoc(doc(db, 'patients', patient.id!), {
+            pendingBudgets: [...(patient.pendingBudgets || []), pendingEntry],
+          }).catch(() => {});
+        }
+      }
+
       // Só reseta o que é específico dessa consulta (queixa, avaliações, conduta,
       // procedimentos planejados) — mantém o perfil de saúde do paciente (condições,
       // alergias, medicação, hábitos, histórico familiar, fototipo), que veio do

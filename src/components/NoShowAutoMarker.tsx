@@ -46,8 +46,19 @@ export default function NoShowAutoMarker({ user }: { user: User }) {
         }
         if (errors.length > 0) {
           console.error('NoShowAutoMarker — falhas ao marcar falta:', errors);
+          showToast(`Não foi possível marcar ${errors.length} falta(s) automaticamente — veja o console`, 'error');
+          // Se NENHUMA gravação passou, não marca como "verificado hoje" — assim, na
+          // próxima mudança na coleção (ou próxima vez que o app carregar), tenta de
+          // novo em vez de desistir silenciosamente pelo resto do dia
+          if (marked === 0) checkedTodayRef.current = null;
         }
       })();
+    }, (err) => {
+      // Callback de erro do PRÓPRIO listener — diferente do try/catch de cada
+      // atualização individual acima, isso cobre uma falha na escuta em si (ex: sem
+      // permissão pra sequer LER a coleção), que antes falhava completamente em
+      // silêncio, sem nenhum rastro de que a checagem nem chegou a rodar.
+      console.error('NoShowAutoMarker — erro ao escutar agendamentos:', err);
     });
     return () => unsubscribe();
   }, [user.uid]);
