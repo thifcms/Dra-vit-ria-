@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signInAnonymously } from 'firebase/auth';
 import { initializeFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import firebaseConfig from '../../firebase-applet-config.json';
@@ -22,6 +22,7 @@ googleProvider.setCustomParameters({ prompt: 'select_account' });
 // mandando de volta pra tela de login em vez de completar o acesso). Popup é o método
 // mais previsível aqui, dado esse comportamento observado.
 export const signInWithGoogle = () => signInWithPopup(auth, googleProvider);
+export const signInAnonymousPortal = () => signInAnonymously(auth);
 
 // Login por e-mail e senha — pra quem não tem conta Google. signInEmail tenta entrar;
 // signUpEmail cria a conta na primeira vez (a autorização de acesso continua sendo

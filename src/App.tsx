@@ -41,6 +41,7 @@ const IntakeInviteView = lazy(() => import('./components/IntakeInviteView'));
 const Cancel = lazy(() => import('./components/Cancel'));
 const ComingSoon = lazy(() => import('./components/ComingSoon'));
 const TestSite = lazy(() => import('./components/TestSite'));
+const PatientPortal = lazy(() => import('./components/PatientPortal'));
 import AutoBackupPrompt from './components/AutoBackupPrompt';
 import NoShowAutoMarker from './components/NoShowAutoMarker';
 import ExpiryAlert from './components/ExpiryAlert';
@@ -100,6 +101,13 @@ export default function App() {
     return (
       <Suspense fallback={<ViewLoadingFallback />}>
         <TestSite />
+      </Suspense>
+    );
+  }
+  if (hash.startsWith('#portal')) {
+    return (
+      <Suspense fallback={<ViewLoadingFallback />}>
+        <PatientPortal />
       </Suspense>
     );
   }

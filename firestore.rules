@@ -67,6 +67,17 @@ service cloud.firestore {
       return isAuthorizedStaff() && resource.data.userId == request.auth.uid;
     }
 
+    // Portal do Paciente — o paciente entra com CPF + telefone (conferidos de verdade
+    // ao criar a sessão, ver portalSessions abaixo), sem senha nem SMS. Depois de
+    // logado (autenticação anônima do Firebase, só pra ter um uid), essa função
+    // confirma que a sessão dele aponta pro MESMO paciente que está tentando ler —
+    // assim cada paciente só enxerga o próprio prontuário, nunca o de outro.
+    function isPortalPatientAccess(patientId) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/portalSessions/$(request.auth.uid))
+        && get(/databases/$(database)/documents/portalSessions/$(request.auth.uid)).data.patientId == patientId;
+    }
+
     function isOwnDataCreate() {
       return isAuthorizedStaff() && incoming().userId == request.auth.uid;
     }
@@ -268,7 +279,7 @@ service cloud.firestore {
     // Rules for Patients — só o dono do dado (userId) pode ler; criar é permitido também
     // pela página pública de agendamento (ver isPublicPatientCreate)
     match /patients/{patientId} {
-      allow read: if isSharedAccess() || isOwnDataAccess();
+      allow read: if isSharedAccess() || isOwnDataAccess() || isAuthorizedStaff() || isPortalPatientAccess(patientId);
       allow create: if isValidPatient(incoming()) && isValidId(patientId)
         && (isSharedAccess() || isOwnDataCreate() || isPublicPatientCreate(incoming()));
       allow update: if isValidPatient(incoming()) && respectsClinicalLocks()
@@ -284,7 +295,7 @@ service cloud.firestore {
       // agenda compartilhada, então travar em "só quem criou" (isOwnDataAccess) deixava
       // pra trás quem não fosse dono do registro específico nem administrador completo,
       // incluindo a marcação automática de falta ao virar o dia.
-      allow read: if isSharedAccess() || isOwnDataAccess() || isAuthorizedStaff();
+      allow read: if isSharedAccess() || isOwnDataAccess() || isAuthorizedStaff() || isPortalPatientAccess(resource.data.patientId);
       // Leitura pública, só de um documento específico por ID (nunca lista) — usada
       // depois do check-in pra saber qual paciente é, e mostrar a ficha clínica de
       // harmonização facial. Segura pelo mesmo motivo que signRequests: o ID é gerado
@@ -499,6 +510,25 @@ service cloud.firestore {
         && incoming().patientId is string
         && (isAuthorizedToLogIn() || !isSignedIn());
       allow delete: if isAuthorizedToLogIn();
+    }
+
+    // Portal do Paciente — sessão criada na hora do login (CPF + telefone). A pessoa já
+    // precisa estar autenticada (anonimamente — só pra ter um uid, sem senha/SMS de
+    // verdade). A criação só passa se AMBOS os índices (CPF e telefone) apontarem pro
+    // MESMO paciente — é essa checagem cruzada, feita aqui dentro da regra, que garante
+    // que a pessoa realmente sabe os dois dados corretos daquele paciente específico,
+    // não só um chute. Uma vez criada, a sessão nunca muda de paciente (sem update) —
+    // só apagar e criar de novo.
+    match /portalSessions/{uid} {
+      allow read: if isSignedIn() && request.auth.uid == uid;
+      allow create: if isSignedIn() && request.auth.uid == uid
+        && incoming().patientId is string
+        && incoming().cpfKey is string
+        && incoming().phoneKey is string
+        && get(/databases/$(database)/documents/patientCpfIndex/$(incoming().cpfKey)).data.patientId == incoming().patientId
+        && get(/databases/$(database)/documents/patientPhoneIndex/$(incoming().phoneKey)).data.patientId == incoming().patientId;
+      allow update: if false;
+      allow delete: if isSignedIn() && request.auth.uid == uid;
     }
 
     // Configurações da clínica — documento único e compartilhado (settings/{ownerId}).
