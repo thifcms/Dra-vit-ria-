@@ -322,11 +322,17 @@ service cloud.firestore {
 
     match /signRequests/{requestId} {
       allow get: if true;
-      allow list: if isSharedAccess() || isOwnDataAccess();
-      allow create: if (isSharedAccess() || isOwnDataCreate()) && isValidSignRequest(incoming());
-      allow update: if ((isSharedAccess() || isOwnDataAccess()) && isValidSignRequest(incoming()))
+      allow list: if isSharedAccess() || isOwnDataAccess() || isAuthorizedStaff();
+      // isAuthorizedStaff() incluído em create/update/delete pelo mesmo motivo já
+      // corrigido em appointments: os observadores que mesclam assinatura remota no
+      // prontuário (anamnese, orçamento, evolução) rodam sob QUALQUER conta logada no
+      // momento, não necessariamente quem enviou o link originalmente nem um admin —
+      // sem isso, a mesclagem falhava silenciosamente se fosse um funcionário comum
+      // conectado numa conta diferente da que criou o pedido.
+      allow create: if (isSharedAccess() || isOwnDataCreate() || isAuthorizedStaff()) && isValidSignRequest(incoming());
+      allow update: if ((isSharedAccess() || isOwnDataAccess() || isAuthorizedStaff()) && isValidSignRequest(incoming()))
         || isPublicSign(incoming());
-      allow delete: if isSharedAccess() || isOwnDataAccess();
+      allow delete: if isSharedAccess() || isOwnDataAccess() || isAuthorizedStaff();
     }
 
     // Ficha clínica preenchida pelo próprio paciente após o check-in, sem login — envio
@@ -344,10 +350,10 @@ service cloud.firestore {
     }
 
     match /intakeSubmissions/{submissionId} {
-      allow get, list: if isSharedAccess() || isOwnDataAccess();
+      allow get, list: if isSharedAccess() || isOwnDataAccess() || isAuthorizedStaff();
       allow create: if isValidIntakeSubmission(incoming()) && isValidId(submissionId);
-      allow update: if (isSharedAccess() || isOwnDataAccess()) && isValidIntakeSubmission(incoming());
-      allow delete: if isSharedAccess() || isOwnDataAccess();
+      allow update: if (isSharedAccess() || isOwnDataAccess() || isAuthorizedStaff()) && isValidIntakeSubmission(incoming());
+      allow delete: if isSharedAccess() || isOwnDataAccess() || isAuthorizedStaff();
     }
 
     // Convite pra Ficha Clínica — link enviado por WhatsApp, independente de um
@@ -364,34 +370,34 @@ service cloud.firestore {
 
     match /intakeInvites/{token} {
       allow get: if true;
-      allow list: if isSharedAccess() || isOwnDataAccess();
-      allow create: if (isSharedAccess() || isOwnDataCreate()) && isValidIntakeInvite(incoming()) && isValidId(token);
-      allow delete: if isSharedAccess() || isOwnDataAccess();
+      allow list: if isSharedAccess() || isOwnDataAccess() || isAuthorizedStaff();
+      allow create: if (isSharedAccess() || isOwnDataCreate() || isAuthorizedStaff()) && isValidIntakeInvite(incoming()) && isValidId(token);
+      allow delete: if isSharedAccess() || isOwnDataAccess() || isAuthorizedStaff();
     }
 
     // Rules for Inventory
     match /inventory/{itemId} {
-      allow read: if isSharedAccess() || isOwnDataAccess();
-      allow create: if (isSharedAccess() || isOwnDataCreate()) && isValidInventory(incoming()) && isValidId(itemId);
-      allow update: if (isSharedAccess() || isOwnDataAccess()) && isValidInventory(incoming());
-      allow delete: if isSharedAccess() || isOwnDataAccess();
+      allow read: if isSharedAccess() || isOwnDataAccess() || isAuthorizedStaff();
+      allow create: if (isSharedAccess() || isOwnDataCreate() || isAuthorizedStaff()) && isValidInventory(incoming()) && isValidId(itemId);
+      allow update: if (isSharedAccess() || isOwnDataAccess() || isAuthorizedStaff()) && isValidInventory(incoming());
+      allow delete: if isSharedAccess() || isOwnDataAccess() || isAuthorizedStaff();
     }
 
     // Rules for Inventory Movements
     match /inventory_movements/{movementId} {
-      allow read: if isSharedAccess() || isOwnDataAccess();
-      allow create: if (isSharedAccess() || isOwnDataCreate()) && isValidInventoryMovement(incoming()) && isValidId(movementId);
-      allow update: if (isSharedAccess() || isOwnDataAccess()) && isValidInventoryMovement(incoming());
-      allow delete: if isSharedAccess() || isOwnDataAccess();
+      allow read: if isSharedAccess() || isOwnDataAccess() || isAuthorizedStaff();
+      allow create: if (isSharedAccess() || isOwnDataCreate() || isAuthorizedStaff()) && isValidInventoryMovement(incoming()) && isValidId(movementId);
+      allow update: if (isSharedAccess() || isOwnDataAccess() || isAuthorizedStaff()) && isValidInventoryMovement(incoming());
+      allow delete: if isSharedAccess() || isOwnDataAccess() || isAuthorizedStaff();
     }
 
     // Avisos de estoque insuficiente gerados ao aceitar um orçamento — mesma visibilidade
     // de estoque em geral (equipe autorizada), não é dado sensível de paciente (só nome,
     // sem prontuário nenhum vinculado)
     match /stockAlerts/{alertId} {
-      allow read: if isSharedAccess() || isOwnDataAccess();
-      allow create: if (isSharedAccess() || isOwnDataCreate()) && isValidId(alertId);
-      allow update, delete: if isSharedAccess() || isOwnDataAccess();
+      allow read: if isSharedAccess() || isOwnDataAccess() || isAuthorizedStaff();
+      allow create: if (isSharedAccess() || isOwnDataCreate() || isAuthorizedStaff()) && isValidId(alertId);
+      allow update, delete: if isSharedAccess() || isOwnDataAccess() || isAuthorizedStaff();
     }
 
     // Receita por procedimento (pra aba "Lucro por Procedimento") — mesmo nível de
@@ -536,6 +542,13 @@ service cloud.firestore {
     // cada um poder ter a própria senha em vez de uma só compartilhada.
     match /admin_security/{uid} {
       allow read, write: if isSignedIn() && isAdmin() && uid == request.auth.uid;
+    }
+
+    // Documento usado só pra testar se a conexão com o Firestore está funcionando, ao
+    // abrir o app — não guarda dado nenhum de verdade, só precisa existir/ser legível
+    // por qualquer pessoa logada
+    match /test/connection {
+      allow read: if isSignedIn();
     }
   }
 }
