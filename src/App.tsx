@@ -44,7 +44,7 @@ import NoShowAutoMarker from './components/NoShowAutoMarker';
 import ExpiryAlert from './components/ExpiryAlert';
 import BirthdayAlert from './components/BirthdayAlert';
 
-type View = 'dashboard' | 'patients' | 'schedule' | 'inventory' | 'finance' | 'settings';
+type View = 'dashboard' | 'patients' | 'schedule' | 'inventory' | 'finance' | 'promotions' | 'settings';
 
 export default function App() {
   // Páginas públicas — sem login, acessíveis de qualquer link externo.
@@ -163,10 +163,14 @@ function AuthenticatedApp() {
             return;
           }
           setIsAdminUser(!!u.email && adminEmails.includes(u.email));
-        } catch {
-          // Se a checagem falhar por qualquer motivo (ex: lista ainda não existe), nega
-          // por segurança em vez de deixar passar
+        } catch (err: any) {
+          // Se a checagem falhar por qualquer motivo (ex: sem permissão de leitura,
+          // lista ainda não existe), nega por segurança em vez de deixar passar — mas
+          // agora avisa o motivo, em vez de simplesmente devolver pra tela de login sem
+          // explicação nenhuma (o que parecia um "loop" sem fim pro usuário)
+          console.error('Erro ao checar autorização de login:', err);
           await signOut(auth);
+          showToast(`Não foi possível confirmar sua autorização: ${err?.code || err?.message || 'erro desconhecido'}`, 'error');
           setUser(null);
           setAuthChecked(true);
           return;
