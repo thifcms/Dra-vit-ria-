@@ -17,6 +17,7 @@ import {
   Plus,
   MessageSquare,
   Send,
+  Gift,
   X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -43,6 +44,7 @@ export default function Dashboard({ user, onNavigate, onOpenPatient, professiona
     lowStock: 0
   });
   const [recentPatients, setRecentPatients] = useState<any[]>([]);
+  const [birthdayPatients, setBirthdayPatients] = useState<any[]>([]);
   const [lowStockItems, setLowStockItems] = useState<{ id: string, name: string, quantity: number, minThreshold: number, unit: string }[]>([]);
   const [showLowStockModal, setShowLowStockModal] = useState(false);
   const [todaySchedule, setTodaySchedule] = useState<any[]>([]);
@@ -67,6 +69,22 @@ export default function Dashboard({ user, onNavigate, onOpenPatient, professiona
     const unsubPatients = onSnapshot(qPatients, (snap) => {
       setStats(prev => ({ ...prev, totalPatients: snap.size }));
       setRecentPatients(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
+    // Aniversariantes do dia — busca todos os pacientes (não só os 4 recentes acima),
+    // já que quem faz aniversário hoje pode não ter sido atualizado recentemente
+    const unsubAllPatients = onSnapshot(collection(db, 'patients'), (snap) => {
+      const today = new Date();
+      const todayMonth = today.getMonth() + 1;
+      const todayDay = today.getDate();
+      const matches = snap.docs
+        .map(d => ({ id: d.id, ...d.data() } as any))
+        .filter(p => {
+          if (!p.birthDate) return false;
+          const [, month, day] = p.birthDate.split('-').map(Number);
+          return month === todayMonth && day === todayDay;
+        });
+      setBirthdayPatients(matches);
     });
 
     // Schedule for today
@@ -159,6 +177,7 @@ export default function Dashboard({ user, onNavigate, onOpenPatient, professiona
 
     return () => {
       unsubPatients();
+      unsubAllPatients();
       unsubSchedule();
       unsubPending();
       unsubFinance();
@@ -449,6 +468,42 @@ export default function Dashboard({ user, onNavigate, onOpenPatient, professiona
                   >
                     Confirmar & Enviar <MessageSquare size={14} />
                   </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Aniversariantes do Dia */}
+        {birthdayPatients.length > 0 && (
+          <div className="bg-white rounded-[40px] border border-[#F5F2F0] p-10 card-shadow">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="w-10 h-10 bg-[#F0F7F0] rounded-2xl flex items-center justify-center text-[#8BA888]">
+                <Gift size={20} />
+              </div>
+              <h3 className="serif text-2xl text-[#4A433D]">
+                {birthdayPatients.length === 1 ? 'Aniversariante do Dia' : 'Aniversariantes do Dia'}
+              </h3>
+            </div>
+            <div className="space-y-4">
+              {birthdayPatients.map(patient => (
+                <div key={patient.id} className="flex items-center justify-between gap-4 p-6 rounded-3xl bg-[#FDFBF9] border border-[#F5F2F0]">
+                  <button onClick={() => onOpenPatient?.(patient.id)} className="text-left flex-1">
+                    <p className="text-sm font-semibold text-[#4A433D]">{patient.name}</p>
+                    {patient.phone && <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest mt-1">{patient.phone}</p>}
+                  </button>
+                  {patient.phone && (
+                    <button
+                      onClick={() => {
+                        const firstName = patient.name.split(' ')[0];
+                        const message = `Feliz aniversário, ${firstName}! 🎉 A equipe deseja um dia repleto de alegria — muito obrigada por fazer parte da nossa história!`;
+                        openWhatsApp(patient.phone, message);
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 bg-white text-[#9CA3AF] hover:bg-[#25D366] hover:text-white rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all border border-[#F5F2F0]"
+                    >
+                      Parabenizar <MessageSquare size={14} />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
