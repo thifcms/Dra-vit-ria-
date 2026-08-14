@@ -22,7 +22,8 @@ import {
   User as UserIcon,
   Fingerprint,
   CreditCard,
-  ArrowLeft
+  ArrowLeft,
+  Send
 } from 'lucide-react';
 
 // Views — carregadas sob demanda (code-splitting), só a tela ativa entra no bundle inicial
@@ -31,6 +32,7 @@ const Patients = lazy(() => import('./components/Patients'));
 const Schedule = lazy(() => import('./components/Schedule'));
 const Inventory = lazy(() => import('./components/Inventory'));
 const Finance = lazy(() => import('./components/Finance'));
+const Promotions = lazy(() => import('./components/Promotions'));
 const Settings = lazy(() => import('./components/Settings'));
 const PublicBooking = lazy(() => import('./components/PublicBooking'));
 const CheckIn = lazy(() => import('./components/CheckIn'));
@@ -613,6 +615,12 @@ function AuthenticatedApp() {
                   />
                 )}
                 <NavItemExpanded 
+                  active={activeView === 'promotions'} 
+                  onClick={() => { setActiveView('promotions'); setIsSidebarOpen(false); }}
+                  icon={<Send size={20} />}
+                  label="Promoções"
+                />
+                <NavItemExpanded 
                   active={activeView === 'settings'} 
                   onClick={() => { setActiveView('settings'); setIsSidebarOpen(false); }}
                   icon={<SettingsIcon size={20} />}
@@ -667,7 +675,8 @@ function AuthenticatedApp() {
                  activeView === 'patients' ? 'Pacientes' :
                  activeView === 'schedule' ? 'Agenda' :
                  activeView === 'inventory' ? 'Estoque' :
-                 activeView === 'finance' ? 'Financeiro' : 'Configurações'}
+                 activeView === 'finance' ? 'Financeiro' :
+                 activeView === 'promotions' ? 'Promoções' : 'Configurações'}
               </h1>
               {activeView === 'dashboard' && (
                 <span className="serif text-xl md:text-2xl text-[#EADFD4] leading-none">{/^dra\.?\s/i.test(professionalName || '') ? professionalName : `Dra. ${professionalName}`}</span>
@@ -712,6 +721,7 @@ function AuthenticatedApp() {
                 )}
                 {activeView === 'inventory' && isAdminUser && <Inventory user={user} />}
                 {activeView === 'finance' && hasFinanceAccess(user?.email) && <Finance user={user} />}
+                {activeView === 'promotions' && <Promotions user={user} />}
                 {activeView === 'settings' && <Settings user={user} />}
               </Suspense>
             </motion.div>

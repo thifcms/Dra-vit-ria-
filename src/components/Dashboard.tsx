@@ -474,17 +474,20 @@ export default function Dashboard({ user, onNavigate, onOpenPatient, professiona
           </div>
         )}
 
-        {/* Aniversariantes do Dia */}
-        {birthdayPatients.length > 0 && (
-          <div className="bg-white rounded-[40px] border border-[#F5F2F0] p-10 card-shadow">
-            <div className="flex items-center gap-3 mb-8">
-              <div className="w-10 h-10 bg-[#F0F7F0] rounded-2xl flex items-center justify-center text-[#8BA888]">
-                <Gift size={20} />
-              </div>
-              <h3 className="serif text-2xl text-[#4A433D]">
-                {birthdayPatients.length === 1 ? 'Aniversariante do Dia' : 'Aniversariantes do Dia'}
-              </h3>
+        {/* Aniversariantes do Dia — sempre visível, mesmo sem ninguém fazendo
+            aniversário hoje, pra ficar fácil de achar que essa seção existe */}
+        <div className="bg-white rounded-[40px] border border-[#F5F2F0] p-10 card-shadow">
+          <div className="flex items-center gap-3 mb-8">
+            <div className="w-10 h-10 bg-[#F0F7F0] rounded-2xl flex items-center justify-center text-[#8BA888]">
+              <Gift size={20} />
             </div>
+            <h3 className="serif text-2xl text-[#4A433D]">
+              {birthdayPatients.length === 0 ? 'Aniversariantes do Dia' : birthdayPatients.length === 1 ? 'Aniversariante do Dia' : 'Aniversariantes do Dia'}
+            </h3>
+          </div>
+          {birthdayPatients.length === 0 ? (
+            <p className="text-xs text-[#9CA3AF] italic">Ninguém faz aniversário hoje.</p>
+          ) : (
             <div className="space-y-4">
               {birthdayPatients.map(patient => (
                 <div key={patient.id} className="flex items-center justify-between gap-4 p-6 rounded-3xl bg-[#FDFBF9] border border-[#F5F2F0]">
@@ -507,8 +510,8 @@ export default function Dashboard({ user, onNavigate, onOpenPatient, professiona
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Today's Schedule List */}
         <div className="bg-white rounded-[40px] border border-[#F5F2F0] p-10 card-shadow">
