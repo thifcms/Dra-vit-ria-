@@ -3,11 +3,12 @@ import { doc, getDoc, addDoc, updateDoc, collection, query, where, getDocs, onSn
 import { db } from '../lib/firebase';
 import { Patient, ClinicSettings, InventoryItem } from '../types';
 import { User } from 'firebase/auth';
-import { Plus, Trash2, FileDown, CheckCircle2, MessageCircle, History, X, Eye, Clock, Printer } from 'lucide-react';
+import { Plus, Trash2, FileDown, CheckCircle2, MessageCircle, History, X, Eye, Clock, Printer, QrCode, Copy } from 'lucide-react';
 import { showToast } from '../lib/toast';
 import { getClinicOwnerId, parseCurrencyInput, remoteSignLink } from '../lib/slots';
 import { whatsappLink, genericEmailLink, openWhatsApp } from '../lib/reminders';
 import { deductFromBatchesFEFO } from '../lib/inventoryBatches';
+import { buildPixPayload } from '../lib/pix';
 
 interface BudgetItem {
   description: string;
@@ -443,7 +444,20 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
       };
       const docRef = await addDoc(collection(db, 'signRequests'), requestData);
       const link = remoteSignLink(docRef.id);
-      const message = `Olá, ${patient.name}! Segue o link pra revisar e assinar seu orçamento:\n${link}`;
+      // Se a clínica tem chave Pix cadastrada, inclui o código de pagamento direto na
+      // mensagem — é aqui que "pagar sem sair do WhatsApp" acontece de verdade, já que
+      // o paciente pode copiar o código e colar no próprio app do banco sem precisar
+      // abrir mais nada.
+      const pixSection = settings?.pixKey
+        ? `\n\n💳 Pra pagar direto por aqui, copie o código Pix abaixo e cole no seu banco:\n${buildPixPayload({
+            pixKey: settings.pixKey,
+            merchantName: settings?.clinicName || settings?.professionalName || 'Clinica',
+            merchantCity: 'BRASIL',
+            amount: total,
+            txid: `ORC${Date.now().toString().slice(-8)}`,
+          })}`
+        : '';
+      const message = `Olá, ${patient.name}! Segue o link pra revisar e assinar seu orçamento:\n${link}${pixSection}`;
       if (via === 'whatsapp') {
         openWhatsApp(sentTo, message);
       } else {
@@ -907,6 +921,10 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
         )}
       </div>
 
+      {settings?.pixKey && total > 0 && (
+        <PixPaymentSection pixKey={settings.pixKey} amount={total} merchantName={settings.clinicName || settings.professionalName || 'Clinica'} />
+      )}
+
       <div className="pt-2 border-t border-[#F5F2F0]">
         <p className="text-[10px] text-[#9CA3AF] font-light text-center mb-3 mt-4">
           Gerar o orçamento é só o documento — nada entra no financeiro até o pagamento ser confirmado.
@@ -1095,6 +1113,77 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// Mostra o QR Code Pix pro valor exato do orçamento — o paciente escaneia com o próprio
+// banco (ou copia o código) e paga sem sair do WhatsApp/celular. Gerado 100% no
+// navegador (sem gateway de pagamento pago por trás), então o app não sabe sozinho
+// quando o Pix cai — continue confirmando manualmente como já era feito antes.
+function PixPaymentSection({ pixKey, amount, merchantName }: { pixKey: string; amount: number; merchantName: string }) {
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [pixCode, setPixCode] = useState<string | null>(null);
+  const [showPix, setShowPix] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const generatePix = async () => {
+    try {
+      const QRCode = await import('qrcode');
+      const payload = buildPixPayload({
+        pixKey,
+        merchantName,
+        merchantCity: 'BRASIL',
+        amount,
+        txid: `ORC${Date.now().toString().slice(-8)}`,
+      });
+      const dataUrl = await QRCode.toDataURL(payload, { width: 280, margin: 1 });
+      setQrDataUrl(dataUrl);
+      setPixCode(payload);
+      setShowPix(true);
+    } catch (err) {
+      showToast('Erro ao gerar o QR Code Pix', 'error');
+    }
+  };
+
+  const handleCopy = async () => {
+    if (!pixCode) return;
+    try {
+      await navigator.clipboard.writeText(pixCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      showToast('Não foi possível copiar — selecione o código manualmente', 'error');
+    }
+  };
+
+  if (!showPix) {
+    return (
+      <button
+        onClick={generatePix}
+        className="w-full py-4 bg-[#F0F7F0] text-[#8BA888] rounded-2xl font-bold text-[10px] uppercase tracking-widest hover:bg-[#E5EFE5] transition-all flex items-center justify-center gap-2"
+      >
+        <QrCode size={16} /> Gerar Pix pra Pagamento — R$ {amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+      </button>
+    );
+  }
+
+  return (
+    <div className="p-6 bg-[#FDFBF9] rounded-3xl border border-[#F5F2F0] text-center">
+      <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-4">
+        Pix — R$ {amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+      </p>
+      {qrDataUrl && <img src={qrDataUrl} alt="QR Code Pix" className="mx-auto rounded-2xl border border-[#F5F2F0]" />}
+      <button
+        onClick={handleCopy}
+        className="w-full mt-4 py-3 bg-white border border-[#F5F2F0] text-[#4A433D] rounded-2xl font-bold text-[10px] uppercase tracking-widest hover:border-[#8BA888] transition-all flex items-center justify-center gap-2"
+      >
+        {copied ? <CheckCircle2 size={14} className="text-[#8BA888]" /> : <Copy size={14} />}
+        {copied ? 'Copiado!' : 'Copiar Código Pix'}
+      </button>
+      <p className="text-[9px] text-[#9CA3AF] mt-3">
+        Depois de confirmar o pagamento no seu banco, marque o orçamento como pago normalmente.
+      </p>
     </div>
   );
 }

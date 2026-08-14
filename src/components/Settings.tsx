@@ -29,7 +29,8 @@ import {
   KeyRound,
   Pill,
   Receipt,
-  RotateCcw
+  RotateCcw,
+  QrCode
 } from 'lucide-react';
 import { showToast } from '../lib/toast';
 import { hashPin, isValidPinFormat } from '../lib/pin';
@@ -997,6 +998,20 @@ export default function Settings({ user }: { user: User }) {
                 <p className="text-[10px] text-[#9CA3AF] font-light mt-2 ml-1">
                   Ao editar o preço de um procedimento que já tem Kit de Insumos, o sistema não deixa salvar um
                   valor que dê uma margem de lucro menor que essa, considerando o custo dos insumos.
+                </p>
+              </div>
+              <div>
+                <SettingField
+                  label="Chave Pix da Clínica"
+                  value={settings.pixKey || ''}
+                  onChange={v => setSettings({ ...settings, pixKey: v })}
+                  icon={<QrCode size={18} />}
+                  placeholder="CPF, CNPJ, e-mail, telefone ou chave aleatória"
+                />
+                <p className="text-[10px] text-[#9CA3AF] font-light mt-2 ml-1">
+                  Usada pra gerar o QR Code de pagamento nos orçamentos — o dinheiro cai direto na conta dessa
+                  chave, sem intermediário. O app não confirma pagamento sozinho: continue marcando manualmente
+                  quando o Pix cair.
                 </p>
               </div>
               <div>

@@ -5,7 +5,7 @@ import { getClinicOwnerId } from '../lib/slots';
 import { deductFromBatchesFEFO, daysUntil, estimateContainersNeeded } from '../lib/inventoryBatches';
 import { Patient, FaceMarkingSession, FaceMarkingPoint, InventoryItem, InventoryBatch } from '../types';
 import { User } from 'firebase/auth';
-import { Plus, X, Trash2, Calendar, Package, DollarSign } from 'lucide-react';
+import { Plus, X, Trash2, Calendar, Package, DollarSign, AlertTriangle } from 'lucide-react';
 import GenericFaceDiagram from './GenericFaceDiagram';
 import { showToast } from '../lib/toast';
 
@@ -204,7 +204,24 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
 
   // Um ponto pode ter mais de uma substância aplicada nele (ex: toxina + preenchedor no
   // mesmo local) — cada linha do array é independente, com seu próprio produto e ml.
+  // Compara o nome da substância escolhida com o texto livre de alergias da anamnese —
+  // é só uma checagem simples de palavra em comum (sem acento, minúsculo), não um banco
+  // de interação medicamentosa de verdade. Serve pra chamar atenção na hora, não pra
+  // substituir o julgamento clínico de quem está aplicando.
+  const checkAllergyMatch = (substanceName: string) => {
+    const allergyText = patient.anamnesis?.allergiesDetails;
+    if (!patient.anamnesis?.hasAllergies || !allergyText) return;
+    const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const allergyWords = normalize(allergyText).split(/[^a-z0-9]+/).filter(w => w.length >= 4);
+    const substanceNorm = normalize(substanceName);
+    const match = allergyWords.some(w => substanceNorm.includes(w) || w.includes(substanceNorm));
+    if (match) {
+      showToast(`⚠️ Atenção: "${substanceName}" pode se relacionar com a alergia registrada ("${allergyText}") — confira antes de aplicar`, 'error');
+    }
+  };
+
   const addPointSubstance = (idx: number, substanceId: string, substanceName: string) => {
+    checkAllergyMatch(substanceName);
     setPoints(prev => prev.map((p, i) => (i === idx ? {
       ...p,
       substances: [...(p.substances || []), { substanceId, substanceName, ml: 0.1 }],
@@ -433,6 +450,18 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
                   <X size={22} />
                 </button>
               </div>
+
+              {patient.anamnesis?.hasAllergies && (
+                <div className="mb-6 p-5 bg-red-50 border border-red-200 rounded-2xl">
+                  <p className="text-[10px] font-bold text-red-500 uppercase tracking-widest mb-2 flex items-center gap-2">
+                    <AlertTriangle size={14} /> Paciente com alergia registrada
+                  </p>
+                  <p className="text-xs text-red-600">{patient.anamnesis.allergiesDetails || 'Detalhes não especificados na anamnese.'}</p>
+                  <p className="text-[9px] text-red-400 mt-2">
+                    Confira antes de aplicar — isso é o texto exato da anamnese, não uma checagem automática de interação medicamentosa.
+                  </p>
+                </div>
+              )}
 
               <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-3">Tipo do próximo ponto</p>
               <div className="grid grid-cols-2 gap-2 mb-6">
