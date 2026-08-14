@@ -356,6 +356,12 @@ function HomePage() {
             <NavLink id="contato" label="Contato" />
           </nav>
           <a
+            href="#portal"
+            className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#4A433D]/70 hover:text-[#4A433D] transition-colors"
+          >
+            Portal do Paciente
+          </a>
+          <a
             href="#agendar"
             className="text-[11px] font-bold uppercase tracking-[0.15em] bg-[#4A433D] text-[#FDFBF9] px-6 py-3 rounded-full hover:bg-[#5C544E] transition-colors"
           >
