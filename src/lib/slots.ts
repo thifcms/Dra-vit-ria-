@@ -113,7 +113,7 @@ export function cpfIndexKey(clinicId: string, cpf: string): string {
 // Financeiro (aba, gráficos de receita, tudo relacionado a dinheiro da clínica) é visível
 // só pra esses dois e-mails especificamente — não é o mesmo critério de "administrador"
 // (que pode incluir outras pessoas no futuro sem necessariamente dar acesso financeiro).
-const FINANCE_AUTHORIZED_EMAILS = ['contato.dravitoriaoliveira@gmail.com', 'thifcms@gmail.com'];
+const FINANCE_AUTHORIZED_EMAILS = ['contato.dravitoriaoliveira@gmail.com', 'thifcms@gmail.com', 'thifcms@bol.com.br'];
 export function hasFinanceAccess(email: string | null | undefined): boolean {
   return !!email && FINANCE_AUTHORIZED_EMAILS.includes(email.toLowerCase());
 }

@@ -60,7 +60,7 @@ service cloud.firestore {
     // sem que isso implique acesso a dado financeiro da clínica.
     function isFinanceAuthorized() {
       return isSignedIn() && request.auth.token.email in
-        ['contato.dravitoriaoliveira@gmail.com', 'thifcms@gmail.com'];
+        ['contato.dravitoriaoliveira@gmail.com', 'thifcms@gmail.com', 'thifcms@bol.com.br'];
     }
 
     function isOwnDataAccess() {

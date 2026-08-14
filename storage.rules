@@ -14,7 +14,7 @@ service firebase.storage {
     // manualmente e as regras republicadas.
     function isAdmin() {
       return request.auth != null && request.auth.token.email in
-        ['contato.dravitoriaoliveira@gmail.com', 'thifcms@gmail.com'];
+        ['contato.dravitoriaoliveira@gmail.com', 'thifcms@gmail.com', 'thifcms@bol.com.br'];
     }
 
     // Fotos e arquivos de pacientes ficam em: patients/{uid}/{patientId}/...
