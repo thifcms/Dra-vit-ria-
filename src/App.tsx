@@ -614,12 +614,14 @@ function AuthenticatedApp() {
                     label="Controle Financeiro"
                   />
                 )}
-                <NavItemExpanded 
-                  active={activeView === 'promotions'} 
-                  onClick={() => { setActiveView('promotions'); setIsSidebarOpen(false); }}
-                  icon={<Send size={20} />}
-                  label="Promoções"
-                />
+                {isAdminUser && (
+                  <NavItemExpanded 
+                    active={activeView === 'promotions'} 
+                    onClick={() => { setActiveView('promotions'); setIsSidebarOpen(false); }}
+                    icon={<Send size={20} />}
+                    label="Promoções"
+                  />
+                )}
                 <NavItemExpanded 
                   active={activeView === 'settings'} 
                   onClick={() => { setActiveView('settings'); setIsSidebarOpen(false); }}
@@ -721,7 +723,7 @@ function AuthenticatedApp() {
                 )}
                 {activeView === 'inventory' && isAdminUser && <Inventory user={user} />}
                 {activeView === 'finance' && hasFinanceAccess(user?.email) && <Finance user={user} />}
-                {activeView === 'promotions' && <Promotions user={user} />}
+                {activeView === 'promotions' && isAdminUser && <Promotions user={user} />}
                 {activeView === 'settings' && <Settings user={user} />}
               </Suspense>
             </motion.div>
