@@ -3,7 +3,8 @@ import { collection, query, onSnapshot, addDoc, updateDoc, setDoc, deleteDoc, de
 import { ref, uploadBytes, getDownloadURL, deleteObject, listAll } from 'firebase/storage';
 import { compressImage } from '../lib/imageCompress';
 import { db, storage } from '../lib/firebase';
-import { Patient, ClinicSettings } from '../types';
+import { Patient, ClinicSettings, InventoryItem } from '../types';
+import { daysUntil } from '../lib/inventoryBatches';
 import { phoneIndexKey, cpfIndexKey, getClinicOwnerId, todayLocalStr, remoteSignLink, intakeInviteLink, parseCurrencyInput, getNextBudgetNumber } from '../lib/slots';
 import { whatsappLink, genericEmailLink, openWhatsApp } from '../lib/reminders';
 import { buildLetterheadHtml } from '../lib/documentTemplate';
@@ -693,6 +694,23 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
   const [anamnesis, setAnamnesis] = useState(normalizeAnamnesis(patient.anamnesis));
   const [procedures, setProcedures] = useState<{ id: string; name: string; price: number; insumoKit?: { itemId: string; itemName: string; quantity: number }[] }[]>([]);
   const [substances, setSubstances] = useState<{ id: string; name: string; unit: string; procedureIds: string[] }[]>([]);
+  // Info do lote mais próximo de vencer de cada item de estoque — usada só pra sugerir
+  // qual lote usar aqui na Conduta, quando um procedimento com Kit de Insumos é marcado
+  const [inventoryBatchInfo, setInventoryBatchInfo] = useState<Record<string, { name: string; nearestLot?: string; nearestExpiry?: string }>>({});
+
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, 'inventory'), (snap) => {
+      const map: Record<string, { name: string; nearestLot?: string; nearestExpiry?: string }> = {};
+      snap.docs.forEach(d => {
+        const data = d.data() as InventoryItem;
+        const batches = (data.batches || []).filter(b => b.quantity > 0 && b.expiryDate);
+        const sorted = [...batches].sort((a, b) => (a.expiryDate || '').localeCompare(b.expiryDate || ''));
+        map[d.id] = { name: data.name, nearestLot: sorted[0]?.lotNumber, nearestExpiry: sorted[0]?.expiryDate };
+      });
+      setInventoryBatchInfo(map);
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -2602,7 +2620,8 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
                               const launched = (anamnesis.launchedProcedures || []).includes(proc.name);
                               const quantity = anamnesis.plannedProcedureQuantities?.[proc.name] || 1;
                               return (
-                                <div key={proc.id} className="flex items-center gap-1">
+                                <div key={proc.id} className="flex flex-col gap-1">
+                                <div className="flex items-center gap-1">
                                   <button
                                     onClick={() => {
                                       const current = anamnesis.plannedProcedures || [];
@@ -2643,6 +2662,23 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
                                         </span>
                                       )}
                                     </>
+                                  )}
+                                </div>
+                                  {active && proc.insumoKit && proc.insumoKit.length > 0 && (
+                                    <div className="flex flex-wrap gap-x-3">
+                                      {proc.insumoKit.map(k => {
+                                        const info = inventoryBatchInfo[k.itemId];
+                                        if (!info?.nearestExpiry) return null;
+                                        const days = daysUntil(info.nearestExpiry);
+                                        return (
+                                          <p key={k.itemId} className="text-[10px] text-[#9CA3AF]">
+                                            <span className="font-bold text-[#8BA888]">Lote sugerido</span> — {info.name}
+                                            {info.nearestLot ? ` nº ${info.nearestLot}` : ''}
+                                            {' '}(vence {days < 0 ? `há ${Math.abs(days)}d` : days === 0 ? 'hoje' : `em ${days}d`})
+                                          </p>
+                                        );
+                                      })}
+                                    </div>
                                   )}
                                 </div>
                               );

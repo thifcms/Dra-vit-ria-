@@ -39,6 +39,14 @@ service firebase.storage {
       allow write: if isAdmin();
     }
 
+    // Fotos da caixa/rótulo de cada lote comprado — confirma visualmente lote e
+    // validade sem depender só do que foi digitado. Mesmo padrão de acesso das outras
+    // pastas administrativas.
+    match /inventory/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+
     // Qualquer outro caminho: negado por padrão.
     match /{allPaths=**} {
       allow read, write: if false;

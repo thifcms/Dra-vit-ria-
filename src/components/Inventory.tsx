@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, deleteField, doc, where, orderBy, limit } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, storage } from '../lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { parseCurrencyInput } from '../lib/slots';
 import { InventoryItem, InventoryMovement, StockAlert } from '../types';
 import { addBatch, deductFromBatchesFEFO, nearestExpiry, daysUntil } from '../lib/inventoryBatches';
@@ -19,7 +20,8 @@ import {
   Tag,
   X,
   Pencil,
-  ShoppingCart
+  ShoppingCart,
+  Camera
 } from 'lucide-react';
 import { showToast } from '../lib/toast';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
@@ -120,7 +122,7 @@ export default function Inventory({ user }: { user: User }) {
     }
   };
 
-  const handleUpdateStock = async (item: InventoryItem, amount: number, type: 'consumption' | 'restock', spentValue?: number, lotNumber?: string, expiryDate?: string) => {
+  const handleUpdateStock = async (item: InventoryItem, amount: number, type: 'consumption' | 'restock', spentValue?: number, lotNumber?: string, expiryDate?: string, volumePerContainer?: number, photoUrl?: string) => {
     const newQty = type === 'restock' ? item.quantity + amount : item.quantity - amount;
     if (newQty < 0) {
       showToast('Quantidade insuficiente em estoque', 'error');
@@ -144,6 +146,8 @@ export default function Inventory({ user }: { user: User }) {
             expiryDate: expiryDate || undefined,
             purchaseDate: new Date().toISOString(),
             unitCost: lastUnitCost,
+            volumePerContainer: volumePerContainer || undefined,
+            photoUrl: photoUrl || undefined,
           })
         : deductFromBatchesFEFO(item.batches, amount).updatedBatches;
 
@@ -479,7 +483,7 @@ export default function Inventory({ user }: { user: User }) {
         {showPurchaseModal && (
           <PurchaseModal
             items={items}
-            onPurchaseItem={(item, units, spentValue, lotNumber, expiryDate) => handleUpdateStock(item, units, 'restock', spentValue, lotNumber, expiryDate)}
+            onPurchaseItem={(item, units, spentValue, lotNumber, expiryDate, volumePerContainer, photoUrl) => handleUpdateStock(item, units, 'restock', spentValue, lotNumber, expiryDate, volumePerContainer, photoUrl)}
             onClose={() => setShowPurchaseModal(false)}
           />
         )}
@@ -487,7 +491,7 @@ export default function Inventory({ user }: { user: User }) {
           <PurchaseModal
             items={items}
             preselectedItem={purchasingItem}
-            onPurchaseItem={(item, units, spentValue, lotNumber, expiryDate) => handleUpdateStock(item, units, 'restock', spentValue, lotNumber, expiryDate)}
+            onPurchaseItem={(item, units, spentValue, lotNumber, expiryDate, volumePerContainer, photoUrl) => handleUpdateStock(item, units, 'restock', spentValue, lotNumber, expiryDate, volumePerContainer, photoUrl)}
             onClose={() => setPurchasingItem(null)}
           />
         )}
@@ -607,11 +611,11 @@ function ConsumeStockModal({ item, onConsume, onClose }: { item: InventoryItem; 
 function PurchaseModal({ items, preselectedItem, onPurchaseItem, onClose }: {
   items: InventoryItem[];
   preselectedItem?: InventoryItem | null;
-  onPurchaseItem: (item: InventoryItem, units: number, spentValue?: number, lotNumber?: string, expiryDate?: string) => Promise<void>;
+  onPurchaseItem: (item: InventoryItem, units: number, spentValue?: number, lotNumber?: string, expiryDate?: string, volumePerContainer?: number, photoUrl?: string) => Promise<void>;
   onClose: () => void;
 }) {
-  const [cart, setCart] = useState<{ item: InventoryItem; qtyInput: string; spentValue: string; lotNumber: string; expiryDate: string }[]>(
-    preselectedItem ? [{ item: preselectedItem, qtyInput: '', spentValue: '', lotNumber: '', expiryDate: '' }] : []
+  const [cart, setCart] = useState<{ item: InventoryItem; qtyInput: string; spentValue: string; lotNumber: string; expiryDate: string; volumePerContainer: string; photoFile: File | null; photoPreview: string | null }[]>(
+    preselectedItem ? [{ item: preselectedItem, qtyInput: '', spentValue: '', lotNumber: '', expiryDate: '', volumePerContainer: '', photoFile: null, photoPreview: null }] : []
   );
   const [search, setSearch] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -625,12 +629,19 @@ function PurchaseModal({ items, preselectedItem, onPurchaseItem, onClose }: {
     : availableItems.slice(0, 20);
 
   const addToCart = (item: InventoryItem) => {
-    setCart(prev => [...prev, { item, qtyInput: '', spentValue: '', lotNumber: '', expiryDate: '' }]);
+    setCart(prev => [...prev, { item, qtyInput: '', spentValue: '', lotNumber: '', expiryDate: '', volumePerContainer: '', photoFile: null, photoPreview: null }]);
     setSearch('');
   };
   const removeFromCart = (itemId: string) => setCart(prev => prev.filter(c => c.item.id !== itemId));
-  const updateCartField = (itemId: string, field: 'qtyInput' | 'spentValue' | 'lotNumber' | 'expiryDate', value: string) => {
+  const updateCartField = (itemId: string, field: 'qtyInput' | 'spentValue' | 'lotNumber' | 'expiryDate' | 'volumePerContainer', value: string) => {
     setCart(prev => prev.map(c => c.item.id === itemId ? { ...c, [field]: value } : c));
+  };
+  const setCartPhoto = (itemId: string, file: File | null) => {
+    setCart(prev => prev.map(c => {
+      if (c.item.id !== itemId) return c;
+      if (c.photoPreview) URL.revokeObjectURL(c.photoPreview);
+      return { ...c, photoFile: file, photoPreview: file ? URL.createObjectURL(file) : null };
+    }));
   };
 
   const handleSubmit = async () => {
@@ -649,7 +660,20 @@ function PurchaseModal({ items, preselectedItem, onPurchaseItem, onClose }: {
         // unidades, nunca em caixas.
         const units = isBox ? qty * (c.item.unitsPerBox || 0) : qty;
         const value = c.spentValue ? parseCurrencyInput(c.spentValue) : undefined;
-        await onPurchaseItem(c.item, units, value, c.lotNumber || undefined, c.expiryDate || undefined);
+        const volumePerContainer = c.volumePerContainer ? parseCurrencyInput(c.volumePerContainer) : undefined;
+        // Sobe a foto da caixa/rótulo antes de registrar a compra, se tiver — confirma
+        // visualmente lote e validade, útil como comprovante em caso de dúvida depois
+        let photoUrl: string | undefined;
+        if (c.photoFile) {
+          try {
+            const photoRef = ref(storage, `inventory/${c.item.id}/${crypto.randomUUID()}.jpg`);
+            await uploadBytes(photoRef, c.photoFile);
+            photoUrl = await getDownloadURL(photoRef);
+          } catch {
+            showToast('Compra registrada, mas a foto não pôde ser enviada', 'error');
+          }
+        }
+        await onPurchaseItem(c.item, units, value, c.lotNumber || undefined, c.expiryDate || undefined, volumePerContainer, photoUrl);
       }
       onClose();
     } catch (err) {
@@ -737,6 +761,43 @@ function PurchaseModal({ items, preselectedItem, onPurchaseItem, onClose }: {
                       className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-3 text-sm outline-none focus:border-[#EADFD4]/30 transition-all"
                     />
                   </div>
+                </div>
+                <div className="mt-3">
+                  <FormField
+                    label={`Quantidade por frasco/ampola (${c.item.unit.toLowerCase()}, opcional)`}
+                    value={c.volumePerContainer}
+                    onChange={v => updateCartField(c.item.id!, 'volumePerContainer', v)}
+                    placeholder={`Ex: 100`}
+                  />
+                  <p className="text-[10px] text-[#9CA3AF] mt-1 ml-1">
+                    Com isso, o sistema calcula quantos frascos ainda serão necessários e quanto sobra depois de usar.
+                  </p>
+                </div>
+                <div className="mt-3">
+                  <label className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 block ml-1">Foto da caixa/rótulo (opcional)</label>
+                  {c.photoPreview ? (
+                    <div className="relative w-24 h-24">
+                      <img src={c.photoPreview} alt="Foto do lote" className="w-24 h-24 object-cover rounded-2xl border border-[#F5F2F0]" />
+                      <button
+                        onClick={() => setCartPhoto(c.item.id!, null)}
+                        className="absolute -top-2 -right-2 w-6 h-6 bg-white rounded-full shadow-sm flex items-center justify-center text-[#9CA3AF] hover:text-red-400"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="flex items-center gap-2 w-fit px-4 py-3 bg-[#FDFBF9] border border-dashed border-[#F5F2F0] rounded-2xl cursor-pointer hover:border-[#EADFD4]/40 transition-all text-[#9CA3AF] text-xs">
+                      <Camera size={16} />
+                      Tirar ou escolher foto
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        className="hidden"
+                        onChange={e => setCartPhoto(c.item.id!, e.target.files?.[0] || null)}
+                      />
+                    </label>
+                  )}
                 </div>
               </div>
             );

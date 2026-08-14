@@ -43,6 +43,26 @@ export function addBatch(batches: InventoryBatch[] | undefined, newBatch: Invent
   return [...(batches || []), newBatch];
 }
 
+// Quantos frascos/ampolas ainda serão necessários pra atender uma demanda total, dado o
+// que já resta em estoque e o tamanho de cada frasco — considera primeiro o que já está
+// disponível nos lotes existentes antes de contar frascos novos. Também informa quanto
+// sobraria no último frasco usado, útil pra saber se dá pra atender mais um paciente sem
+// abrir um frasco novo.
+export function estimateContainersNeeded(
+  batches: InventoryBatch[] | undefined,
+  totalNeeded: number
+): { containersNeeded: number; leftoverInStock: number; leftoverAfterUse: number } {
+  const availableInStock = (batches || []).reduce((sum, b) => sum + b.quantity, 0);
+  const shortfall = Math.max(0, totalNeeded - availableInStock);
+  // Usa o tamanho de frasco do lote mais recente cadastrado como referência, já que é o
+  // mais provável de refletir o produto que continua sendo comprado
+  const referenceBatch = [...(batches || [])].reverse().find(b => b.volumePerContainer && b.volumePerContainer > 0);
+  const containerSize = referenceBatch?.volumePerContainer || 0;
+  const containersNeeded = containerSize > 0 ? Math.ceil(shortfall / containerSize) : 0;
+  const leftoverAfterUse = availableInStock - Math.min(availableInStock, totalNeeded) + (containersNeeded * containerSize) - shortfall;
+  return { containersNeeded, leftoverInStock: availableInStock, leftoverAfterUse };
+}
+
 // Lote mais próximo de vencer entre todos os lotes de um item — usado pra mostrar o
 // aviso na listagem do estoque sem precisar abrir cada item
 export function nearestExpiry(batches: InventoryBatch[] | undefined): string | undefined {

@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { doc, getDoc, updateDoc, collection, query, where, onSnapshot, addDoc, increment } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { getClinicOwnerId } from '../lib/slots';
-import { deductFromBatchesFEFO } from '../lib/inventoryBatches';
-import { Patient, FaceMarkingSession, FaceMarkingPoint, InventoryItem } from '../types';
+import { deductFromBatchesFEFO, daysUntil, estimateContainersNeeded } from '../lib/inventoryBatches';
+import { Patient, FaceMarkingSession, FaceMarkingPoint, InventoryItem, InventoryBatch } from '../types';
 import { User } from 'firebase/auth';
 import { Plus, X, Trash2, Calendar, Package, DollarSign } from 'lucide-react';
 import GenericFaceDiagram from './GenericFaceDiagram';
@@ -98,6 +98,28 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
   const [selectedPointIdx, setSelectedPointIdx] = useState<number | null>(null);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [substances, setSubstances] = useState<{ id: string; name: string; unit: string }[]>([]);
+  // Info do lote mais próximo de vencer, indexado pelo ID da SUBSTÂNCIA (não do item de
+  // estoque diretamente) — cada substância cadastrada em Configurações gera um item de
+  // estoque vinculado (linkedSubstanceId), então precisa desse mapeamento pra achar o
+  // lote certo a partir da substância escolhida aqui no mapa. Guarda os lotes inteiros
+  // (não só o mais próximo) pra poder calcular quantos frascos ainda serão necessários.
+  const [batchInfoBySubstanceId, setBatchInfoBySubstanceId] = useState<Record<string, { itemId: string; nearestLot?: string; nearestExpiry?: string; batches: InventoryBatch[] }>>({});
+
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, 'inventory'), (snap) => {
+      const map: Record<string, { itemId: string; nearestLot?: string; nearestExpiry?: string; batches: InventoryBatch[] }> = {};
+      snap.docs.forEach(d => {
+        const data = d.data() as InventoryItem & { linkedSubstanceId?: string };
+        if (!data.linkedSubstanceId) return;
+        const withExpiry = (data.batches || []).filter(b => b.quantity > 0 && b.expiryDate);
+        const sorted = [...withExpiry].sort((a, b) => (a.expiryDate || '').localeCompare(b.expiryDate || ''));
+        map[data.linkedSubstanceId] = { itemId: d.id, nearestLot: sorted[0]?.lotNumber, nearestExpiry: sorted[0]?.expiryDate, batches: data.batches || [] };
+      });
+      setBatchInfoBySubstanceId(map);
+    });
+    return () => unsubscribe();
+  }, []);
+
 
   useEffect(() => {
     const unsub = onSnapshot(
@@ -501,6 +523,18 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
                             </button>
                           </div>
                         ))}
+                        {(p.substances || []).map((s, si) => {
+                          const info = batchInfoBySubstanceId[s.substanceId];
+                          if (!info?.nearestExpiry) return null;
+                          const days = daysUntil(info.nearestExpiry);
+                          return (
+                            <p key={`lote-${si}`} className="text-[9px] text-[#9CA3AF] pl-1">
+                              <span className="font-bold text-[#8BA888]">Lote sugerido</span> pra {s.substanceName}
+                              {info.nearestLot ? ` — nº ${info.nearestLot}` : ''}
+                              {' '}(vence {days < 0 ? `há ${Math.abs(days)}d` : days === 0 ? 'hoje' : `em ${days}d`})
+                            </p>
+                          );
+                        })}
                         <button
                           onClick={() => {
                             const firstAvailable = substances.find(sub => !(p.substances || []).some(s => s.substanceId === sub.id));
@@ -536,6 +570,45 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
                 rows={2}
                 className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-3 text-xs outline-none focus:border-[#EADFD4]/30 transition-all mb-4 resize-none"
               />
+
+              {(() => {
+                // Soma quanto de cada substância está sendo usado em TODOS os pontos
+                // dessa sessão (não só um ponto isolado) — é essa soma que decide de
+                // verdade se sobra no frasco atual ou se precisa abrir um novo.
+                const totalBySubstance: Record<string, { name: string; total: number }> = {};
+                points.forEach(p => {
+                  (p.substances || []).forEach(s => {
+                    if (!totalBySubstance[s.substanceId]) totalBySubstance[s.substanceId] = { name: s.substanceName, total: 0 };
+                    totalBySubstance[s.substanceId].total += s.ml;
+                  });
+                });
+                const rows = Object.entries(totalBySubstance)
+                  .map(([substanceId, { name, total }]) => {
+                    const info = batchInfoBySubstanceId[substanceId];
+                    if (!info || total <= 0) return null;
+                    const estimate = estimateContainersNeeded(info.batches, total);
+                    return { substanceId, name, total, ...estimate };
+                  })
+                  .filter((r): r is NonNullable<typeof r> => !!r);
+                if (rows.length === 0) return null;
+                return (
+                  <div className="mb-4 p-4 bg-[#FDFBF9] rounded-2xl border border-[#F5F2F0] space-y-2">
+                    <p className="text-[9px] font-bold text-[#9CA3AF] uppercase tracking-widest">Estoque pra este atendimento</p>
+                    {rows.map(r => (
+                      <p key={r.substanceId} className="text-[10px] text-[#4A433D]">
+                        <span className="font-medium">{r.name}</span> — precisa de {r.total.toLocaleString('pt-BR')}
+                        {r.leftoverInStock >= r.total ? (
+                          <span className="text-[#8BA888]"> — já tem no lote atual, sobra {(r.leftoverInStock - r.total).toLocaleString('pt-BR')} pro próximo paciente</span>
+                        ) : r.containersNeeded > 0 ? (
+                          <span className="text-amber-600"> — precisa abrir {r.containersNeeded} frasco(s) novo(s), sobra {r.leftoverAfterUse.toLocaleString('pt-BR')} depois de usar</span>
+                        ) : (
+                          <span className="text-[#9CA3AF]"> — sem info de frasco cadastrada</span>
+                        )}
+                      </p>
+                    ))}
+                  </div>
+                );
+              })()}
 
               <button
                 disabled={points.length === 0 || saving}

@@ -7,7 +7,7 @@ import { Plus, Trash2, FileDown, CheckCircle2, MessageCircle, History, X, Eye, C
 import { showToast } from '../lib/toast';
 import { getClinicOwnerId, parseCurrencyInput, remoteSignLink } from '../lib/slots';
 import { whatsappLink, genericEmailLink, openWhatsApp } from '../lib/reminders';
-import { deductFromBatchesFEFO, daysUntil } from '../lib/inventoryBatches';
+import { deductFromBatchesFEFO } from '../lib/inventoryBatches';
 
 interface BudgetItem {
   description: string;
@@ -49,23 +49,6 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
   const [sendingBudgetSign, setSendingBudgetSign] = useState(false);
   const [showBudgetHistory, setShowBudgetHistory] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
-  // Só o necessário pra sugerir o lote certo (id, nome, lotes) — não a lista completa
-  // de estoque, que tem muito mais campos que não interessam aqui
-  const [inventoryBatchInfo, setInventoryBatchInfo] = useState<Record<string, { name: string; nearestLot?: string; nearestExpiry?: string }>>({});
-
-  useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, 'inventory'), (snap) => {
-      const map: Record<string, { name: string; nearestLot?: string; nearestExpiry?: string }> = {};
-      snap.docs.forEach(d => {
-        const data = d.data() as InventoryItem;
-        const batches = (data.batches || []).filter(b => b.quantity > 0 && b.expiryDate);
-        const sorted = [...batches].sort((a, b) => (a.expiryDate || '').localeCompare(b.expiryDate || ''));
-        map[d.id] = { name: data.name, nearestLot: sorted[0]?.lotNumber, nearestExpiry: sorted[0]?.expiryDate };
-      });
-      setInventoryBatchInfo(map);
-    });
-    return () => unsubscribe();
-  }, []);
 
   useEffect(() => {
     getClinicOwnerId(db).then(ownerId => getDoc(doc(db, 'settings', ownerId))).then(snap => {
@@ -827,22 +810,6 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
                     R$ {parseCurrencyInput(item.originalValue || '0').toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </span>
                 )}
-              </div>
-            )}
-            {item.insumoKit && item.insumoKit.length > 0 && (
-              <div className="mt-2 ml-1 space-y-1">
-                {item.insumoKit.map(k => {
-                  const info = inventoryBatchInfo[k.itemId];
-                  if (!info?.nearestExpiry) return null;
-                  const days = daysUntil(info.nearestExpiry);
-                  return (
-                    <p key={k.itemId} className="text-[10px] text-[#9CA3AF]">
-                      <span className="font-bold text-[#8BA888]">Lote sugerido</span> pra {info.name}
-                      {info.nearestLot ? ` — nº ${info.nearestLot}` : ''}
-                      {' '}(vence {days < 0 ? `há ${Math.abs(days)}d` : days === 0 ? 'hoje' : `em ${days}d`})
-                    </p>
-                  );
-                })}
               </div>
             )}
           </div>

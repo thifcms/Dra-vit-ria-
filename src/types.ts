@@ -437,6 +437,12 @@ export interface InventoryBatch {
   // Foto da caixa/rótulo do produto — confirma visualmente lote e validade sem
   // precisar digitar tudo certo, e serve de comprovante em caso de dúvida depois
   photoUrl?: string;
+  // Quantas unidades/ml vêm em CADA frasco/ampola desse lote — com isso, o sistema
+  // consegue calcular quantos frascos ainda serão necessários pra um total de demanda
+  // (ex: 3 pacientes precisando de 20 unidades cada = 60 no total; sabendo que cada
+  // frasco tem 100, dá pra saber que basta 1 frasco, sobrando 40). Diferente de
+  // "quantity" (que é sempre o total restante em unidades soltas do lote inteiro).
+  volumePerContainer?: number;
 }
 
 export interface InventoryItem {
