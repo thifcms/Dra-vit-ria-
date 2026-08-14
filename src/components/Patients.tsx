@@ -2966,8 +2966,12 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
                     >
                       {compareMode ? 'Sair da Comparação' : 'Comparar Antes/Depois'}
                     </button>
+                    <label className="bg-[#8BA888] text-white px-8 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 cursor-pointer hover:bg-[#7C9979] transition-all shadow-sm">
+                      <Camera size={18} /> Tirar Foto
+                      <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoUpload} />
+                    </label>
                     <label className="bg-[#FDFBF9] text-[#9CA3AF] px-8 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 cursor-pointer border border-[#F5F2F0] hover:bg-[#EADFD4] hover:text-white hover:border-[#EADFD4] transition-all shadow-sm">
-                      <Camera size={18} /> Enviar Imagens
+                      <FileDown size={18} /> Enviar Imagens
                       <input type="file" accept="image/*" className="hidden" multiple onChange={handlePhotoUpload} />
                     </label>
                   </div>
