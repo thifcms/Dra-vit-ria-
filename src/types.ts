@@ -283,6 +283,18 @@ export interface Patient {
     status: 'pending' | 'paid';
     paidAt?: string;
   }[];
+  // Registro de qual lote de cada substância o paciente recebeu — preenchido
+  // automaticamente ao aceitar um orçamento com insumo vinculado. Rastreabilidade em
+  // caso de reação adversa ou recall de um lote específico.
+  medicationLog?: {
+    id: string;
+    date: string;
+    itemName: string;
+    procedureNames: string[];
+    lotNumber?: string;
+    expiryDate?: string;
+    quantity: number;
+  }[];
   budgetHistory?: {
     id: string;
     // Número sequencial do orçamento — cresce sempre, nunca repete, gerado por
@@ -411,6 +423,22 @@ export interface Appointment {
   createdAt?: string;
 }
 
+// Cada compra de um item vira um lote separado — permite ter mais de uma validade ao
+// mesmo tempo pro mesmo insumo (ex: comprou toxina em janeiro com validade X, comprou
+// mais em março com validade Y). O consumo sempre desconta primeiro do lote que vence
+// mais cedo (FEFO — First Expire, First Out), prática padrão pra insumos injetáveis.
+export interface InventoryBatch {
+  id: string;
+  lotNumber?: string;
+  quantity: number; // quanto ainda resta desse lote específico
+  expiryDate?: string;
+  purchaseDate: string;
+  unitCost?: number; // custo desse lote específico — pode variar de compra pra compra
+  // Foto da caixa/rótulo do produto — confirma visualmente lote e validade sem
+  // precisar digitar tudo certo, e serve de comprovante em caso de dúvida depois
+  photoUrl?: string;
+}
+
 export interface InventoryItem {
   id?: string;
   userId?: string;
@@ -420,6 +448,16 @@ export interface InventoryItem {
   quantity: number; // sempre em unidades — mesmo quando comprado por caixa, o controle de
                      // estoque conta e mostra sempre em unidades, já que o uso é sempre
                      // unitário
+  // Lotes individuais — a soma de quantity de todos os lotes deve sempre bater com o
+  // campo "quantity" acima (mantido por compatibilidade com o resto do app, que ainda
+  // lê só o total). Opcional: itens cadastrados antes dessa funcionalidade não têm
+  // lotes, e continuam funcionando normalmente sem informação de validade.
+  batches?: InventoryBatch[];
+  // Algumas substâncias vêm num frasco/ampola que rende pra mais de um paciente no
+  // mesmo dia (ex: toxina botulínica diluída, dividida entre vários atendimentos) —
+  // marcado, o mesmo lote pode ser vinculado a vários pacientes diferentes sem soar
+  // como erro de duplicação. Desmarcado (padrão), assume que 1 lote = 1 paciente.
+  sharedAcrossPatients?: boolean;
   minThreshold: number; // sempre guardado em unidades, mesmo que a pessoa tenha
                          // preenchido em caixas no cadastro (convertido na hora de salvar)
   unit: string;

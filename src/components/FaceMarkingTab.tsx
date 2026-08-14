@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { doc, getDoc, updateDoc, collection, query, where, onSnapshot, addDoc, increment } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { getClinicOwnerId } from '../lib/slots';
+import { deductFromBatchesFEFO } from '../lib/inventoryBatches';
 import { Patient, FaceMarkingSession, FaceMarkingPoint, InventoryItem } from '../types';
 import { User } from 'firebase/auth';
 import { Plus, X, Trash2, Calendar, Package, DollarSign } from 'lucide-react';
@@ -260,10 +261,20 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
       // existente (senão debitaria o mesmo insumo duas vezes)
       if (!isEditingExisting) {
         const linkedPoints = points.filter(p => p.inventoryItemId && p.inventoryQuantity);
+        const usedBatchesLog: { itemName: string; lotNumber?: string; expiryDate?: string; quantity: number }[] = [];
         for (const p of linkedPoints) {
-          await updateDoc(doc(db, 'inventory', p.inventoryItemId!), {
-            quantity: increment(-p.inventoryQuantity!),
-          }).catch(() => {});
+          try {
+            const itemSnap = await getDoc(doc(db, 'inventory', p.inventoryItemId!));
+            const itemData = itemSnap.exists() ? (itemSnap.data() as InventoryItem) : null;
+            const { updatedBatches, usedFrom } = deductFromBatchesFEFO(itemData?.batches, p.inventoryQuantity!);
+            await updateDoc(doc(db, 'inventory', p.inventoryItemId!), {
+              quantity: increment(-p.inventoryQuantity!),
+              ...(itemData ? { batches: updatedBatches } : {}),
+            });
+            usedFrom.forEach(u => {
+              usedBatchesLog.push({ itemName: p.inventoryItemName || '', lotNumber: u.lotNumber, expiryDate: u.expiryDate, quantity: u.quantity });
+            });
+          } catch { /* melhor esforço — não trava o resto do salvamento por um item */ }
           await addDoc(collection(db, 'inventory_movements'), {
             userId: user.uid,
             itemId: p.inventoryItemId,
@@ -272,6 +283,24 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
             type: 'consumption',
             date: session.date,
           }).catch(() => {});
+        }
+        if (usedBatchesLog.length > 0) {
+          try {
+            const patientSnap = await getDoc(doc(db, 'patients', patient.id!));
+            const currentLog = patientSnap.exists() ? ((patientSnap.data() as Patient).medicationLog || []) : [];
+            const newEntries = usedBatchesLog.map(u => ({
+              id: crypto.randomUUID(),
+              date: new Date().toISOString(),
+              itemName: u.itemName,
+              procedureNames: ['Mapa de Aplicação'],
+              lotNumber: u.lotNumber,
+              expiryDate: u.expiryDate,
+              quantity: u.quantity,
+            }));
+            await updateDoc(doc(db, 'patients', patient.id!), {
+              medicationLog: [...currentLog, ...newEntries],
+            });
+          } catch { /* melhor esforço */ }
         }
         if (linkedPoints.length > 0) {
           showToast(`Estoque atualizado (${linkedPoints.length} item(ns) baixado(s))`);

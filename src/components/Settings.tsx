@@ -113,7 +113,7 @@ export default function Settings({ user }: { user: User }) {
   const [isAddingRxTemplate, setIsAddingRxTemplate] = useState(false);
   const [newProcedureName, setNewProcedureName] = useState('');
   const [newProcedurePrice, setNewProcedurePrice] = useState('');
-  const [newSubstance, setNewSubstance] = useState<{ name: string; unit: 'ml' | 'unidade'; procedureIds: string[] }>({ name: '', unit: 'ml', procedureIds: [] });
+  const [newSubstance, setNewSubstance] = useState<{ name: string; unit: 'ml' | 'unidade'; procedureIds: string[]; sharedAcrossPatients: boolean }>({ name: '', unit: 'ml', procedureIds: [], sharedAcrossPatients: false });
   const [catalogTab, setCatalogTab] = useState<'substancias' | 'insumos'>('substancias');
   const [newInsumo, setNewInsumo] = useState({ name: '', category: '', unit: 'Unidades', purchasedByBox: false, unitsPerBox: '', minThreshold: '' });
   const [savingInsumo, setSavingInsumo] = useState(false);
@@ -462,7 +462,7 @@ export default function Settings({ user }: { user: User }) {
     });
   };
 
-  const handleAddSubstance = async (item: { name: string; unit: 'ml' | 'unidade'; procedureIds: string[] }) => {
+  const handleAddSubstance = async (item: { name: string; unit: 'ml' | 'unidade'; procedureIds: string[]; sharedAcrossPatients?: boolean }) => {
     const id = crypto.randomUUID();
     const next = [...(settings.substances || []), { ...item, id }];
     persist({ ...settings, substances: next });
@@ -479,6 +479,7 @@ export default function Settings({ user }: { user: User }) {
         minThreshold: 0,
         unit: item.unit === 'ml' ? 'Ml' : 'Unidades',
         linkedSubstanceId: id,
+        ...(item.sharedAcrossPatients ? { sharedAcrossPatients: true } : {}),
         updatedAt: new Date().toISOString(),
       });
     } catch { /* a substância já foi salva nas configurações mesmo se isso falhar */ }
@@ -1369,14 +1370,23 @@ export default function Settings({ user }: { user: User }) {
                   <option value="unidade">Por unidade</option>
                 </select>
               </div>
+              <label className="flex items-center gap-3 px-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={newSubstance.sharedAcrossPatients}
+                  onChange={e => setNewSubstance({ ...newSubstance, sharedAcrossPatients: e.target.checked })}
+                  className="w-4 h-4 accent-[#8BA888]"
+                />
+                <span className="text-xs text-[#4A433D]">Um frasco/ampola rende pra mais de um paciente (ex: toxina diluída)</span>
+              </label>
               <button
                 onClick={() => {
                   if (!newSubstance.name.trim()) {
                     showToast('Preencha o nome da substância', 'error');
                     return;
                   }
-                  handleAddSubstance({ name: newSubstance.name.trim(), unit: newSubstance.unit, procedureIds: [] });
-                  setNewSubstance({ name: '', unit: 'ml', procedureIds: [] });
+                  handleAddSubstance({ name: newSubstance.name.trim(), unit: newSubstance.unit, procedureIds: [], sharedAcrossPatients: newSubstance.sharedAcrossPatients });
+                  setNewSubstance({ name: '', unit: 'ml', procedureIds: [], sharedAcrossPatients: false });
                 }}
                 className="w-full bg-[#EADFD4] text-white rounded-2xl px-6 py-4 text-[10px] font-bold uppercase tracking-widest hover:bg-[#DFCFBF] transition-all flex items-center justify-center gap-2"
               >

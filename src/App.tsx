@@ -41,6 +41,7 @@ const ComingSoon = lazy(() => import('./components/ComingSoon'));
 const TestSite = lazy(() => import('./components/TestSite'));
 import AutoBackupPrompt from './components/AutoBackupPrompt';
 import NoShowAutoMarker from './components/NoShowAutoMarker';
+import ExpiryAlert from './components/ExpiryAlert';
 
 type View = 'dashboard' | 'patients' | 'schedule' | 'inventory' | 'finance' | 'settings';
 
@@ -714,6 +715,7 @@ function AuthenticatedApp() {
       </main>
       <AutoBackupPrompt user={user} isAdminUser={isAdminUser} />
       <NoShowAutoMarker user={user} />
+      <ExpiryAlert user={user} isAdminUser={isAdminUser} />
     </motion.div>
     )}
     </AnimatePresence>

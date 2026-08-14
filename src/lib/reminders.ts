@@ -71,3 +71,22 @@ export function emailLink(email: string, clinicName: string, message: string): s
 export function genericEmailLink(email: string, subject: string, message: string): string {
   return `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
 }
+
+// Mensagem de repescagem — enviada quando um paciente falta, sugerindo remarcar. Tom
+// acolhedor, sem cobrança, pra não soar como reprimenda e reduzir a chance de a pessoa
+// simplesmente não responder por vergonha de ter faltado.
+export function buildNoShowFollowUpMessage(params: {
+  patientName: string;
+  clinicName: string;
+  bookingUrl?: string;
+}): string {
+  const { patientName, clinicName, bookingUrl } = params;
+  const lines = [
+    `Olá, ${patientName}! Sentimos sua falta hoje na ${clinicName} 💛`,
+    '',
+    'Sabemos que imprevistos acontecem — sem problema nenhum! Quando quiser, é só nos chamar aqui que já remarcamos um novo horário pra você.',
+    bookingUrl ? '' : '',
+    bookingUrl ? `Ou, se preferir, agende direto por aqui: ${bookingUrl}` : '',
+  ].filter(l => l !== undefined);
+  return lines.join('\n').replace(/\n{3,}/g, '\n\n');
+}

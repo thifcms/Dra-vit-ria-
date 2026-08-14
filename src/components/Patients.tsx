@@ -4228,6 +4228,27 @@ function ConsentTermsModule({ user, patient, onPrintAnamnesisHistory, onPrintBud
       </div>
       )}
 
+      {termsSubTab === 'outros' && (patient.medicationLog || []).length > 0 && (
+        <div className="mt-8">
+          <h4 className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-4">
+            Lotes de Substâncias Aplicadas — Rastreabilidade
+          </h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {[...(patient.medicationLog || [])].reverse().map(entry => (
+              <div key={entry.id} className="p-6 bg-white border border-[#F5F2F0] rounded-[24px] shadow-sm">
+                <p className="text-sm font-medium text-[#4A433D]">{entry.itemName} — {entry.quantity}x</p>
+                <p className="text-[10px] text-[#9CA3AF] mt-1">{entry.procedureNames.join(', ')}</p>
+                <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest mt-3">
+                  {new Date(entry.date).toLocaleDateString('pt-BR')}
+                  {entry.lotNumber ? ` — Lote nº ${entry.lotNumber}` : ''}
+                  {entry.expiryDate ? ` — Val. ${new Date(entry.expiryDate + 'T00:00:00').toLocaleDateString('pt-BR')}` : ''}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <AnimatePresence>
         {isSigning && (
           <div className="fixed inset-0 bg-[#4A433D]/20 backdrop-blur-md z-[60] flex items-center justify-center p-6">

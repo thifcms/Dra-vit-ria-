@@ -3,6 +3,7 @@ import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, deleteFiel
 import { db } from '../lib/firebase';
 import { parseCurrencyInput } from '../lib/slots';
 import { InventoryItem, InventoryMovement, StockAlert } from '../types';
+import { addBatch, deductFromBatchesFEFO, nearestExpiry, daysUntil } from '../lib/inventoryBatches';
 import { User } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -76,6 +77,14 @@ export default function Inventory({ user }: { user: User }) {
   const stats = useMemo(() => {
     const lowStock = items.filter(i => i.quantity <= i.minThreshold).length;
     const totalItems = items.length;
+
+    // Itens com algum lote vencendo em até 30 dias, ou já vencido — mesmo princípio do
+    // aviso de estoque baixo, mas pra validade
+    const expiringSoon = items.filter(i => {
+      const nearest = nearestExpiry(i.batches);
+      if (!nearest) return false;
+      return daysUntil(nearest) <= 30;
+    }).length;
     
     // Consumo por categoria (últimos 30 dias)
     const thirtyDaysAgo = new Date();
@@ -93,7 +102,7 @@ export default function Inventory({ user }: { user: User }) {
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value);
 
-    return { lowStock, totalItems, consumptionData };
+    return { lowStock, totalItems, expiringSoon, consumptionData };
   }, [items, movements]);
 
   const filteredItems = items.filter(i => 
@@ -111,7 +120,7 @@ export default function Inventory({ user }: { user: User }) {
     }
   };
 
-  const handleUpdateStock = async (item: InventoryItem, amount: number, type: 'consumption' | 'restock', spentValue?: number) => {
+  const handleUpdateStock = async (item: InventoryItem, amount: number, type: 'consumption' | 'restock', spentValue?: number, lotNumber?: string, expiryDate?: string) => {
     const newQty = type === 'restock' ? item.quantity + amount : item.quantity - amount;
     if (newQty < 0) {
       showToast('Quantidade insuficiente em estoque', 'error');
@@ -124,8 +133,23 @@ export default function Inventory({ user }: { user: User }) {
       const lastUnitCost = type === 'restock' && spentValue && spentValue > 0 && amount > 0
         ? spentValue / amount
         : undefined;
+
+      // Atualiza os lotes — cria um novo lote na reposição (com validade, se
+      // informada), ou desconta pelo método FEFO no consumo manual
+      const updatedBatches = type === 'restock'
+        ? addBatch(item.batches, {
+            id: crypto.randomUUID(),
+            lotNumber: lotNumber || undefined,
+            quantity: amount,
+            expiryDate: expiryDate || undefined,
+            purchaseDate: new Date().toISOString(),
+            unitCost: lastUnitCost,
+          })
+        : deductFromBatchesFEFO(item.batches, amount).updatedBatches;
+
       await updateDoc(doc(db, 'inventory', item.id!), { 
         quantity: newQty,
+        batches: updatedBatches,
         ...(type === 'restock' ? { lastRestockDate: new Date().toISOString() } : {}),
         ...(lastUnitCost ? { lastUnitCost } : {}),
       });
@@ -244,7 +268,7 @@ export default function Inventory({ user }: { user: User }) {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         <InventoryStatCard 
           icon={<TrendingUp size={20} />} 
           label="Total de Materiais" 
@@ -257,6 +281,13 @@ export default function Inventory({ user }: { user: User }) {
           value={stats.lowStock} 
           sub="Abaixo do limite mínimo"
           alert={stats.lowStock > 0}
+        />
+        <InventoryStatCard 
+          icon={<AlertTriangle size={20} />} 
+          label="Vencendo/Vencido" 
+          value={stats.expiringSoon} 
+          sub="Validade em até 30 dias"
+          alert={stats.expiringSoon > 0}
         />
         <div className="bg-white rounded-[32px] p-8 border border-[#F5F2F0] shadow-sm flex flex-col justify-center">
           <h4 className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-4">Consumo por Categoria (30 dias)</h4>
@@ -326,12 +357,23 @@ export default function Inventory({ user }: { user: User }) {
                       </div>
                     </td>
                     <td className="p-6">
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 flex-wrap">
                         <span className="text-lg font-light serif text-[#4A433D]">{Number(item.quantity.toFixed(2))}</span>
                         <span className="text-[10px] text-[#9CA3AF] font-medium">{item.unit}</span>
                         {item.quantity <= item.minThreshold && (
                           <span className="px-2 py-0.5 bg-red-50 text-red-400 text-[8px] font-bold uppercase tracking-widest rounded-full">Crítico</span>
                         )}
+                        {(() => {
+                          const nearest = nearestExpiry(item.batches);
+                          if (!nearest) return null;
+                          const days = daysUntil(nearest);
+                          if (days > 30) return null;
+                          return (
+                            <span className={`px-2 py-0.5 text-[8px] font-bold uppercase tracking-widest rounded-full ${days < 0 ? 'bg-red-50 text-red-400' : 'bg-amber-50 text-amber-600'}`}>
+                              {days < 0 ? `Vencido há ${Math.abs(days)}d` : days === 0 ? 'Vence hoje' : `Vence em ${days}d`}
+                            </span>
+                          );
+                        })()}
                       </div>
                       <div className="w-24 h-1 bg-[#F5F2F0] rounded-full mt-2 overflow-hidden">
                         <div 
@@ -437,7 +479,7 @@ export default function Inventory({ user }: { user: User }) {
         {showPurchaseModal && (
           <PurchaseModal
             items={items}
-            onPurchaseItem={(item, units, spentValue) => handleUpdateStock(item, units, 'restock', spentValue)}
+            onPurchaseItem={(item, units, spentValue, lotNumber, expiryDate) => handleUpdateStock(item, units, 'restock', spentValue, lotNumber, expiryDate)}
             onClose={() => setShowPurchaseModal(false)}
           />
         )}
@@ -445,7 +487,7 @@ export default function Inventory({ user }: { user: User }) {
           <PurchaseModal
             items={items}
             preselectedItem={purchasingItem}
-            onPurchaseItem={(item, units, spentValue) => handleUpdateStock(item, units, 'restock', spentValue)}
+            onPurchaseItem={(item, units, spentValue, lotNumber, expiryDate) => handleUpdateStock(item, units, 'restock', spentValue, lotNumber, expiryDate)}
             onClose={() => setPurchasingItem(null)}
           />
         )}
@@ -565,11 +607,11 @@ function ConsumeStockModal({ item, onConsume, onClose }: { item: InventoryItem; 
 function PurchaseModal({ items, preselectedItem, onPurchaseItem, onClose }: {
   items: InventoryItem[];
   preselectedItem?: InventoryItem | null;
-  onPurchaseItem: (item: InventoryItem, units: number, spentValue?: number) => Promise<void>;
+  onPurchaseItem: (item: InventoryItem, units: number, spentValue?: number, lotNumber?: string, expiryDate?: string) => Promise<void>;
   onClose: () => void;
 }) {
-  const [cart, setCart] = useState<{ item: InventoryItem; qtyInput: string; spentValue: string }[]>(
-    preselectedItem ? [{ item: preselectedItem, qtyInput: '', spentValue: '' }] : []
+  const [cart, setCart] = useState<{ item: InventoryItem; qtyInput: string; spentValue: string; lotNumber: string; expiryDate: string }[]>(
+    preselectedItem ? [{ item: preselectedItem, qtyInput: '', spentValue: '', lotNumber: '', expiryDate: '' }] : []
   );
   const [search, setSearch] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -583,11 +625,11 @@ function PurchaseModal({ items, preselectedItem, onPurchaseItem, onClose }: {
     : availableItems.slice(0, 20);
 
   const addToCart = (item: InventoryItem) => {
-    setCart(prev => [...prev, { item, qtyInput: '', spentValue: '' }]);
+    setCart(prev => [...prev, { item, qtyInput: '', spentValue: '', lotNumber: '', expiryDate: '' }]);
     setSearch('');
   };
   const removeFromCart = (itemId: string) => setCart(prev => prev.filter(c => c.item.id !== itemId));
-  const updateCartField = (itemId: string, field: 'qtyInput' | 'spentValue', value: string) => {
+  const updateCartField = (itemId: string, field: 'qtyInput' | 'spentValue' | 'lotNumber' | 'expiryDate', value: string) => {
     setCart(prev => prev.map(c => c.item.id === itemId ? { ...c, [field]: value } : c));
   };
 
@@ -607,7 +649,7 @@ function PurchaseModal({ items, preselectedItem, onPurchaseItem, onClose }: {
         // unidades, nunca em caixas.
         const units = isBox ? qty * (c.item.unitsPerBox || 0) : qty;
         const value = c.spentValue ? parseCurrencyInput(c.spentValue) : undefined;
-        await onPurchaseItem(c.item, units, value);
+        await onPurchaseItem(c.item, units, value, c.lotNumber || undefined, c.expiryDate || undefined);
       }
       onClose();
     } catch (err) {
@@ -678,6 +720,23 @@ function PurchaseModal({ items, preselectedItem, onPurchaseItem, onClose }: {
                     onChange={v => updateCartField(c.item.id!, 'spentValue', v)}
                     placeholder="R$"
                   />
+                </div>
+                <div className="grid grid-cols-2 gap-3 mt-3">
+                  <FormField
+                    label="Número do lote (opcional)"
+                    value={c.lotNumber}
+                    onChange={v => updateCartField(c.item.id!, 'lotNumber', v)}
+                    placeholder="Ex: L2026048"
+                  />
+                  <div>
+                    <label className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 block ml-1">Validade (opcional)</label>
+                    <input
+                      type="date"
+                      value={c.expiryDate}
+                      onChange={e => updateCartField(c.item.id!, 'expiryDate', e.target.value)}
+                      className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-3 text-sm outline-none focus:border-[#EADFD4]/30 transition-all"
+                    />
+                  </div>
                 </div>
               </div>
             );

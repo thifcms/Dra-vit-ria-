@@ -7,6 +7,7 @@ import { Plus, Trash2, FileDown, CheckCircle2, MessageCircle, History, X, Eye, C
 import { showToast } from '../lib/toast';
 import { getClinicOwnerId, parseCurrencyInput, remoteSignLink } from '../lib/slots';
 import { whatsappLink, genericEmailLink, openWhatsApp } from '../lib/reminders';
+import { deductFromBatchesFEFO, daysUntil } from '../lib/inventoryBatches';
 
 interface BudgetItem {
   description: string;
@@ -48,6 +49,23 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
   const [sendingBudgetSign, setSendingBudgetSign] = useState(false);
   const [showBudgetHistory, setShowBudgetHistory] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
+  // Só o necessário pra sugerir o lote certo (id, nome, lotes) — não a lista completa
+  // de estoque, que tem muito mais campos que não interessam aqui
+  const [inventoryBatchInfo, setInventoryBatchInfo] = useState<Record<string, { name: string; nearestLot?: string; nearestExpiry?: string }>>({});
+
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, 'inventory'), (snap) => {
+      const map: Record<string, { name: string; nearestLot?: string; nearestExpiry?: string }> = {};
+      snap.docs.forEach(d => {
+        const data = d.data() as InventoryItem;
+        const batches = (data.batches || []).filter(b => b.quantity > 0 && b.expiryDate);
+        const sorted = [...batches].sort((a, b) => (a.expiryDate || '').localeCompare(b.expiryDate || ''));
+        map[d.id] = { name: data.name, nearestLot: sorted[0]?.lotNumber, nearestExpiry: sorted[0]?.expiryDate };
+      });
+      setInventoryBatchInfo(map);
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     getClinicOwnerId(db).then(ownerId => getDoc(doc(db, 'settings', ownerId))).then(snap => {
@@ -223,6 +241,8 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
         });
       });
 
+      const usedBatchesLog: { itemName: string; procedureNames: string[]; lotNumber?: string; expiryDate?: string; quantity: number }[] = [];
+
       for (const [itemId, need] of neededByItemId.entries()) {
         try {
           const itemSnap = await getDoc(doc(db, 'inventory', itemId));
@@ -231,7 +251,20 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
           if (itemData.lastUnitCost) unitCostByItemId.set(itemId, itemData.lastUnitCost);
           const currentQty = itemData.quantity || 0;
           const newQty = currentQty - need.quantity;
-          await updateDoc(doc(db, 'inventory', itemId), { quantity: Math.max(0, newQty) });
+          const { updatedBatches, usedFrom } = deductFromBatchesFEFO(itemData.batches, need.quantity);
+          await updateDoc(doc(db, 'inventory', itemId), {
+            quantity: Math.max(0, newQty),
+            batches: updatedBatches,
+          });
+          // Guarda de qual lote específico saiu, pra registrar no prontuário do
+          // paciente — rastreabilidade real: qual frasco/lote esse paciente recebeu,
+          // não só "usou a substância X"
+          const procedureNames = itemsWithKit
+            .filter(it => it.insumoKit!.some(k => k.itemId === itemId))
+            .map(it => it.description);
+          usedFrom.forEach(u => {
+            usedBatchesLog.push({ itemName: need.itemName, procedureNames, lotNumber: u.lotNumber, expiryDate: u.expiryDate, quantity: u.quantity });
+          });
           await addDoc(collection(db, 'inventory_movements'), {
             userId: user.uid,
             itemId,
@@ -253,6 +286,30 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
             });
           }
         } catch { /* segue tentando os outros itens mesmo se um falhar */ }
+      }
+
+      // Registra no prontuário do paciente exatamente qual lote de cada substância ele
+      // recebeu — rastreabilidade de verdade: em caso de reação ou recall de um lote
+      // específico, dá pra saber na hora quem recebeu aquele frasco, sem depender de
+      // planilha ou memória de quem atendeu.
+      if (usedBatchesLog.length > 0) {
+        try {
+          const logDate = new Date().toISOString();
+          const patientSnap = await getDoc(doc(db, 'patients', patient.id!));
+          const currentLog = patientSnap.exists() ? ((patientSnap.data() as Patient).medicationLog || []) : [];
+          const newEntries = usedBatchesLog.map(u => ({
+            id: crypto.randomUUID(),
+            date: logDate,
+            itemName: u.itemName,
+            procedureNames: u.procedureNames,
+            lotNumber: u.lotNumber,
+            expiryDate: u.expiryDate,
+            quantity: u.quantity,
+          }));
+          await updateDoc(doc(db, 'patients', patient.id!), {
+            medicationLog: [...currentLog, ...newEntries],
+          });
+        } catch { /* melhor esforço — não trava a confirmação do orçamento por isso */ }
       }
     }
 
@@ -770,6 +827,22 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
                     R$ {parseCurrencyInput(item.originalValue || '0').toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </span>
                 )}
+              </div>
+            )}
+            {item.insumoKit && item.insumoKit.length > 0 && (
+              <div className="mt-2 ml-1 space-y-1">
+                {item.insumoKit.map(k => {
+                  const info = inventoryBatchInfo[k.itemId];
+                  if (!info?.nearestExpiry) return null;
+                  const days = daysUntil(info.nearestExpiry);
+                  return (
+                    <p key={k.itemId} className="text-[10px] text-[#9CA3AF]">
+                      <span className="font-bold text-[#8BA888]">Lote sugerido</span> pra {info.name}
+                      {info.nearestLot ? ` — nº ${info.nearestLot}` : ''}
+                      {' '}(vence {days < 0 ? `há ${Math.abs(days)}d` : days === 0 ? 'hoje' : `em ${days}d`})
+                    </p>
+                  );
+                })}
               </div>
             )}
           </div>

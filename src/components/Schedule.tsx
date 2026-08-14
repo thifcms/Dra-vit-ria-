@@ -3,7 +3,7 @@ import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, setDoc, do
 import { db } from '../lib/firebase';
 import { Appointment, Patient, ClinicSettings } from '../types';
 import { slotId, checkinLink, cancelLink, intakeInviteLink, CLINIC_HOURS, EMAIL_SERVICE_URL, localDateStr, todayLocalStr, getClinicOwnerId } from '../lib/slots';
-import { buildReminderMessage, whatsappLink, emailLink, openWhatsApp } from '../lib/reminders';
+import { buildReminderMessage, whatsappLink, emailLink, openWhatsApp, buildNoShowFollowUpMessage } from '../lib/reminders';
 import { User as FirebaseUser } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -292,6 +292,24 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
     }
   };
 
+  // Repescagem — quando um paciente falta, uma mensagem acolhedora sugerindo remarcar,
+  // em vez de deixar o contato esfriar. Sempre pelo WhatsApp (canal mais direto pra
+  // esse tipo de mensagem informal).
+  const handleReengageNoShow = (appt: Appointment) => {
+    setOpenMenuId(null);
+    const patient = patients.find(p => p.id === appt.patientId);
+    const phone = patient?.phone || appt.guestPhone;
+    if (!phone) {
+      showToast('Este paciente não tem telefone cadastrado', 'error');
+      return;
+    }
+    const message = buildNoShowFollowUpMessage({
+      patientName: appt.patientName,
+      clinicName: clinicSettings?.clinicName || clinicSettings?.professionalName || 'Clínica',
+    });
+    openWhatsApp(phone, message);
+  };
+
   const handleDeleteAppointment = async (id: string) => {
     if (!window.confirm('Excluir este agendamento?')) return;
     const appt = appointments.find(a => a.id === id);
@@ -564,6 +582,9 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
                                   <MenuOption onClick={() => handleSetStatus(appt.id!, 'confirmed')} label="Confirmar" color="text-[#EADFD4]" />
                                   <MenuOption onClick={() => handleSetStatus(appt.id!, 'completed')} label="Marcar como realizado" color="text-[#8BA888]" />
                                   <MenuOption onClick={() => handleSetStatus(appt.id!, 'no_show')} label="Marcar Falta" color="text-amber-500" />
+                                  {appt.status === 'no_show' && (
+                                    <MenuOption onClick={() => handleReengageNoShow(appt)} label="Reengajar (sugerir remarcar)" color="text-[#8BA888]" />
+                                  )}
                                   {appt.status === 'completed' && (
                                     <MenuOption onClick={() => handleSetStatus(appt.id!, 'confirmed')} label="Desfazer marcação de realizado" color="text-amber-500" />
                                   )}
