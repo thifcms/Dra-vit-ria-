@@ -4,31 +4,42 @@ import { db, auth, signInAnonymousPortal } from '../lib/firebase';
 import { signOut } from 'firebase/auth';
 import { onAuthStateChanged } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
-import { Calendar, FileText, Receipt, LogOut, Lock, Clock, CheckCircle2 } from 'lucide-react';
+import { Calendar, FileText, Receipt, LogOut, Lock, Clock, CheckCircle2, KeyRound } from 'lucide-react';
 import { getClinicOwnerId, phoneIndexKey, cpfIndexKey } from '../lib/slots';
+import { hashPin } from '../lib/pin';
 import { Patient, Appointment } from '../types';
 
-// Portal do Paciente — entra com CPF + telefone (sem senha nem SMS, por decisão do
-// administrador: mais simples, com menos segurança do que um login por SMS teria).
-// A autenticação de verdade acontece de forma anônima no Firebase (só pra ter um uid
-// válido) — a checagem real de "esse CPF e esse telefone são realmente do mesmo
-// paciente" acontece nas REGRAS do banco (portalSessions), não só na tela, então não
-// dá pra burlar direto pelo navegador.
+// Portal do Paciente — login em duas partes:
+// 1) CPF + telefone, conferidos de verdade nas REGRAS do banco (não só na tela) — o
+//    mesmo mecanismo de antes, criando uma sessão anônima vinculada ao paciente certo.
+// 2) Senha — no PRIMEIRO acesso, depois do CPF/telefone passarem, pede pra criar uma
+//    senha (guardada como hash, nunca em texto puro). Nos acessos seguintes, depois de
+//    CPF+telefone baterem de novo, pede a senha já cadastrada em vez de deixar entrar
+//    direto — segurança adicional, já que só CPF+telefone sozinhos são informações
+//    relativamente fáceis de alguém mais próximo do paciente conhecer.
 export default function PatientPortal() {
   const [authReady, setAuthReady] = useState(false);
   const [patient, setPatient] = useState<Patient | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [cpf, setCpf] = useState('');
   const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loggingIn, setLoggingIn] = useState(false);
   const [loginError, setLoginError] = useState('');
   const [activeTab, setActiveTab] = useState<'appointments' | 'documents' | 'budgets'>('appointments');
+  // 'cpfPhone': tela inicial | 'setPassword': primeiro acesso, criando senha |
+  // 'enterPassword': acessos seguintes, digitando a senha já cadastrada
+  const [step, setStep] = useState<'cpfPhone' | 'setPassword' | 'enterPassword'>('cpfPhone');
+  const [pendingPatientId, setPendingPatientId] = useState<string | null>(null);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
       if (u) {
-        // Já tem sessão de portal válida guardada nesse uid? Carrega direto, sem pedir
-        // CPF/telefone de novo — assim o paciente não precisa logar toda vez que abrir
+        // Já tem sessão de portal válida guardada nesse uid (dispositivo já passou por
+        // CPF+telefone+senha antes)? Carrega direto — assim o paciente não precisa
+        // digitar tudo de novo toda vez que abrir no MESMO celular/navegador.
         try {
           const sessionSnap = await getDoc(doc(db, 'portalSessions', u.uid));
           if (sessionSnap.exists()) {
@@ -84,7 +95,11 @@ export default function PatientPortal() {
       const cred = auth.currentUser || (await signInAnonymousPortal()).user;
       await setDoc(doc(db, 'portalSessions', cred.uid), { patientId, cpfKey, phoneKey });
 
-      await loadPatientData(patientId);
+      // CPF+telefone confirmados — agora decide se é primeiro acesso (pede pra criar
+      // senha) ou se já existe conta (pede a senha já cadastrada)
+      const accountSnap = await getDoc(doc(db, 'portalAccounts', patientId));
+      setPendingPatientId(patientId);
+      setStep(accountSnap.exists() ? 'enterPassword' : 'setPassword');
     } catch (err: any) {
       console.error('Erro no login do portal:', err);
       if (err?.code === 'permission-denied') {
@@ -92,6 +107,50 @@ export default function PatientPortal() {
       } else {
         setLoginError('Não foi possível entrar agora — tente novamente em instantes.');
       }
+    }
+    setLoggingIn(false);
+  };
+
+  const handleSetPassword = async () => {
+    if (newPassword.length < 6) {
+      setLoginError('A senha precisa ter pelo menos 6 caracteres.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setLoginError('As senhas não são iguais.');
+      return;
+    }
+    if (!pendingPatientId) return;
+    setLoggingIn(true);
+    setLoginError('');
+    try {
+      const passwordHash = await hashPin(newPassword);
+      await setDoc(doc(db, 'portalAccounts', pendingPatientId), { passwordHash, createdAt: new Date().toISOString() });
+      await loadPatientData(pendingPatientId);
+    } catch (err) {
+      setLoginError('Não foi possível criar a senha agora — tente novamente.');
+    }
+    setLoggingIn(false);
+  };
+
+  const handleEnterPassword = async () => {
+    if (!password.trim() || !pendingPatientId) {
+      setLoginError('Digite sua senha.');
+      return;
+    }
+    setLoggingIn(true);
+    setLoginError('');
+    try {
+      const accountSnap = await getDoc(doc(db, 'portalAccounts', pendingPatientId));
+      const storedHash = accountSnap.exists() ? accountSnap.data().passwordHash : null;
+      const enteredHash = await hashPin(password);
+      if (storedHash && storedHash === enteredHash) {
+        await loadPatientData(pendingPatientId);
+      } else {
+        setLoginError('Senha incorreta.');
+      }
+    } catch (err) {
+      setLoginError('Não foi possível conferir a senha agora — tente novamente.');
     }
     setLoggingIn(false);
   };
@@ -105,6 +164,12 @@ export default function PatientPortal() {
     setAppointments([]);
     setCpf('');
     setPhone('');
+    setPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setPendingPatientId(null);
+    setStep('cpfPhone');
+    setLoginError('');
   };
 
   if (!authReady) {
@@ -119,45 +184,124 @@ export default function PatientPortal() {
     return (
       <div className="min-h-screen bg-[#FDFBF9] flex items-center justify-center p-6">
         <motion.div
+          key={step}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="bg-white rounded-[40px] shadow-lg p-10 max-w-sm w-full"
         >
           <div className="w-14 h-14 bg-[#F0F7F0] rounded-2xl flex items-center justify-center text-[#8BA888] mb-6">
-            <Lock size={24} />
+            {step === 'cpfPhone' ? <Lock size={24} /> : <KeyRound size={24} />}
           </div>
-          <h1 className="serif text-2xl text-[#4A433D] mb-2">Portal do Paciente</h1>
-          <p className="text-xs text-[#9CA3AF] font-light mb-8">
-            Entre com seu CPF e telefone cadastrados na clínica.
-          </p>
-          <div className="space-y-4">
-            <div>
-              <label className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 block ml-1">CPF</label>
-              <input
-                value={cpf}
-                onChange={e => setCpf(e.target.value)}
-                placeholder="000.000.000-00"
-                className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 text-sm outline-none focus:border-[#8BA888]/40 transition-all"
-              />
-            </div>
-            <div>
-              <label className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 block ml-1">Telefone</label>
-              <input
-                value={phone}
-                onChange={e => setPhone(e.target.value)}
-                placeholder="(00) 00000-0000"
-                className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 text-sm outline-none focus:border-[#8BA888]/40 transition-all"
-              />
-            </div>
-          </div>
-          {loginError && <p className="text-xs text-red-500 mt-4">{loginError}</p>}
-          <button
-            onClick={handleLogin}
-            disabled={loggingIn}
-            className="w-full mt-6 py-4 bg-[#8BA888] text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest shadow-md hover:bg-[#7C9979] transition-all disabled:opacity-50"
-          >
-            {loggingIn ? 'Entrando...' : 'Entrar'}
-          </button>
+
+          {step === 'cpfPhone' && (
+            <>
+              <h1 className="serif text-2xl text-[#4A433D] mb-2">Portal do Paciente</h1>
+              <p className="text-xs text-[#9CA3AF] font-light mb-8">
+                Entre com seu CPF e telefone cadastrados na clínica.
+              </p>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 block ml-1">CPF</label>
+                  <input
+                    value={cpf}
+                    onChange={e => setCpf(e.target.value)}
+                    placeholder="000.000.000-00"
+                    className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 text-sm outline-none focus:border-[#8BA888]/40 transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 block ml-1">Telefone</label>
+                  <input
+                    value={phone}
+                    onChange={e => setPhone(e.target.value)}
+                    placeholder="(00) 00000-0000"
+                    className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 text-sm outline-none focus:border-[#8BA888]/40 transition-all"
+                  />
+                </div>
+              </div>
+              {loginError && <p className="text-xs text-red-500 mt-4">{loginError}</p>}
+              <button
+                onClick={handleLogin}
+                disabled={loggingIn}
+                className="w-full mt-6 py-4 bg-[#8BA888] text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest shadow-md hover:bg-[#7C9979] transition-all disabled:opacity-50"
+              >
+                {loggingIn ? 'Verificando...' : 'Continuar'}
+              </button>
+            </>
+          )}
+
+          {step === 'setPassword' && (
+            <>
+              <h1 className="serif text-2xl text-[#4A433D] mb-2">Crie sua senha</h1>
+              <p className="text-xs text-[#9CA3AF] font-light mb-8">
+                É seu primeiro acesso. Crie uma senha — vai usar ela junto com CPF e telefone nas próximas vezes.
+              </p>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 block ml-1">Nova senha</label>
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={e => setNewPassword(e.target.value)}
+                    placeholder="Pelo menos 6 caracteres"
+                    className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 text-sm outline-none focus:border-[#8BA888]/40 transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 block ml-1">Confirmar senha</label>
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={e => setConfirmPassword(e.target.value)}
+                    placeholder="Digite de novo"
+                    className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 text-sm outline-none focus:border-[#8BA888]/40 transition-all"
+                  />
+                </div>
+              </div>
+              {loginError && <p className="text-xs text-red-500 mt-4">{loginError}</p>}
+              <button
+                onClick={handleSetPassword}
+                disabled={loggingIn}
+                className="w-full mt-6 py-4 bg-[#8BA888] text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest shadow-md hover:bg-[#7C9979] transition-all disabled:opacity-50"
+              >
+                {loggingIn ? 'Criando...' : 'Criar Senha e Entrar'}
+              </button>
+            </>
+          )}
+
+          {step === 'enterPassword' && (
+            <>
+              <h1 className="serif text-2xl text-[#4A433D] mb-2">Digite sua senha</h1>
+              <p className="text-xs text-[#9CA3AF] font-light mb-8">
+                CPF e telefone confirmados — agora sua senha pra concluir.
+              </p>
+              <div>
+                <label className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 block ml-1">Senha</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="Sua senha"
+                  autoFocus
+                  className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 text-sm outline-none focus:border-[#8BA888]/40 transition-all"
+                />
+              </div>
+              {loginError && <p className="text-xs text-red-500 mt-4">{loginError}</p>}
+              <button
+                onClick={handleEnterPassword}
+                disabled={loggingIn}
+                className="w-full mt-6 py-4 bg-[#8BA888] text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest shadow-md hover:bg-[#7C9979] transition-all disabled:opacity-50"
+              >
+                {loggingIn ? 'Entrando...' : 'Entrar'}
+              </button>
+              <button
+                onClick={() => { setStep('cpfPhone'); setPassword(''); setLoginError(''); }}
+                className="w-full mt-3 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest"
+              >
+                Voltar
+              </button>
+            </>
+          )}
         </motion.div>
       </div>
     );

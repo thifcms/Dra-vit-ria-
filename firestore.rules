@@ -531,6 +531,20 @@ service cloud.firestore {
       allow delete: if isSignedIn() && request.auth.uid == uid;
     }
 
+    // Senha do Portal do Paciente — criada no PRIMEIRO acesso, depois de CPF+telefone
+    // já terem sido conferidos (por isso exige isPortalPatientAccess, não só "estar
+    // logado"). Só existe UM documento por paciente: se já existe, não pode criar de
+    // novo (impede sobrescrever a senha de alguém só porque descobriu o CPF/telefone
+    // dele depois) — troca de senha não é uma funcionalidade ainda, precisaria pedir
+    // pro administrador resetar manualmente se o paciente esquecer.
+    match /portalAccounts/{patientId} {
+      allow read: if isPortalPatientAccess(patientId);
+      allow create: if isPortalPatientAccess(patientId)
+        && incoming().passwordHash is string
+        && !exists(/databases/$(database)/documents/portalAccounts/$(patientId));
+      allow update, delete: if false;
+    }
+
     // Configurações da clínica — documento único e compartilhado (settings/{ownerId}).
     // Qualquer pessoa autorizada pode ler (precisa pra saber horário de atendimento etc.),
     // mas só administrador pode alterar.
