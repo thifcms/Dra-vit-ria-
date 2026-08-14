@@ -21,9 +21,11 @@ import {
   X,
   Pencil,
   ShoppingCart,
-  Camera
+  Camera,
+  ScanLine
 } from 'lucide-react';
 import { showToast } from '../lib/toast';
+import BarcodeScannerModal from './BarcodeScannerModal';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 export default function Inventory({ user }: { user: User }) {
@@ -618,6 +620,7 @@ function PurchaseModal({ items, preselectedItem, onPurchaseItem, onClose }: {
     preselectedItem ? [{ item: preselectedItem, qtyInput: '', spentValue: '', lotNumber: '', expiryDate: '', volumePerContainer: '', photoFile: null, photoPreview: null }] : []
   );
   const [search, setSearch] = useState('');
+  const [scanningForItemId, setScanningForItemId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   // Mostra o catálogo inteiro (até 20) quando o campo está em foco/vazio, e filtra
@@ -642,6 +645,17 @@ function PurchaseModal({ items, preselectedItem, onPurchaseItem, onClose }: {
       if (c.photoPreview) URL.revokeObjectURL(c.photoPreview);
       return { ...c, photoFile: file, photoPreview: file ? URL.createObjectURL(file) : null };
     }));
+  };
+
+  const handleScanResult = (data: { lotNumber?: string; expiryDate?: string }) => {
+    if (!scanningForItemId) return;
+    setCart(prev => prev.map(c => c.item.id === scanningForItemId ? {
+      ...c,
+      lotNumber: data.lotNumber || c.lotNumber,
+      expiryDate: data.expiryDate || c.expiryDate,
+    } : c));
+    setScanningForItemId(null);
+    showToast('Lote e validade preenchidos a partir do código escaneado');
   };
 
   const handleSubmit = async () => {
@@ -745,6 +759,12 @@ function PurchaseModal({ items, preselectedItem, onPurchaseItem, onClose }: {
                     placeholder="R$"
                   />
                 </div>
+                <button
+                  onClick={() => setScanningForItemId(c.item.id!)}
+                  className="mt-3 flex items-center gap-2 px-4 py-2.5 bg-[#F0F7F0] text-[#8BA888] rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-[#E5EFE5] transition-all"
+                >
+                  <ScanLine size={14} /> Escanear código do lote (GS1)
+                </button>
                 <div className="grid grid-cols-2 gap-3 mt-3">
                   <FormField
                     label="Número do lote (opcional)"
@@ -818,6 +838,9 @@ function PurchaseModal({ items, preselectedItem, onPurchaseItem, onClose }: {
           </button>
         </div>
       </motion.div>
+      {scanningForItemId && (
+        <BarcodeScannerModal onScanned={handleScanResult} onClose={() => setScanningForItemId(null)} />
+      )}
     </div>
   );
 }

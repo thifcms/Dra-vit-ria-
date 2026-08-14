@@ -42,6 +42,7 @@ const TestSite = lazy(() => import('./components/TestSite'));
 import AutoBackupPrompt from './components/AutoBackupPrompt';
 import NoShowAutoMarker from './components/NoShowAutoMarker';
 import ExpiryAlert from './components/ExpiryAlert';
+import BirthdayAlert from './components/BirthdayAlert';
 
 type View = 'dashboard' | 'patients' | 'schedule' | 'inventory' | 'finance' | 'settings';
 
@@ -716,6 +717,7 @@ function AuthenticatedApp() {
       <AutoBackupPrompt user={user} isAdminUser={isAdminUser} />
       <NoShowAutoMarker user={user} />
       <ExpiryAlert user={user} isAdminUser={isAdminUser} />
+      <BirthdayAlert user={user} isAdminUser={isAdminUser} />
     </motion.div>
     )}
     </AnimatePresence>
