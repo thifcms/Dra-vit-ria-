@@ -360,6 +360,7 @@ export default function Settings({ user }: { user: User }) {
             appointmentInterval: data.appointmentInterval || 60,
             agendaBlocked: data.agendaBlocked || false,
             blockedDates: data.blockedDates || [],
+            bookingFeeAmount: data.bookingFeeAmount ?? null,
           }).catch(() => {});
         }
       } catch (err) {
@@ -654,6 +655,7 @@ export default function Settings({ user }: { user: User }) {
         appointmentInterval: settings.appointmentInterval || 60,
         agendaBlocked: settings.agendaBlocked || false,
         blockedDates: settings.blockedDates || [],
+        bookingFeeAmount: settings.bookingFeeAmount ?? null,
       });
       showToast('Configurações atualizadas');
     } catch (err) {
@@ -1013,6 +1015,32 @@ export default function Settings({ user }: { user: User }) {
                   Usada pra gerar o QR Code de pagamento nos orçamentos — o dinheiro cai direto na conta dessa
                   chave, sem intermediário. O app não confirma pagamento sozinho: continue marcando manualmente
                   quando o Pix cair.
+                </p>
+              </div>
+              <div>
+                <SettingField
+                  label="Taxa de Marcação (R$)"
+                  value={settings.bookingFeeAmount != null ? String(settings.bookingFeeAmount) : ''}
+                  onChange={v => setSettings({ ...settings, bookingFeeAmount: v ? parseCurrencyInput(v) : undefined })}
+                  icon={<Receipt size={18} />}
+                  placeholder="0"
+                />
+                <p className="text-[10px] text-[#9CA3AF] font-light mt-2 ml-1">
+                  Informada ao paciente já no agendamento. Se ele fizer algum procedimento depois, esse valor
+                  é descontado do orçamento; se não fizer, não é reembolsável. Deixe em branco pra não cobrar.
+                </p>
+              </div>
+              <div>
+                <SettingField
+                  label="Retorno Não Cobrado Até (dias)"
+                  value={settings.returnVisitDays != null ? String(settings.returnVisitDays) : ''}
+                  onChange={v => setSettings({ ...settings, returnVisitDays: v ? parseInt(v) || undefined : undefined })}
+                  icon={<Clock size={18} />}
+                  placeholder="Ex: 15"
+                />
+                <p className="text-[10px] text-[#9CA3AF] font-light mt-2 ml-1">
+                  Se o paciente marcar o mesmo procedimento de novo dentro desse prazo, o sistema avisa que é
+                  retorno (não deveria ser cobrado de novo). Deixe em branco pra desativar esse aviso.
                 </p>
               </div>
               <div>

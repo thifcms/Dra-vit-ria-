@@ -821,6 +821,43 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
   const [savingInvoice, setSavingInvoice] = useState(false);
   const [clinicSettingsForInvoice, setClinicSettingsForInvoice] = useState<ClinicSettings | null>(null);
+
+  // Checa se o mesmo procedimento já foi cobrado desse paciente recentemente (dentro do
+  // prazo configurado em Configurações → Gestão) — se for, avisa que pode ser um
+  // retorno que não deveria ser cobrado de novo. Só avisa, não bloqueia nada — quem
+  // decide se cobra ou não continua sendo a pessoa lançando, não o sistema.
+  const checkReturnVisit = async (procedureName: string) => {
+    const returnDays = clinicSettingsForInvoice?.returnVisitDays;
+    if (!returnDays || returnDays <= 0) return;
+    try {
+      const q = query(
+        collection(db, 'transactions'),
+        where('patientId', '==', patient.id),
+        where('category', '==', procedureName)
+      );
+      const snap = await getDocs(q);
+      const cutoff = new Date(Date.now() - returnDays * 24 * 60 * 60 * 1000);
+      const recent = snap.docs
+        .map(d => d.data())
+        .filter(t => {
+          const txDate = t.date?.toDate ? t.date.toDate() : new Date(t.date);
+          return txDate >= cutoff;
+        })
+        .sort((a: any, b: any) => {
+          const da = a.date?.toDate ? a.date.toDate() : new Date(a.date);
+          const db_ = b.date?.toDate ? b.date.toDate() : new Date(b.date);
+          return db_.getTime() - da.getTime();
+        });
+      if (recent.length > 0) {
+        const lastDate = recent[0].date?.toDate ? recent[0].date.toDate() : new Date(recent[0].date);
+        showToast(
+          `Atenção: "${procedureName}" já foi cobrado desse paciente em ${lastDate.toLocaleDateString('pt-BR')} — pode ser um retorno (não cobrar de novo dentro de ${returnDays} dias)`,
+          'error'
+        );
+      }
+    } catch { /* aviso é só um reforço — não trava nada se a checagem falhar */ }
+  };
+
   const [showReceiptForm, setShowReceiptForm] = useState(false);
   const [receiptValue, setReceiptValue] = useState('');
   const [receiptReference, setReceiptReference] = useState('');
@@ -2658,6 +2695,7 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
                                       // Lança automaticamente no financeiro assim que marcado — sem precisar de um
                                       // segundo clique. Some sozinho do financeiro se for desmarcado.
                                       handleLaunchToFinance(proc.name, quantity);
+                                      checkReturnVisit(proc.name);
                                     }}
                                     className={`text-xs px-4 py-2 rounded-xl border transition-all ${active ? 'bg-[#8BA888] border-[#8BA888] text-white' : 'bg-white border-[#F5F2F0] text-[#9CA3AF] hover:border-[#8BA888]/30'}`}
                                   >

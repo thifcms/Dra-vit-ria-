@@ -639,6 +639,16 @@ export interface ClinicSettings {
   // orçamentos, pro paciente pagar direto sem sair do WhatsApp. Pode ser CPF/CNPJ,
   // e-mail, telefone ou chave aleatória.
   pixKey?: string;
+  // Taxa de marcação — cobrada (fora do app, presencialmente) na hora de agendar,
+  // informada ao paciente já no ato do agendamento. Se ele realizar algum
+  // procedimento depois, esse valor é descontado do orçamento; se não realizar, não é
+  // reembolsável. O app só informa o valor e ajuda a descontar depois — não processa o
+  // pagamento dessa taxa em si.
+  bookingFeeAmount?: number;
+  // Quantos dias depois de um procedimento um "retorno" (revisão/ajuste do mesmo
+  // procedimento) ainda é considerado incluído, sem cobrar de novo — configurável
+  // porque cada clínica define isso diferente.
+  returnVisitDays?: number;
   // Client ID OAuth do Google, criado pelo próprio administrador no Google Cloud
   // Console — usado só pra enviar backups direto pro Google Drive dele, sem precisar
   // de servidor próprio nem guardar nenhuma credencial secreta do lado do app.
@@ -658,6 +668,7 @@ export interface PublicBookingConfig {
   appointmentInterval?: number;
   agendaBlocked?: boolean;
   blockedDates?: string[];
+  bookingFeeAmount?: number;
 }
 
 // Cada profissional tem agenda própria — horários de atendimento, dias da semana e

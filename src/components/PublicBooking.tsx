@@ -830,6 +830,13 @@ export default function PublicBooking() {
                   otherDraft={otherDraft}
                   setOtherDraft={setOtherDraft}
                 />
+                {config?.bookingFeeAmount ? (
+                  <div className="p-5 bg-[#FDF3E7] border border-amber-200 rounded-2xl text-xs text-amber-700">
+                    <strong>Taxa de marcação: R$ {config.bookingFeeAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
+                    <br />
+                    Se você realizar algum procedimento, esse valor é descontado do orçamento. Caso não realize, não é reembolsável.
+                  </div>
+                ) : null}
                 <PrivacyConsent
                   accepted={acceptedPrivacy}
                   onChange={setAcceptedPrivacy}
@@ -945,6 +952,13 @@ export default function PublicBooking() {
                   setOtherDraft={setOtherDraft}
                 />
 
+                {config?.bookingFeeAmount ? (
+                  <div className="p-5 bg-[#FDF3E7] border border-amber-200 rounded-2xl text-xs text-amber-700">
+                    <strong>Taxa de marcação: R$ {config.bookingFeeAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
+                    <br />
+                    Se você realizar algum procedimento, esse valor é descontado do orçamento. Caso não realize, não é reembolsável.
+                  </div>
+                ) : null}
                 <PrivacyConsent
                   accepted={acceptedPrivacy}
                   onChange={setAcceptedPrivacy}
