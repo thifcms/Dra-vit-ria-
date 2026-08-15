@@ -1016,19 +1016,6 @@ export default function Settings({ user }: { user: User }) {
                 </p>
               </div>
               <div>
-                <SettingField
-                  label="Link de Avaliação no Google"
-                  value={settings.googleReviewUrl || ''}
-                  onChange={v => setSettings({ ...settings, googleReviewUrl: v })}
-                  icon={<ExternalLink size={18} />}
-                  placeholder="https://g.page/r/..."
-                />
-                <p className="text-[10px] text-[#9CA3AF] font-light mt-2 ml-1">
-                  Depois que o paciente avalia o atendimento com nota boa no Portal, sugerimos deixar essa
-                  mesma avaliação pública no Google — ajuda o marketing orgânico da clínica.
-                </p>
-              </div>
-              <div>
                 <SettingField 
                   label="Google Drive — Client ID (OAuth)" 
                   value={settings.googleDriveClientId || ''} 

@@ -34,7 +34,6 @@ export default function PatientPortal() {
   const [ratingValue, setRatingValue] = useState(0);
   const [ratingComment, setRatingComment] = useState('');
   const [submittingRating, setSubmittingRating] = useState(false);
-  const [googleReviewUrl, setGoogleReviewUrl] = useState<string | null>(null);
   // 'cpfPhone': tela inicial | 'setPassword': primeiro acesso, criando senha |
   // 'enterPassword': acessos seguintes, digitando a senha já cadastrada
   const [step, setStep] = useState<'cpfPhone' | 'setPassword' | 'enterPassword'>('cpfPhone');
@@ -208,19 +207,7 @@ export default function PatientPortal() {
         ratingComment: ratingComment.trim() || undefined,
         ratedAt: new Date().toISOString(),
       });
-      // Nota boa — busca o link de avaliação pública do Google pra sugerir em seguida,
-      // em vez de simplesmente fechar o cartão de avaliação
-      if (ratingValue >= 4) {
-        try {
-          const ownerId = await getClinicOwnerId(db);
-          const settingsSnap = await getDoc(doc(db, 'settings', ownerId));
-          const url = settingsSnap.exists() ? settingsSnap.data().googleReviewUrl : null;
-          if (url) setGoogleReviewUrl(url);
-        } catch { /* sem problema não sugerir se isso falhar */ }
-      }
-      if (ratingValue < 4 || !googleReviewUrl) {
-        setPendingRatingAppointment(null);
-      }
+      setPendingRatingAppointment(null);
     } catch (err) {
       console.error('Erro ao enviar avaliação:', err);
     }
@@ -536,63 +523,37 @@ export default function PatientPortal() {
               animate={{ scale: 1, opacity: 1 }}
               className="bg-white rounded-[32px] p-8 max-w-sm w-full"
             >
-              {!googleReviewUrl ? (
-                <>
-                  <p className="serif text-xl text-[#4A433D] mb-2">Como foi seu atendimento?</p>
-                  <p className="text-xs text-[#9CA3AF] font-light mb-6">
-                    {pendingRatingAppointment.notes || 'Sua última consulta'} — {new Date(pendingRatingAppointment.date + 'T00:00:00').toLocaleDateString('pt-BR')}
-                  </p>
-                  <div className="flex justify-center gap-2 mb-6">
-                    {[1, 2, 3, 4, 5].map(n => (
-                      <button key={n} onClick={() => setRatingValue(n)} className="text-3xl transition-all" style={{ opacity: n <= ratingValue ? 1 : 0.25 }}>
-                        ⭐
-                      </button>
-                    ))}
-                  </div>
-                  <textarea
-                    value={ratingComment}
-                    onChange={e => setRatingComment(e.target.value)}
-                    placeholder="Quer contar mais alguma coisa? (opcional)"
-                    rows={3}
-                    className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 text-sm outline-none focus:border-[#8BA888]/40 transition-all resize-none mb-4"
-                  />
-                  <button
-                    onClick={handleSubmitRating}
-                    disabled={ratingValue === 0 || submittingRating}
-                    className="w-full py-4 bg-[#8BA888] text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest shadow-md hover:bg-[#7C9979] transition-all disabled:opacity-50"
-                  >
-                    {submittingRating ? 'Enviando...' : 'Enviar Avaliação'}
+              <p className="serif text-xl text-[#4A433D] mb-2">Como foi seu atendimento?</p>
+              <p className="text-xs text-[#9CA3AF] font-light mb-6">
+                {pendingRatingAppointment.notes || 'Sua última consulta'} — {new Date(pendingRatingAppointment.date + 'T00:00:00').toLocaleDateString('pt-BR')}
+              </p>
+              <div className="flex justify-center gap-2 mb-6">
+                {[1, 2, 3, 4, 5].map(n => (
+                  <button key={n} onClick={() => setRatingValue(n)} className="text-3xl transition-all" style={{ opacity: n <= ratingValue ? 1 : 0.25 }}>
+                    ⭐
                   </button>
-                  <button
-                    onClick={() => setPendingRatingAppointment(null)}
-                    className="w-full mt-3 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest"
-                  >
-                    Agora não
-                  </button>
-                </>
-              ) : (
-                <>
-                  <p className="serif text-xl text-[#4A433D] mb-2">Obrigada pela avaliação! 💛</p>
-                  <p className="text-xs text-[#9CA3AF] font-light mb-6">
-                    Ficaríamos muito felizes se você pudesse deixar essa mesma avaliação publicamente no Google também.
-                  </p>
-                  <a
-                    href={googleReviewUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => { setPendingRatingAppointment(null); setGoogleReviewUrl(null); setRatingValue(0); setRatingComment(''); }}
-                    className="w-full flex items-center justify-center gap-2 py-4 bg-[#8BA888] text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest shadow-md hover:bg-[#7C9979] transition-all"
-                  >
-                    Avaliar no Google
-                  </a>
-                  <button
-                    onClick={() => { setPendingRatingAppointment(null); setGoogleReviewUrl(null); setRatingValue(0); setRatingComment(''); }}
-                    className="w-full mt-3 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest"
-                  >
-                    Agora não
-                  </button>
-                </>
-              )}
+                ))}
+              </div>
+              <textarea
+                value={ratingComment}
+                onChange={e => setRatingComment(e.target.value)}
+                placeholder="Quer contar mais alguma coisa? (opcional)"
+                rows={3}
+                className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 text-sm outline-none focus:border-[#8BA888]/40 transition-all resize-none mb-4"
+              />
+              <button
+                onClick={handleSubmitRating}
+                disabled={ratingValue === 0 || submittingRating}
+                className="w-full py-4 bg-[#8BA888] text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest shadow-md hover:bg-[#7C9979] transition-all disabled:opacity-50"
+              >
+                {submittingRating ? 'Enviando...' : 'Enviar Avaliação'}
+              </button>
+              <button
+                onClick={() => setPendingRatingAppointment(null)}
+                className="w-full mt-3 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest"
+              >
+                Agora não
+              </button>
             </motion.div>
           </div>
         )}

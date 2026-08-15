@@ -639,9 +639,6 @@ export interface ClinicSettings {
   // orçamentos, pro paciente pagar direto sem sair do WhatsApp. Pode ser CPF/CNPJ,
   // e-mail, telefone ou chave aleatória.
   pixKey?: string;
-  // Link direto pra deixar avaliação no Google (Google Business/Maps) — sugerido ao
-  // paciente no Portal quando ele dá uma nota boa (4 ou 5) na avaliação pós-atendimento
-  googleReviewUrl?: string;
   // Client ID OAuth do Google, criado pelo próprio administrador no Google Cloud
   // Console — usado só pra enviar backups direto pro Google Drive dele, sem precisar
   // de servidor próprio nem guardar nenhuma credencial secreta do lado do app.
