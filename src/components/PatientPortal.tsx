@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { doc, getDoc, setDoc, deleteDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db, auth, signInAnonymousPortal } from '../lib/firebase';
 import { signOut } from 'firebase/auth';
 import { onAuthStateChanged } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
-import { Calendar, FileText, Receipt, LogOut, Lock, Clock, CheckCircle2, KeyRound, Gift, CalendarPlus } from 'lucide-react';
+import { Calendar, FileText, Receipt, LogOut, Lock, Clock, CheckCircle2, KeyRound, Gift, CalendarPlus, Download } from 'lucide-react';
 import { getClinicOwnerId, phoneIndexKey, cpfIndexKey } from '../lib/slots';
 import { hashPin } from '../lib/pin';
 import { Patient, Appointment } from '../types';
@@ -30,6 +30,11 @@ export default function PatientPortal() {
   const [loginError, setLoginError] = useState('');
   const [activeTab, setActiveTab] = useState<'appointments' | 'documents' | 'budgets' | 'promotions'>('appointments');
   const [promotions, setPromotions] = useState<{ id: string; message: string; expiresAt: string }[]>([]);
+  const [pendingRatingAppointment, setPendingRatingAppointment] = useState<Appointment | null>(null);
+  const [ratingValue, setRatingValue] = useState(0);
+  const [ratingComment, setRatingComment] = useState('');
+  const [submittingRating, setSubmittingRating] = useState(false);
+  const [googleReviewUrl, setGoogleReviewUrl] = useState<string | null>(null);
   // 'cpfPhone': tela inicial | 'setPassword': primeiro acesso, criando senha |
   // 'enterPassword': acessos seguintes, digitando a senha já cadastrada
   const [step, setStep] = useState<'cpfPhone' | 'setPassword' | 'enterPassword'>('cpfPhone');
@@ -61,11 +66,19 @@ export default function PatientPortal() {
     const q = query(collection(db, 'appointments'), where('patientId', '==', patientId));
     const apptSnap = await getDocs(q);
     const today = new Date().toISOString().split('T')[0];
-    const upcoming = apptSnap.docs
-      .map(d => ({ id: d.id, ...d.data() } as Appointment))
+    const allAppts = apptSnap.docs.map(d => ({ id: d.id, ...d.data() } as Appointment));
+    const upcoming = allAppts
       .filter(a => a.date >= today && a.status !== 'cancelled')
       .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
     setAppointments(upcoming);
+
+    // Atendimento concluído recentemente (últimos 14 dias) que ainda não foi avaliado —
+    // pede a avaliação assim que o paciente entra no portal, sem precisar procurar
+    const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const unrated = allAppts
+      .filter(a => a.status === 'completed' && !a.rating && a.date >= fourteenDaysAgo)
+      .sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
+    setPendingRatingAppointment(unrated[0] || null);
 
     // Promoções ainda dentro do prazo — as vencidas simplesmente não aparecem mais,
     // sem precisar de nenhuma limpeza manual (a comparação de data já resolve isso)
@@ -166,6 +179,61 @@ export default function PatientPortal() {
       setLoginError('Não foi possível conferir a senha agora — tente novamente.');
     }
     setLoggingIn(false);
+  };
+
+  // "Baixar Meus Dados" — direito de acesso/portabilidade garantido pela LGPD. Reaproveita
+  // a mesma geração de PDF já usada no backup de prontuários da equipe (patientPdf.ts),
+  // agora disponível pro próprio paciente. Importante: isso é só DOWNLOAD — não existe
+  // botão de apagar os dados aqui, já que o prontuário clínico precisa ficar guardado
+  // por 20 anos por exigência do CFM, mesmo que o paciente peça exclusão.
+  const [downloadingData, setDownloadingData] = useState(false);
+  const handleSubmitRating = async () => {
+    if (!pendingRatingAppointment || ratingValue === 0) return;
+    setSubmittingRating(true);
+    try {
+      await updateDoc(doc(db, 'appointments', pendingRatingAppointment.id!), {
+        rating: ratingValue,
+        ratingComment: ratingComment.trim() || undefined,
+        ratedAt: new Date().toISOString(),
+      });
+      // Nota boa — busca o link de avaliação pública do Google pra sugerir em seguida,
+      // em vez de simplesmente fechar o cartão de avaliação
+      if (ratingValue >= 4) {
+        try {
+          const ownerId = await getClinicOwnerId(db);
+          const settingsSnap = await getDoc(doc(db, 'settings', ownerId));
+          const url = settingsSnap.exists() ? settingsSnap.data().googleReviewUrl : null;
+          if (url) setGoogleReviewUrl(url);
+        } catch { /* sem problema não sugerir se isso falhar */ }
+      }
+      if (ratingValue < 4 || !googleReviewUrl) {
+        setPendingRatingAppointment(null);
+      }
+    } catch (err) {
+      console.error('Erro ao enviar avaliação:', err);
+    }
+    setSubmittingRating(false);
+  };
+
+  const handleDownloadMyData = async () => {
+    if (!patient) return;
+    setDownloadingData(true);
+    try {
+      const ownerId = await getClinicOwnerId(db);
+      const settingsSnap = await getDoc(doc(db, 'settings', ownerId));
+      const clinicSettings = settingsSnap.exists() ? settingsSnap.data() : null;
+      const { generatePatientPdf, patientPdfFileName } = await import('../lib/patientPdf');
+      const blob = await generatePatientPdf(patient, clinicSettings as any);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = patientPdfFileName(patient);
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Erro ao gerar PDF dos dados do paciente:', err);
+    }
+    setDownloadingData(false);
   };
 
   const handleLogout = async () => {
@@ -364,6 +432,13 @@ export default function PatientPortal() {
         >
           <CalendarPlus size={16} /> Agende Nova Consulta
         </a>
+        <button
+          onClick={handleDownloadMyData}
+          disabled={downloadingData}
+          className="w-full flex items-center justify-center gap-2 py-3 mt-3 text-[#9CA3AF] hover:text-[#4A433D] font-bold text-[10px] uppercase tracking-widest transition-all disabled:opacity-50"
+        >
+          <Download size={14} /> {downloadingData ? 'Gerando...' : 'Baixar Meus Dados'}
+        </button>
       </div>
 
       <div className="p-4 space-y-4">
@@ -377,7 +452,7 @@ export default function PatientPortal() {
                   {new Date(a.date + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
                 </p>
                 <p className="serif text-xl text-[#4A433D]">{a.time}</p>
-                {a.procedure && <p className="text-xs text-[#9CA3AF] mt-1">{a.procedure}</p>}
+                {a.notes && <p className="text-xs text-[#9CA3AF] mt-1">{a.notes}</p>}
               </div>
             ))
           )
@@ -437,6 +512,76 @@ export default function PatientPortal() {
         )}
       </div>
       </div>
+
+      <AnimatePresence>
+        {pendingRatingAppointment && (
+          <div className="fixed inset-0 bg-[#4A433D]/30 backdrop-blur-md z-[70] flex items-center justify-center p-6">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="bg-white rounded-[32px] p-8 max-w-sm w-full"
+            >
+              {!googleReviewUrl ? (
+                <>
+                  <p className="serif text-xl text-[#4A433D] mb-2">Como foi seu atendimento?</p>
+                  <p className="text-xs text-[#9CA3AF] font-light mb-6">
+                    {pendingRatingAppointment.notes || 'Sua última consulta'} — {new Date(pendingRatingAppointment.date + 'T00:00:00').toLocaleDateString('pt-BR')}
+                  </p>
+                  <div className="flex justify-center gap-2 mb-6">
+                    {[1, 2, 3, 4, 5].map(n => (
+                      <button key={n} onClick={() => setRatingValue(n)} className="text-3xl transition-all" style={{ opacity: n <= ratingValue ? 1 : 0.25 }}>
+                        ⭐
+                      </button>
+                    ))}
+                  </div>
+                  <textarea
+                    value={ratingComment}
+                    onChange={e => setRatingComment(e.target.value)}
+                    placeholder="Quer contar mais alguma coisa? (opcional)"
+                    rows={3}
+                    className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 text-sm outline-none focus:border-[#8BA888]/40 transition-all resize-none mb-4"
+                  />
+                  <button
+                    onClick={handleSubmitRating}
+                    disabled={ratingValue === 0 || submittingRating}
+                    className="w-full py-4 bg-[#8BA888] text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest shadow-md hover:bg-[#7C9979] transition-all disabled:opacity-50"
+                  >
+                    {submittingRating ? 'Enviando...' : 'Enviar Avaliação'}
+                  </button>
+                  <button
+                    onClick={() => setPendingRatingAppointment(null)}
+                    className="w-full mt-3 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest"
+                  >
+                    Agora não
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="serif text-xl text-[#4A433D] mb-2">Obrigada pela avaliação! 💛</p>
+                  <p className="text-xs text-[#9CA3AF] font-light mb-6">
+                    Ficaríamos muito felizes se você pudesse deixar essa mesma avaliação publicamente no Google também.
+                  </p>
+                  <a
+                    href={googleReviewUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => { setPendingRatingAppointment(null); setGoogleReviewUrl(null); setRatingValue(0); setRatingComment(''); }}
+                    className="w-full flex items-center justify-center gap-2 py-4 bg-[#8BA888] text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest shadow-md hover:bg-[#7C9979] transition-all"
+                  >
+                    Avaliar no Google
+                  </a>
+                  <button
+                    onClick={() => { setPendingRatingAppointment(null); setGoogleReviewUrl(null); setRatingValue(0); setRatingComment(''); }}
+                    className="w-full mt-3 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest"
+                  >
+                    Agora não
+                  </button>
+                </>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

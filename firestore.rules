@@ -78,6 +78,15 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/portalSessions/$(request.auth.uid)).data.patientId == patientId;
     }
 
+    // Paciente do portal só pode alterar os campos de AVALIAÇÃO do próprio atendimento
+    // (nota, comentário, data da avaliação) — nunca data, horário, status ou qualquer
+    // outro campo do agendamento em si. affectedKeys() garante isso checando
+    // exatamente quais campos mudaram nessa escrita específica.
+    function isPortalPatientRating(patientId) {
+      return isPortalPatientAccess(patientId)
+        && incoming().diff(resource.data).affectedKeys().hasOnly(['rating', 'ratingComment', 'ratedAt']);
+    }
+
     function isOwnDataCreate() {
       return isAuthorizedStaff() && incoming().userId == request.auth.uid;
     }
@@ -305,7 +314,8 @@ service cloud.firestore {
         && (isSharedAccess() || isOwnDataCreate() || isAuthorizedStaff() || isPublicAppointmentCreate(incoming()));
       allow update: if ((isSharedAccess() || isOwnDataAccess() || isAuthorizedStaff()) && isValidAppointmentShape(incoming()))
         || isPublicCheckIn(incoming())
-        || isPublicCancel(incoming());
+        || isPublicCancel(incoming())
+        || isPortalPatientRating(resource.data.patientId);
       allow delete: if isSharedAccess() || isOwnDataAccess() || isAuthorizedStaff();
     }
 
@@ -561,7 +571,7 @@ service cloud.firestore {
     // Qualquer pessoa autorizada pode ler (precisa pra saber horário de atendimento etc.),
     // mas só administrador pode alterar.
     match /settings/{uid} {
-      allow read: if isAuthorizedToLogIn();
+      allow read: if isAuthorizedToLogIn() || (isSignedIn() && exists(/databases/$(database)/documents/portalSessions/$(request.auth.uid)));
       allow write: if isAdmin();
     }
 

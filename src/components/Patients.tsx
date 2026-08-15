@@ -32,6 +32,7 @@ import {
   Lock,
   Edit2,
   CheckCircle2,
+  AlertTriangle,
   X,
   FileDown,
   Pill,
@@ -2956,7 +2957,18 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
             {activeTab === 'photos' && (
               <motion.div key="photos" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-6 border-b border-[#F5F2F0]">
-                  <h3 className="serif text-2xl text-[#4A433D]">Galeria Clínica</h3>
+                  <div>
+                    <h3 className="serif text-2xl text-[#4A433D]">Galeria Clínica</h3>
+                    {(() => {
+                      const authorized = (patient.consentTerms || []).some(t => t.templateTitle === 'Autorização para Uso de Dados, Imagem e Voz');
+                      return (
+                        <p className={`text-[10px] font-bold uppercase tracking-widest mt-2 flex items-center gap-2 ${authorized ? 'text-[#8BA888]' : 'text-red-400'}`}>
+                          {authorized ? <CheckCircle2 size={12} /> : <AlertTriangle size={12} />}
+                          {authorized ? 'Autorizado pra divulgação' : 'Sem autorização de uso de imagem — não postar'}
+                        </p>
+                      );
+                    })()}
+                  </div>
                   <div className="flex flex-wrap items-center gap-3">
                     <button
                       onClick={() => { setCompareMode(!compareMode); setCompareSelection([]); }}
