@@ -545,6 +545,18 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // Promoções — criadas só por admin (mesmo controle já usado na aba Promoções em
+    // si), mas a LEITURA é pública: tanto o portal do paciente (mostra as ativas)
+    // quanto qualquer pessoa logada precisam conseguir ver, já que não é informação
+    // sensível — é justamente conteúdo pensado pra divulgação.
+    match /promotions/{promotionId} {
+      allow read: if true;
+      allow create: if isAdmin()
+        && incoming().message is string
+        && incoming().expiresAt is string;
+      allow update, delete: if isAdmin();
+    }
+
     // Configurações da clínica — documento único e compartilhado (settings/{ownerId}).
     // Qualquer pessoa autorizada pode ler (precisa pra saber horário de atendimento etc.),
     // mas só administrador pode alterar.

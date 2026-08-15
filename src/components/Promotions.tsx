@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { User } from 'firebase/auth';
 import { Patient, InventoryItem } from '../types';
@@ -21,6 +21,7 @@ export default function Promotions({ user }: { user: User }) {
   const [search, setSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState('');
+  const [durationDays, setDurationDays] = useState(7);
   const [sendingQueue, setSendingQueue] = useState<Patient[] | null>(null);
   const [queueIndex, setQueueIndex] = useState(0);
   const [sentCount, setSentCount] = useState(0);
@@ -70,7 +71,7 @@ export default function Promotions({ user }: { user: User }) {
     showToast('Sugestão aplicada — ajuste o texto se quiser antes de enviar');
   };
 
-  const handleStartSending = () => {
+  const handleStartSending = async () => {
     if (selectedIds.size === 0) {
       showToast('Selecione ao menos um paciente', 'error');
       return;
@@ -79,6 +80,27 @@ export default function Promotions({ user }: { user: User }) {
       showToast('Escreva a mensagem antes de enviar', 'error');
       return;
     }
+    if (durationDays < 1) {
+      showToast('Informe por quantos dias a promoção fica valendo', 'error');
+      return;
+    }
+    // Guarda a promoção — é isso que faz ela aparecer no Portal do Paciente até o
+    // prazo acabar. O texto salvo já é o genérico (sem {nome} trocado), já que cada
+    // paciente vê a mensagem personalizada com o próprio nome só na hora de ler no
+    // portal, não precisa guardar uma cópia por pessoa.
+    try {
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000).toISOString();
+      await addDoc(collection(db, 'promotions'), {
+        message: message.trim(),
+        createdAt: now.toISOString(),
+        expiresAt,
+        createdBy: user.email || user.uid,
+      });
+    } catch (err) {
+      showToast('Aviso: a promoção não pôde ser salva pro Portal do Paciente, mas o envio por WhatsApp continua normalmente', 'error');
+    }
+
     const queue = patients.filter(p => selectedIds.has(p.id!));
     setSendingQueue(queue);
     setQueueIndex(0);
@@ -200,6 +222,21 @@ export default function Promotions({ user }: { user: User }) {
             className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 text-sm outline-none focus:border-[#EADFD4]/30 transition-all resize-none flex-1"
           />
           <p className="text-[10px] text-[#9CA3AF] mt-2">Use <strong>{'{nome}'}</strong> pra personalizar — vira o primeiro nome de cada paciente.</p>
+          <div className="mt-4">
+            <label className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 block ml-1">
+              Fica valendo por quantos dias no Portal do Paciente
+            </label>
+            <input
+              type="number"
+              min={1}
+              value={durationDays}
+              onChange={e => setDurationDays(Math.max(1, parseInt(e.target.value) || 1))}
+              className="w-full bg-[#FDFBF9] border border-[#F5F2F0] rounded-2xl p-4 text-sm outline-none focus:border-[#EADFD4]/30 transition-all"
+            />
+            <p className="text-[10px] text-[#9CA3AF] mt-2">
+              Depois desse prazo, some sozinha do portal — não precisa lembrar de tirar manualmente.
+            </p>
+          </div>
           <button
             onClick={handleStartSending}
             className="w-full mt-6 py-4 bg-[#8BA888] text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest shadow-md hover:bg-[#7C9979] transition-all flex items-center justify-center gap-2"

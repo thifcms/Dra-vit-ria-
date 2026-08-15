@@ -4,7 +4,7 @@ import { db, auth, signInAnonymousPortal } from '../lib/firebase';
 import { signOut } from 'firebase/auth';
 import { onAuthStateChanged } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
-import { Calendar, FileText, Receipt, LogOut, Lock, Clock, CheckCircle2, KeyRound } from 'lucide-react';
+import { Calendar, FileText, Receipt, LogOut, Lock, Clock, CheckCircle2, KeyRound, Gift, CalendarPlus } from 'lucide-react';
 import { getClinicOwnerId, phoneIndexKey, cpfIndexKey } from '../lib/slots';
 import { hashPin } from '../lib/pin';
 import { Patient, Appointment } from '../types';
@@ -28,7 +28,8 @@ export default function PatientPortal() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loggingIn, setLoggingIn] = useState(false);
   const [loginError, setLoginError] = useState('');
-  const [activeTab, setActiveTab] = useState<'appointments' | 'documents' | 'budgets'>('appointments');
+  const [activeTab, setActiveTab] = useState<'appointments' | 'documents' | 'budgets' | 'promotions'>('appointments');
+  const [promotions, setPromotions] = useState<{ id: string; message: string; expiresAt: string }[]>([]);
   // 'cpfPhone': tela inicial | 'setPassword': primeiro acesso, criando senha |
   // 'enterPassword': acessos seguintes, digitando a senha já cadastrada
   const [step, setStep] = useState<'cpfPhone' | 'setPassword' | 'enterPassword'>('cpfPhone');
@@ -65,6 +66,18 @@ export default function PatientPortal() {
       .filter(a => a.date >= today && a.status !== 'cancelled')
       .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
     setAppointments(upcoming);
+
+    // Promoções ainda dentro do prazo — as vencidas simplesmente não aparecem mais,
+    // sem precisar de nenhuma limpeza manual (a comparação de data já resolve isso)
+    try {
+      const promoSnap = await getDocs(collection(db, 'promotions'));
+      const nowIso = new Date().toISOString();
+      const active = promoSnap.docs
+        .map(d => ({ id: d.id, ...d.data() } as { id: string; message: string; expiresAt: string }))
+        .filter(p => p.expiresAt > nowIso)
+        .sort((a, b) => b.expiresAt.localeCompare(a.expiresAt));
+      setPromotions(active);
+    } catch { /* melhor esforço — promoções não são essenciais pro resto do portal funcionar */ }
   };
 
   const handleLogin = async () => {
@@ -182,7 +195,12 @@ export default function PatientPortal() {
 
   if (!patient) {
     return (
-      <div className="min-h-screen bg-[#FDFBF9] flex items-center justify-center p-6">
+      <div className="min-h-screen bg-[#FDFBF9] flex flex-col items-center relative overflow-hidden">
+        <PortalWatermark />
+        <div className="w-full flex justify-center pt-10 pb-4 relative z-10">
+          <img src="/logo/logo-full-v2.png" alt="Dra. Vitória Oliveira" className="h-16 w-auto object-contain" />
+        </div>
+        <div className="flex-1 w-full flex items-center justify-center p-6 relative z-10">
         <motion.div
           key={step}
           initial={{ opacity: 0, y: 20 }}
@@ -303,6 +321,7 @@ export default function PatientPortal() {
             </>
           )}
         </motion.div>
+        </div>
       </div>
     );
   }
@@ -313,7 +332,11 @@ export default function PatientPortal() {
   ].sort((a: any, b: any) => (b.date || '').localeCompare(a.date || ''));
 
   return (
-    <div className="min-h-screen bg-[#FDFBF9] pb-20">
+    <div className="min-h-screen bg-[#FDFBF9] pb-20 relative overflow-hidden">
+      <PortalWatermark />
+      <div className="w-full flex justify-center pt-8 pb-2 bg-[#FDFBF9] relative z-10">
+        <img src="/logo/logo-full-v2.png" alt="Dra. Vitória Oliveira" className="h-12 w-auto object-contain" />
+      </div>
       <div className="bg-white border-b border-[#F5F2F0] p-6 flex items-center justify-between sticky top-0 z-10">
         <div>
           <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest">Olá,</p>
@@ -324,10 +347,23 @@ export default function PatientPortal() {
         </button>
       </div>
 
+      <div className="relative z-10">
       <div className="flex gap-2 p-4 overflow-x-auto">
         <TabBtn active={activeTab === 'appointments'} onClick={() => setActiveTab('appointments')} icon={<Calendar size={16} />} label="Agendamentos" />
         <TabBtn active={activeTab === 'documents'} onClick={() => setActiveTab('documents')} icon={<FileText size={16} />} label="Documentos" />
         <TabBtn active={activeTab === 'budgets'} onClick={() => setActiveTab('budgets')} icon={<Receipt size={16} />} label="Orçamentos" />
+        {promotions.length > 0 && (
+          <TabBtn active={activeTab === 'promotions'} onClick={() => setActiveTab('promotions')} icon={<Gift size={16} />} label={`Promoções (${promotions.length})`} />
+        )}
+      </div>
+
+      <div className="px-4">
+        <a
+          href="#agendar"
+          className="w-full flex items-center justify-center gap-2 py-4 bg-[#4A433D] text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest shadow-md hover:bg-[#5C544E] transition-all"
+        >
+          <CalendarPlus size={16} /> Agende Nova Consulta
+        </a>
       </div>
 
       <div className="p-4 space-y-4">
@@ -384,6 +420,22 @@ export default function PatientPortal() {
             ))
           )
         )}
+
+        {activeTab === 'promotions' && (
+          promotions.length === 0 ? (
+            <EmptyState text="Nenhuma promoção ativa no momento." />
+          ) : (
+            promotions.map(p => (
+              <div key={p.id} className="bg-white rounded-3xl border border-[#8BA888]/30 p-6">
+                <p className="text-sm text-[#4A433D] whitespace-pre-wrap">{p.message.replace(/\{nome\}/g, patient.name.split(' ')[0])}</p>
+                <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest mt-4">
+                  Válida até {new Date(p.expiresAt).toLocaleDateString('pt-BR')}
+                </p>
+              </div>
+            ))
+          )
+        )}
+      </div>
       </div>
     </div>
   );
@@ -407,5 +459,21 @@ function EmptyState({ text }: { text: string }) {
     <div className="p-16 text-center text-[#9CA3AF] font-light italic border-2 border-dashed border-[#F5F2F0] rounded-[40px] bg-white/50">
       {text}
     </div>
+  );
+}
+
+// Marca d'água grande e bem clara do logo, ocupando quase a página toda, centralizada
+// verticalmente na tela — mesmo princípio visual já usado nos documentos impressos do
+// app (buildLetterheadHtml). Fica atrás de tudo (baixa opacidade + pointer-events: none,
+// não atrapalha clique em nada) e nunca sobrepõe o logo do topo porque esse fica dentro
+// de uma barra com fundo sólido (bg-[#FDFBF9]), que cobre visualmente qualquer parte da
+// marca d'água que passe por trás dela.
+function PortalWatermark() {
+  return (
+    <img
+      src="/logo/logo-full-v2.png"
+      alt=""
+      className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[95%] max-w-[600px] opacity-[0.06] pointer-events-none select-none z-0"
+    />
   );
 }
