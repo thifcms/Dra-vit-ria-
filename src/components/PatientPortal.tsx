@@ -115,10 +115,22 @@ export default function PatientPortal() {
       }
       const patientId = cpfIndexSnap.data().patientId;
 
-      // Entra anonimamente (só pra ter um uid) e tenta criar a sessão do portal — a
-      // REGRA do banco confere se o telefone TAMBÉM aponta pro mesmo paciente antes de
-      // permitir; se não bater, a escrita é recusada e cai no catch abaixo
-      const cred = auth.currentUser || (await signInAnonymousPortal()).user;
+      // Entra anonimamente (só pra ter um uid) — separado num try próprio porque, se o
+      // provedor "Anônimo" ainda não estiver habilitado no Firebase, o erro daqui é bem
+      // diferente de "CPF/telefone errados", e mostrar a mensagem errada só confundiria
+      let cred;
+      try {
+        cred = auth.currentUser || (await signInAnonymousPortal()).user;
+      } catch (authErr: any) {
+        console.error('Erro ao autenticar no portal:', authErr);
+        setLoginError('O portal ainda não está configurado — peça pra clínica habilitar o login anônimo no Firebase.');
+        setLoggingIn(false);
+        return;
+      }
+
+      // Tenta criar a sessão do portal — a REGRA do banco confere se o telefone
+      // TAMBÉM aponta pro mesmo paciente antes de permitir; se não bater, a escrita é
+      // recusada e cai no catch abaixo
       await setDoc(doc(db, 'portalSessions', cred.uid), { patientId, cpfKey, phoneKey });
 
       // CPF+telefone confirmados — agora decide se é primeiro acesso (pede pra criar
@@ -129,9 +141,9 @@ export default function PatientPortal() {
     } catch (err: any) {
       console.error('Erro no login do portal:', err);
       if (err?.code === 'permission-denied') {
-        setLoginError('CPF ou telefone não encontrados. Confira os dados ou fale com a clínica.');
+        setLoginError('Telefone não confere com o CPF informado, ou o portal ainda não está totalmente configurado. Confira os dados ou fale com a clínica.');
       } else {
-        setLoginError('Não foi possível entrar agora — tente novamente em instantes.');
+        setLoginError(`Não foi possível entrar agora: ${err?.code || err?.message || 'erro desconhecido'}`);
       }
     }
     setLoggingIn(false);
@@ -394,8 +406,11 @@ export default function PatientPortal() {
     );
   }
 
+  // Anamnese e Evolução ficam de fora da navegação normal do portal (só Termos
+  // aparecem em "Documentos") — decisão específica do administrador. O botão "Baixar
+  // Meus Dados" continua trazendo o prontuário completo, já que esse é um direito de
+  // acesso garantido pela LGPD, diferente de deixar isso navegável dia a dia no portal.
   const signedDocs = [
-    ...((patient.anamnesisHistory || []).filter((h: any) => h.signatureUrl).map((h: any) => ({ type: 'Anamnese', date: h.releasedAt || h.date, ...h }))),
     ...((patient.consentTerms || []).map((t: any) => ({ type: 'Termo', date: t.signedAt, ...t }))),
   ].sort((a: any, b: any) => (b.date || '').localeCompare(a.date || ''));
 

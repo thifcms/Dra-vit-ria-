@@ -150,7 +150,12 @@ service cloud.firestore {
             && incoming().anamnesis.conduct == ''
             && incoming().anamnesis.plannedProcedures.size() == 0
           )
-        ));
+        ))
+        // Sexo não pode mudar depois de definido — evita edição por engano (ou mal
+        // intencionada) de um dado que afeta diretamente a lógica clínica (ex: perguntas
+        // de gravidez/amamentação no questionário)
+        && (!('sex' in resource.data) || !(resource.data.sex is string) || resource.data.sex == ''
+            || !('sex' in incoming()) || incoming().sex == resource.data.sex);
     }
 
     // Appointment Validation — formato do documento, independente de quem está criando

@@ -3,7 +3,7 @@ import { doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, collection,
 import { fetchWithRetry } from '../lib/retryFetch';
 import { showToast } from '../lib/toast';
 import { db } from '../lib/firebase';
-import { slotId, checkinLink, cancelLink, generateTimeSlots, phoneIndexKey, cpfIndexKey, normalizeCpf, isValidCpfFormat, EMAIL_SERVICE_URL, localDateStr, todayLocalStr } from '../lib/slots';
+import { slotId, checkinLink, cancelLink, intakeInviteLink, generateTimeSlots, phoneIndexKey, cpfIndexKey, normalizeCpf, isValidCpfFormat, EMAIL_SERVICE_URL, localDateStr, todayLocalStr } from '../lib/slots';
 import { buildReminderMessage, whatsappLink } from '../lib/reminders';
 import { PRIVACY_POLICY_TEXT } from '../lib/privacyPolicy';
 import { motion, AnimatePresence } from 'motion/react';
@@ -156,6 +156,7 @@ export default function PublicBooking() {
   const [phone, setPhone] = useState('');
   const [checkingPhone, setCheckingPhone] = useState(false);
   const [existingPatientId, setExistingPatientId] = useState<string | null>(null);
+  const [bookedPatientId, setBookedPatientId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [cpf, setCpf] = useState('');
@@ -423,6 +424,7 @@ export default function PublicBooking() {
       await setDoc(apptRef, payload);
       setCheckinUrl(checkinLink(apptRef.id, token, selectedDate, selectedTime));
       setCancelUrl(cancelLink(apptRef.id, token, selectedDate, selectedTime, config.ownerId, selectedProfessional?.id));
+      setBookedPatientId(patientId);
       setSubmitted(true);
 
       // Dispara o e-mail de confirmação automático (serviço independente do app principal).
@@ -488,7 +490,7 @@ export default function PublicBooking() {
           </p>
 
           <button
-            onClick={() => {
+            onClick={async () => {
               // Se o telefone digitado estiver incompleto (menos de 10 dígitos, ou seja,
               // sem DDD+número válido), o WhatsApp mostra um erro sobre o número em vez
               // de abrir a conversa — melhor avisar aqui antes, com uma mensagem clara,
@@ -498,6 +500,23 @@ export default function PublicBooking() {
                 showToast('O telefone informado parece incompleto — confira o número (com DDD) antes de tentar salvar no WhatsApp.', 'error');
                 return;
               }
+              // Já manda o link da ficha clínica junto com a confirmação — antes só era
+              // pedida depois do check-in, dando pouco tempo pro paciente preencher com
+              // calma antes da consulta
+              let intakeUrl: string | undefined;
+              if (bookedPatientId) {
+                try {
+                  const inviteRef = doc(collection(db, 'intakeInvites'));
+                  await setDoc(inviteRef, {
+                    userId: config.ownerId,
+                    patientId: bookedPatientId,
+                    patientName: name,
+                    ownerId: config.ownerId,
+                    createdAt: new Date().toISOString(),
+                  });
+                  intakeUrl = intakeInviteLink(inviteRef.id);
+                } catch { /* mensagem principal continua indo mesmo se isso falhar */ }
+              }
               const msg = buildReminderMessage({
                 patientName: name,
                 clinicName: config.clinicName,
@@ -506,6 +525,7 @@ export default function PublicBooking() {
                 time: selectedTime!,
                 checkinUrl: checkinUrl,
                 cancelUrl: cancelUrl,
+                intakeUrl,
               });
               window.open(whatsappLink(phone, msg), '_blank');
             }}

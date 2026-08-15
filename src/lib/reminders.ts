@@ -19,8 +19,9 @@ export function buildReminderMessage(params: {
   time: string;
   checkinUrl: string;
   cancelUrl?: string;
+  intakeUrl?: string;
 }): string {
-  const { patientName, clinicName, professionalName, address, dateLabel, time, checkinUrl, cancelUrl } = params;
+  const { patientName, clinicName, professionalName, address, dateLabel, time, checkinUrl, cancelUrl, intakeUrl } = params;
   const lines = [
     `Olá, ${patientName}! Este é um lembrete da sua consulta na ${clinicName}${professionalName ? ` com ${professionalName}` : ''}.`,
     '',
@@ -28,6 +29,8 @@ export function buildReminderMessage(params: {
     address ? `📍 ${address}` : '',
     '',
     'Chegue com 10 minutos de antecedência e leve um documento com foto.',
+    intakeUrl ? '' : '',
+    intakeUrl ? `Pra agilizar sua chegada, preencha sua ficha clínica antes da consulta: ${intakeUrl}` : '',
     '',
     `Ao chegar, confirme sua chegada por este link: ${checkinUrl}`,
     cancelUrl ? '' : '',
