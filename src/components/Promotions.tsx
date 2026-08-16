@@ -25,10 +25,6 @@ export default function Promotions({ user }: { user: User }) {
   const [sendingQueue, setSendingQueue] = useState<Patient[] | null>(null);
   const [queueIndex, setQueueIndex] = useState(0);
   const [sentCount, setSentCount] = useState(0);
-  // Nome exibido na Agenda pra cada paciente (patientId -> nome do agendamento mais
-  // recente) — usado na personalização em vez do nome do cadastro, já que às vezes o
-  // nome é corrigido/ajustado direto no agendamento sem atualizar o cadastro
-  const [agendaNameByPatientId, setAgendaNameByPatientId] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const unsub1 = onSnapshot(collection(db, 'patients'), (snap) => {
@@ -37,23 +33,7 @@ export default function Promotions({ user }: { user: User }) {
     const unsub2 = onSnapshot(collection(db, 'inventory'), (snap) => {
       setInventoryItems(snap.docs.map(d => ({ id: d.id, ...d.data() } as InventoryItem)));
     });
-    const unsub3 = onSnapshot(collection(db, 'appointments'), (snap) => {
-      // Pra cada paciente, guarda o nome do agendamento mais recente (por data) —
-      // assim reflete a última correção feita direto na Agenda
-      const latestByPatient: Record<string, { name: string; date: string }> = {};
-      snap.docs.forEach(d => {
-        const a = d.data() as any;
-        if (!a.patientId || !a.patientName) return;
-        const existing = latestByPatient[a.patientId];
-        if (!existing || (a.date || '') > existing.date) {
-          latestByPatient[a.patientId] = { name: a.patientName, date: a.date || '' };
-        }
-      });
-      const map: Record<string, string> = {};
-      Object.entries(latestByPatient).forEach(([pid, v]) => { map[pid] = v.name; });
-      setAgendaNameByPatientId(map);
-    });
-    return () => { unsub1(); unsub2(); unsub3(); };
+    return () => { unsub1(); unsub2(); };
   }, []);
 
   // Itens com lote vencendo em até 45 dias — janela um pouco maior que o aviso comum
@@ -129,7 +109,7 @@ export default function Promotions({ user }: { user: User }) {
 
   const currentQueuePatient = sendingQueue?.[queueIndex];
   const personalizedMessage = currentQueuePatient
-    ? message.replace(/\{nome\}/g, (agendaNameByPatientId[currentQueuePatient.id!] || currentQueuePatient.name).split(' ')[0])
+    ? message.replace(/\{nome\}/g, currentQueuePatient.name.split(' ')[0])
     : '';
 
   const handleSendCurrent = () => {
@@ -221,7 +201,7 @@ export default function Promotions({ user }: { user: User }) {
                 <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center shrink-0 ${selectedIds.has(p.id!) ? 'bg-[#8BA888] border-[#8BA888]' : 'border-[#F5F2F0]'}`}>
                   {selectedIds.has(p.id!) && <CheckCircle2 size={14} className="text-white" />}
                 </div>
-                <span className="text-sm text-[#4A433D]">{agendaNameByPatientId[p.id!] || p.name}</span>
+                <span className="text-sm text-[#4A433D]">{p.name}</span>
               </button>
             ))}
             {filteredPatients.length === 0 && (
