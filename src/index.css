@@ -30,3 +30,20 @@ body {
 .card-shadow {
   box-shadow: 0 10px 30px -10px rgba(156, 163, 175, 0.15);
 }
+
+/* Efeito de toque no estilo iPhone — encolhe e escurece levemente qualquer botão/link
+   clicável no momento exato do toque, com uma transição rápida e suave (o mesmo
+   princípio visual do iOS, sem o "flash" colorido que o Android costuma usar). Como é
+   uma regra global (:active), aplica em todos os botões do app de uma vez, sem
+   precisar mexer em cada tela individualmente. Botões desabilitados ficam de fora, já
+   que não faz sentido dar feedback de toque em algo que não responde ao clique. */
+button:not(:disabled):active,
+a:active {
+  transform: scale(0.96);
+  opacity: 0.75;
+}
+
+button,
+a {
+  transition: transform 0.12s ease-out, opacity 0.12s ease-out;
+}
