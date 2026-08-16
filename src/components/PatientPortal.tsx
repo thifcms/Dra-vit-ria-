@@ -521,7 +521,7 @@ export default function PatientPortal() {
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="bg-white rounded-[32px] p-8 max-w-sm w-full"
+              className="bg-white/85 backdrop-blur-xl rounded-[32px] p-8 max-w-sm w-full"
             >
               <p className="serif text-xl text-[#4A433D] mb-2">Como foi seu atendimento?</p>
               <p className="text-xs text-[#9CA3AF] font-light mb-6">

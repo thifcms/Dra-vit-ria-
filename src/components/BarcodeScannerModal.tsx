@@ -61,7 +61,7 @@ export default function BarcodeScannerModal({ onScanned, onClose }: {
 
   return (
     <div className="fixed inset-0 bg-black/80 z-[70] flex items-center justify-center p-6">
-      <div className="bg-white rounded-[32px] p-6 max-w-sm w-full">
+      <div className="bg-white/85 backdrop-blur-xl rounded-[32px] p-6 max-w-sm w-full">
         <div className="flex items-center justify-between mb-4">
           <p className="text-sm font-medium text-[#4A433D] flex items-center gap-2">
             <ScanLine size={18} className="text-[#8BA888]" /> Escanear código do lote

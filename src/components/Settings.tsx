@@ -1531,7 +1531,7 @@ export default function Settings({ user }: { user: User }) {
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 30, opacity: 0 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="bg-white w-full max-w-2xl rounded-[40px] p-10 shadow-2xl"
+              className="bg-white/85 backdrop-blur-xl w-full max-w-2xl rounded-[40px] p-10 shadow-2xl"
             >
               <div className="flex items-center justify-between mb-8">
                 <h2 className="serif text-2xl text-[#4A433D]">{editingTemplate ? 'Editar Modelo' : 'Novo Modelo de Termo'}</h2>
@@ -1555,7 +1555,7 @@ export default function Settings({ user }: { user: User }) {
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 30, opacity: 0 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="bg-white w-full max-w-2xl rounded-[40px] p-10 shadow-2xl max-h-[85vh] overflow-y-auto"
+              className="bg-white/85 backdrop-blur-xl w-full max-w-2xl rounded-[40px] p-10 shadow-2xl max-h-[85vh] overflow-y-auto"
             >
               <div className="flex items-center justify-between mb-8">
                 <h2 className="serif text-2xl text-[#4A433D]">{editingRxTemplate ? 'Editar Modelo de Receita' : 'Novo Modelo de Receita'}</h2>
@@ -1576,7 +1576,7 @@ export default function Settings({ user }: { user: User }) {
           <motion.div
             initial={{ y: 30, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className="bg-white w-full max-w-md rounded-[40px] p-10 shadow-2xl"
+            className="bg-white/85 backdrop-blur-xl w-full max-w-md rounded-[40px] p-10 shadow-2xl"
           >
             <div className="flex items-center justify-between mb-6">
               <h3 className="serif text-2xl text-[#4A433D]">Assinar</h3>
@@ -1607,7 +1607,7 @@ export default function Settings({ user }: { user: User }) {
           <motion.div
             initial={{ y: 30, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className="bg-white w-full max-w-md rounded-[40px] p-10 shadow-2xl max-h-[85vh] overflow-y-auto"
+            className="bg-white/85 backdrop-blur-xl w-full max-w-md rounded-[40px] p-10 shadow-2xl max-h-[85vh] overflow-y-auto"
           >
             <div className="flex items-center justify-between mb-8">
               <h3 className="serif text-2xl text-[#4A433D]">Editar Insumo</h3>
@@ -1675,7 +1675,7 @@ export default function Settings({ user }: { user: User }) {
           <motion.div
             initial={{ y: 30, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className="bg-white w-full max-w-md rounded-[40px] p-10 shadow-2xl"
+            className="bg-white/85 backdrop-blur-xl w-full max-w-md rounded-[40px] p-10 shadow-2xl"
           >
             <div className="flex items-center justify-between mb-8">
               <h3 className="serif text-2xl text-[#4A433D]">Editar Procedimento</h3>
@@ -1725,7 +1725,7 @@ export default function Settings({ user }: { user: User }) {
           <motion.div
             initial={{ y: 30, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className="bg-white w-full max-w-lg max-h-[85vh] rounded-[40px] p-10 shadow-2xl overflow-y-auto"
+            className="bg-white/85 backdrop-blur-xl w-full max-w-lg max-h-[85vh] rounded-[40px] p-10 shadow-2xl overflow-y-auto"
           >
             <div className="flex items-center justify-between mb-3">
               <h3 className="serif text-2xl text-[#4A433D]">Kit de Insumos</h3>
@@ -1781,7 +1781,7 @@ export default function Settings({ user }: { user: User }) {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 30, opacity: 0 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="bg-white w-full max-w-sm rounded-[32px] p-8 shadow-2xl"
+            className="bg-white/85 backdrop-blur-xl w-full max-w-sm rounded-[32px] p-8 shadow-2xl"
           >
             <h3 className="serif text-xl text-[#4A433D] mb-2">
               {settings.pinHash ? 'Alterar PIN' : 'Definir PIN'}

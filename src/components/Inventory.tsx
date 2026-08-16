@@ -548,7 +548,7 @@ function ConsumeStockModal({ item, onConsume, onClose }: { item: InventoryItem; 
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 30, opacity: 0 }}
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        className="bg-white w-full max-w-md rounded-[40px] p-10 shadow-2xl"
+        className="bg-white/85 backdrop-blur-xl w-full max-w-md rounded-[40px] p-10 shadow-2xl"
       >
         <h2 className="serif text-2xl text-[#4A433D] mb-2">Registrar Consumo</h2>
         <p className="text-xs text-[#9CA3AF] font-light mb-8">{item.name} — {Number(item.quantity.toFixed(2))} {item.unit.toLowerCase()} em estoque</p>
@@ -703,7 +703,7 @@ function PurchaseModal({ items, preselectedItem, onPurchaseItem, onClose }: {
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 30, opacity: 0 }}
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        className="bg-white w-full max-w-lg rounded-[40px] p-10 shadow-2xl max-h-[85vh] overflow-y-auto"
+        className="bg-white/85 backdrop-blur-xl w-full max-w-lg rounded-[40px] p-10 shadow-2xl max-h-[85vh] overflow-y-auto"
       >
         <h2 className="serif text-2xl text-[#4A433D] mb-2">Compra de Estoque</h2>
         <p className="text-xs text-[#9CA3AF] font-light mb-6">
@@ -873,7 +873,7 @@ function RestockStockModal({ item, onRestock, onClose }: { item: InventoryItem; 
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 30, opacity: 0 }}
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        className="bg-white w-full max-w-md rounded-[40px] p-10 shadow-2xl"
+        className="bg-white/85 backdrop-blur-xl w-full max-w-md rounded-[40px] p-10 shadow-2xl"
       >
         <h2 className="serif text-2xl text-[#4A433D] mb-2">Registrar Reposição</h2>
         <p className="text-xs text-[#9CA3AF] font-light mb-8">{item.name} — {Number(item.quantity.toFixed(2))} unidades em estoque</p>
@@ -1005,7 +1005,7 @@ function AddMaterialModal({ user, onClose }: any) {
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 30, opacity: 0 }}
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        className="bg-white w-full max-w-lg rounded-[40px] p-10 shadow-2xl max-h-[85vh] overflow-y-auto"
+        className="bg-white/85 backdrop-blur-xl w-full max-w-lg rounded-[40px] p-10 shadow-2xl max-h-[85vh] overflow-y-auto"
       >
         <h2 className="serif text-2xl text-[#4A433D] mb-8">Novo Material</h2>
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -1155,7 +1155,7 @@ function EditMaterialModal({ item, onClose }: { item: InventoryItem; onClose: ()
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 30, opacity: 0 }}
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        className="bg-white w-full max-w-lg rounded-[40px] p-10 shadow-2xl max-h-[85vh] overflow-y-auto"
+        className="bg-white/85 backdrop-blur-xl w-full max-w-lg rounded-[40px] p-10 shadow-2xl max-h-[85vh] overflow-y-auto"
       >
         <h2 className="serif text-2xl text-[#4A433D] mb-8">Editar Material</h2>
         <form onSubmit={handleSubmit} className="space-y-6">

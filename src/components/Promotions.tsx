@@ -252,7 +252,7 @@ export default function Promotions({ user }: { user: User }) {
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="bg-white rounded-[32px] p-8 max-w-sm w-full"
+              className="bg-white/85 backdrop-blur-xl rounded-[32px] p-8 max-w-sm w-full"
             >
               <div className="flex items-center justify-between mb-6">
                 <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest">

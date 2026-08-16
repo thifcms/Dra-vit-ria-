@@ -408,7 +408,7 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
       {/* Editor de novo mapa */}
       {editing && (
         <div className="fixed inset-0 bg-[#4A433D]/20 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-4xl max-h-[92vh] rounded-[40px] shadow-2xl flex flex-col md:flex-row overflow-hidden">
+          <div className="bg-white/85 backdrop-blur-xl w-full max-w-4xl max-h-[92vh] rounded-[40px] shadow-2xl flex flex-col md:flex-row overflow-hidden">
             <div className="flex-1 bg-[#FDFBF9] p-8 flex items-center justify-center relative min-h-[400px]">
               <div
                 ref={diagramContainerRef}
@@ -654,7 +654,7 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
       {/* Visualização de mapa salvo */}
       {viewingSession && (
         <div className="fixed inset-0 bg-[#4A433D]/20 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-lg max-h-[92vh] rounded-[40px] shadow-2xl p-8 overflow-y-auto">
+          <div className="bg-white/85 backdrop-blur-xl w-full max-w-lg max-h-[92vh] rounded-[40px] shadow-2xl p-8 overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h4 className="serif text-xl text-[#4A433D]">

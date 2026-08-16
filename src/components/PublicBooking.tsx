@@ -71,7 +71,7 @@ function ProcedurePicker({
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             onClick={e => e.stopPropagation()}
-            className="bg-white w-full max-w-sm rounded-[32px] p-8 shadow-2xl"
+            className="bg-white/85 backdrop-blur-xl w-full max-w-sm rounded-[32px] p-8 shadow-2xl"
           >
             <h3 className="serif text-lg text-[#4A433D] mb-4">Qual procedimento?</h3>
             <input
@@ -983,7 +983,7 @@ export default function PublicBooking() {
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             onClick={e => e.stopPropagation()}
-            className="bg-white w-full max-w-lg rounded-[32px] p-8 shadow-2xl max-h-[80vh] overflow-y-auto"
+            className="bg-white/85 backdrop-blur-xl w-full max-w-lg rounded-[32px] p-8 shadow-2xl max-h-[80vh] overflow-y-auto"
           >
             <div className="flex items-center justify-between mb-6">
               <h3 className="serif text-xl text-[#4A433D]">Política de Privacidade</h3>

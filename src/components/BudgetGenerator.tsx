@@ -999,7 +999,7 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
 
       {showBudgetSignSend && (
         <div className="fixed inset-0 bg-[#4A433D]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
-          <div className="bg-white w-full max-w-md rounded-[40px] p-10 shadow-2xl">
+          <div className="bg-white/85 backdrop-blur-xl w-full max-w-md rounded-[40px] p-10 shadow-2xl">
             <div className="w-14 h-14 bg-[#FDFBF9] rounded-2xl flex items-center justify-center text-[#EADFD4] mb-6">
               <MessageCircle size={24} />
             </div>
@@ -1031,7 +1031,7 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
 
       {showBudgetHistory && (
         <div className="fixed inset-0 bg-[#4A433D]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
-          <div className="bg-white w-full max-w-2xl max-h-[85vh] rounded-[40px] p-10 shadow-2xl overflow-y-auto">
+          <div className="bg-white/85 backdrop-blur-xl w-full max-w-2xl max-h-[85vh] rounded-[40px] p-10 shadow-2xl overflow-y-auto">
             <div className="flex items-center justify-between mb-8">
               <h3 className="serif text-2xl text-[#4A433D]">Histórico de Orçamentos Assinados</h3>
               <button onClick={() => setShowBudgetHistory(false)} className="text-[#9CA3AF] hover:text-[#4A433D]"><X size={24} /></button>
@@ -1082,7 +1082,7 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
 
       {showConfirmLaunch && (
         <div className="fixed inset-0 bg-[#4A433D]/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
-          <div className="bg-white w-full max-w-md rounded-[40px] p-10 shadow-2xl">
+          <div className="bg-white/85 backdrop-blur-xl w-full max-w-md rounded-[40px] p-10 shadow-2xl">
             <div className="w-14 h-14 bg-[#F0F7F0] rounded-2xl flex items-center justify-center text-[#8BA888] mb-6">
               <CheckCircle2 size={24} />
             </div>

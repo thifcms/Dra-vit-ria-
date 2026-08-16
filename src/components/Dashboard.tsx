@@ -600,7 +600,7 @@ export default function Dashboard({ user, onNavigate, onOpenPatient, professiona
           <motion.div
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className="bg-white w-full max-w-md rounded-[40px] p-10 shadow-2xl"
+            className="bg-white/85 backdrop-blur-xl w-full max-w-md rounded-[40px] p-10 shadow-2xl"
           >
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">

@@ -391,7 +391,7 @@ function AddPatientModal({ user, onClose }: { user: User, onClose: () => void })
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 30, opacity: 0 }}
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        className="bg-white w-full max-w-lg rounded-[40px] p-10 shadow-2xl"
+        className="bg-white/85 backdrop-blur-xl w-full max-w-lg rounded-[40px] p-10 shadow-2xl"
       >
         <h2 className="text-2xl font-light mb-8 text-[#4A433D] serif">Novo Cadastro</h2>
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -2354,7 +2354,7 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 30, opacity: 0 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="bg-white w-full max-w-md rounded-[40px] p-10 shadow-2xl"
+              className="bg-white/85 backdrop-blur-xl w-full max-w-md rounded-[40px] p-10 shadow-2xl"
             >
               <h2 className="serif text-2xl text-[#4A433D] mb-2">Excluir todos os dados?</h2>
               <p className="text-sm text-[#9CA3AF] font-light mb-2">
@@ -3097,7 +3097,7 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
 
                 {compareMode && compareSelection.length === 2 && (
                   <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-6" onClick={() => setCompareSelection([])}>
-                    <div className="bg-white rounded-[32px] p-8 max-w-4xl w-full" onClick={e => e.stopPropagation()}>
+                    <div className="bg-white/85 backdrop-blur-xl rounded-[32px] p-8 max-w-4xl w-full" onClick={e => e.stopPropagation()}>
                       <div className="flex items-center justify-between mb-6">
                         <h4 className="serif text-xl text-[#4A433D]">Comparação Antes / Depois</h4>
                         <button onClick={() => setCompareSelection([])} className="p-2 text-[#9CA3AF] hover:text-[#4A433D]">
@@ -3438,7 +3438,7 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
           <motion.div
             initial={{ y: 30, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className="bg-white w-full max-w-2xl max-h-[85vh] rounded-[40px] p-10 shadow-2xl overflow-y-auto"
+            className="bg-white/85 backdrop-blur-xl w-full max-w-2xl max-h-[85vh] rounded-[40px] p-10 shadow-2xl overflow-y-auto"
           >
             <div className="flex items-center justify-between mb-8">
               <h3 className="serif text-2xl text-[#4A433D]">Histórico de Anamneses Liberadas</h3>
@@ -3502,7 +3502,7 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
           <motion.div
             initial={{ y: 30, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className="bg-white w-full max-w-md rounded-[40px] p-10 shadow-2xl"
+            className="bg-white/85 backdrop-blur-xl w-full max-w-md rounded-[40px] p-10 shadow-2xl"
           >
             <div className="w-14 h-14 bg-[#FDFBF9] rounded-2xl flex items-center justify-center text-[#EADFD4] mb-6">
               <MessageCircle size={24} />
@@ -3538,7 +3538,7 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
           <motion.div
             initial={{ y: 30, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className="bg-white w-full max-w-md rounded-[40px] p-10 shadow-2xl"
+            className="bg-white/85 backdrop-blur-xl w-full max-w-md rounded-[40px] p-10 shadow-2xl"
           >
             <div className="w-14 h-14 bg-[#F0F7F0] rounded-2xl flex items-center justify-center text-[#8BA888] mb-6">
               <CheckCircle2 size={24} />
@@ -3572,7 +3572,7 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
           <motion.div
             initial={{ y: 30, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className="bg-white w-full max-w-md rounded-[40px] p-10 shadow-2xl"
+            className="bg-white/85 backdrop-blur-xl w-full max-w-md rounded-[40px] p-10 shadow-2xl"
           >
             <div className="w-14 h-14 bg-[#FDFBF9] rounded-2xl flex items-center justify-center text-[#EADFD4] mb-6">
               <Plus size={24} />
@@ -3606,7 +3606,7 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
           <motion.div
             initial={{ y: 30, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className="bg-white w-full max-w-2xl max-h-[85vh] rounded-[40px] p-10 shadow-2xl overflow-y-auto"
+            className="bg-white/85 backdrop-blur-xl w-full max-w-2xl max-h-[85vh] rounded-[40px] p-10 shadow-2xl overflow-y-auto"
           >
             <div className="flex items-center justify-between mb-8">
               <h3 className="serif text-2xl text-[#4A433D]">Histórico de Evoluções Liberadas</h3>
@@ -3646,7 +3646,7 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
           <motion.div
             initial={{ y: 30, opacity: 0, scale: 0.96 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
-            className="bg-white w-full max-w-lg rounded-[40px] p-10 shadow-2xl"
+            className="bg-white/85 backdrop-blur-xl w-full max-w-lg rounded-[40px] p-10 shadow-2xl"
           >
             <div className="w-14 h-14 bg-[#FDFBF9] rounded-2xl flex items-center justify-center text-[#EADFD4] mb-6">
               <History size={24} />
@@ -3974,7 +3974,7 @@ function AtestadoModule({ user, patient, getReleaserName }: { user: User, patien
           <motion.div
             initial={{ y: 30, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className="bg-white w-full max-w-2xl max-h-[85vh] rounded-[40px] p-10 shadow-2xl overflow-y-auto"
+            className="bg-white/85 backdrop-blur-xl w-full max-w-2xl max-h-[85vh] rounded-[40px] p-10 shadow-2xl overflow-y-auto"
           >
             <div className="flex items-center justify-between mb-8">
               <h3 className="serif text-2xl text-[#4A433D]">Histórico de Documentos Liberados</h3>
@@ -4367,7 +4367,7 @@ function ConsentTermsModule({ user, patient, onPrintAnamnesisHistory, onPrintBud
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white w-full max-w-2xl rounded-[48px] p-12 shadow-2xl overflow-y-auto max-h-[90vh] border border-[#F5F2F0]"
+              className="bg-white/85 backdrop-blur-xl w-full max-w-2xl rounded-[48px] p-12 shadow-2xl overflow-y-auto max-h-[90vh] border border-[#F5F2F0]"
             >
               {!selectedTemplate ? (
                 <div className="space-y-8">
@@ -4456,7 +4456,7 @@ function ConsentTermsModule({ user, patient, onPrintAnamnesisHistory, onPrintBud
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white w-full max-w-2xl rounded-[48px] p-12 shadow-2xl overflow-y-auto max-h-[90vh] border border-[#F5F2F0]"
+              className="bg-white/85 backdrop-blur-xl w-full max-w-2xl rounded-[48px] p-12 shadow-2xl overflow-y-auto max-h-[90vh] border border-[#F5F2F0]"
             >
               <div className="flex justify-between items-center mb-6">
                 <div className="flex items-center gap-3 text-[#8BA888]">

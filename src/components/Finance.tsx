@@ -1476,7 +1476,7 @@ function AddTransactionModal({ user, onClose, editingTransaction }: any) {
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 30, opacity: 0 }}
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        className="bg-white w-full max-w-lg rounded-[40px] p-10 shadow-2xl"
+        className="bg-white/85 backdrop-blur-xl w-full max-w-lg rounded-[40px] p-10 shadow-2xl"
       >
         <h2 className="serif text-2xl text-[#4A433D] mb-8">{editingTransaction ? 'Editar Lançamento' : 'Novo Lançamento'}</h2>
         

@@ -545,7 +545,7 @@ function AuthenticatedApp() {
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed left-0 top-0 bottom-0 w-80 bg-white border-r border-[#F5F2F0] shadow-2xl z-[60] flex flex-col p-8"
+              className="fixed left-0 top-0 bottom-0 w-80 bg-white/85 backdrop-blur-xl border-r border-[#F5F2F0] shadow-2xl z-[60] flex flex-col p-8"
             >
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-3">
