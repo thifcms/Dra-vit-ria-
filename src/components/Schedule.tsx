@@ -217,6 +217,7 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
         patientId: appt.patientId,
         patientName: appt.patientName,
         ownerId: ownerId || user.uid,
+        appointmentId: appt.id,
         createdAt: new Date().toISOString(),
       });
       const link = intakeInviteLink(inviteRef.id);
@@ -284,6 +285,7 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
             patientId: appt.patientId,
             patientName: appt.patientName,
             ownerId: ownerId || user.uid,
+            appointmentId: appt.id,
             createdAt: new Date().toISOString(),
           });
           intakeUrl = intakeInviteLink(inviteRef.id);

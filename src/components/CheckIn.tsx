@@ -22,6 +22,7 @@ export default function CheckIn() {
   const [errorDetail, setErrorDetail] = useState('');
   const [showIntake, setShowIntake] = useState(false);
   const [patientInfo, setPatientInfo] = useState<{ patientId: string; patientName: string; ownerId: string } | null>(null);
+  const [alreadySubmittedIntake, setAlreadySubmittedIntake] = useState(false);
 
   const handleCheckIn = async () => {
     if (!apt || !token) return;
@@ -32,12 +33,17 @@ export default function CheckIn() {
         checkedInAt: new Date().toISOString(),
       });
       setStatus('done');
-      // Busca quem é o paciente pra oferecer a ficha clínica logo em seguida
+      // Busca quem é o paciente pra oferecer a ficha clínica logo em seguida — mas só
+      // se ela ainda não tiver sido enviada antes (ex: já preenchida no ato do
+      // agendamento), pra não pedir de novo à toa
       const apptSnap = await getDoc(doc(db, 'appointments', apt));
       if (apptSnap.exists()) {
         const data = apptSnap.data();
         if (data.patientId) {
           setPatientInfo({ patientId: data.patientId, patientName: data.patientName || '', ownerId: data.userId || '' });
+        }
+        if (data.intakeSubmittedAt) {
+          setAlreadySubmittedIntake(true);
         }
       }
     } catch (err: any) {
@@ -79,14 +85,20 @@ export default function CheckIn() {
               <CheckCircle2 className="text-[#8BA888] w-10 h-10" />
             </div>
             <h1 className="text-2xl font-light text-[#4A433D] mb-3 serif">Chegada confirmada!</h1>
-            <p className="text-[#9CA3AF] font-light mb-8">Enquanto aguarda, preencha a ficha clínica no seu celular.</p>
-            <button
-              onClick={() => setShowIntake(true)}
-              disabled={!patientInfo}
-              className="w-full py-4 bg-[#EADFD4] text-white rounded-2xl font-medium hover:bg-[#DFCFBF] transition-all shadow-sm active:scale-[0.98] disabled:opacity-50"
-            >
-              {patientInfo ? 'Preencher Ficha Clínica' : 'Carregando...'}
-            </button>
+            {alreadySubmittedIntake ? (
+              <p className="text-[#9CA3AF] font-light mb-8">Já recebemos sua ficha clínica. Aguarde ser chamado(a).</p>
+            ) : (
+              <>
+                <p className="text-[#9CA3AF] font-light mb-8">Enquanto aguarda, preencha a ficha clínica no seu celular.</p>
+                <button
+                  onClick={() => setShowIntake(true)}
+                  disabled={!patientInfo}
+                  className="w-full py-4 bg-[#EADFD4] text-white rounded-2xl font-medium hover:bg-[#DFCFBF] transition-all shadow-sm active:scale-[0.98] disabled:opacity-50"
+                >
+                  {patientInfo ? 'Preencher Ficha Clínica' : 'Carregando...'}
+                </button>
+              </>
+            )}
           </>
         ) : status === 'error' ? (
           <>

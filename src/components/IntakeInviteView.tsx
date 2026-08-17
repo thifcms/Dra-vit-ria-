@@ -10,7 +10,7 @@ import IntakeQuestionnaire from './IntakeQuestionnaire';
 // check-in na Agenda. Lê só o mínimo necessário do convite (nunca o prontuário inteiro).
 export default function IntakeInviteView() {
   const token = window.location.hash.split('/')[1]?.split('?')[0];
-  const [invite, setInvite] = useState<{ patientId: string; patientName: string; ownerId: string } | null>(null);
+  const [invite, setInvite] = useState<{ patientId: string; patientName: string; ownerId: string; appointmentId?: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   // Diferente de "link não existe" — aqui é uma falha de conexão passageira, retry
@@ -18,8 +18,9 @@ export default function IntakeInviteView() {
   // de novo, em vez de dizer que o link está errado (o que não é verdade e só confunde
   // o paciente a pedir um link novo sem necessidade).
   const [networkError, setNetworkError] = useState(false);
-  // Gera uma chave nova pra essa submissão — não está presa a um agendamento existente
-  const [submissionKey] = useState(() => crypto.randomUUID());
+  // Chave de reserva pra quando o convite não está vinculado a nenhum agendamento
+  // específico (cadastro manual de paciente novo, por exemplo)
+  const [fallbackKey] = useState(() => crypto.randomUUID());
 
   const loadInvite = () => {
     if (!token) { setNotFound(true); setLoading(false); return; }
@@ -29,7 +30,7 @@ export default function IntakeInviteView() {
       .then(snap => {
         if (snap.exists()) {
           const data = snap.data();
-          setInvite({ patientId: data.patientId, patientName: data.patientName, ownerId: data.ownerId });
+          setInvite({ patientId: data.patientId, patientName: data.patientName, ownerId: data.ownerId, appointmentId: data.appointmentId });
         } else {
           setNotFound(true);
         }
@@ -74,7 +75,7 @@ export default function IntakeInviteView() {
 
   return (
     <IntakeQuestionnaire
-      appointmentId={submissionKey}
+      appointmentId={invite.appointmentId || fallbackKey}
       patientId={invite.patientId}
       patientName={invite.patientName}
       ownerId={invite.ownerId}

@@ -157,6 +157,7 @@ export default function PublicBooking() {
   const [checkingPhone, setCheckingPhone] = useState(false);
   const [existingPatientId, setExistingPatientId] = useState<string | null>(null);
   const [bookedPatientId, setBookedPatientId] = useState<string | null>(null);
+  const [bookedAppointmentId, setBookedAppointmentId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [cpf, setCpf] = useState('');
@@ -425,6 +426,7 @@ export default function PublicBooking() {
       setCheckinUrl(checkinLink(apptRef.id, token, selectedDate, selectedTime));
       setCancelUrl(cancelLink(apptRef.id, token, selectedDate, selectedTime, config.ownerId, selectedProfessional?.id));
       setBookedPatientId(patientId);
+      setBookedAppointmentId(apptRef.id);
       setSubmitted(true);
 
       // Dispara o e-mail de confirmação automático (serviço independente do app principal).
@@ -512,6 +514,7 @@ export default function PublicBooking() {
                     patientId: bookedPatientId,
                     patientName: name,
                     ownerId: config.ownerId,
+                    appointmentId: bookedAppointmentId || undefined,
                     createdAt: new Date().toISOString(),
                   });
                   intakeUrl = intakeInviteLink(inviteRef.id);

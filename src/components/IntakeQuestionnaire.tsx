@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { fetchWithRetry } from '../lib/retryFetch';
 import { motion } from 'motion/react';
@@ -265,6 +265,15 @@ export default function IntakeQuestionnaire({ appointmentId, patientId, patientN
         imageDisclosureConsent: imageDisclosureConsent,
         signatureUrl,
       });
+      // Marca no próprio agendamento que a ficha já foi recebida — é isso que a
+      // página de check-in confere depois pra não pedir de novo. Se "appointmentId"
+      // for só a chave de reserva (convite sem agendamento vinculado), esse update
+      // falha silenciosamente (documento não existe) e não tem problema nenhum.
+      try {
+        await updateDoc(doc(db, 'appointments', appointmentId), {
+          intakeSubmittedAt: new Date().toISOString(),
+        });
+      } catch { /* appointmentId era só a chave de reserva — sem agendamento real vinculado */ }
       setDone(true);
     } catch (err) {
       setErrorMsg('Não foi possível enviar. Tente novamente em instantes.');

@@ -209,6 +209,16 @@ service cloud.firestore {
         && data.diff(resource.data).affectedKeys().hasOnly(['status']);
     }
 
+    // Marca que a ficha clínica (questionário) já foi recebida pra esse agendamento —
+    // escrito pela própria página do questionário, sem login, na hora que o paciente
+    // termina de preencher (seja no ato do agendamento ou depois do check-in). Só
+    // altera esse único campo, nada mais.
+    function isPublicIntakeMark(data) {
+      return !isSignedIn()
+        && data.intakeSubmittedAt is string
+        && data.diff(resource.data).affectedKeys().hasOnly(['intakeSubmittedAt']);
+    }
+
     // Inventory Validation
     function isValidInventory(data) {
       return data.userId is string
@@ -320,6 +330,7 @@ service cloud.firestore {
       allow update: if ((isSharedAccess() || isOwnDataAccess() || isAuthorizedStaff()) && isValidAppointmentShape(incoming()))
         || isPublicCheckIn(incoming())
         || isPublicCancel(incoming())
+        || isPublicIntakeMark(incoming())
         || isPortalPatientRating(resource.data.patientId);
       allow delete: if isSharedAccess() || isOwnDataAccess() || isAuthorizedStaff();
     }
