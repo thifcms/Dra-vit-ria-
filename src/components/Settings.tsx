@@ -126,6 +126,10 @@ export default function Settings({ user }: { user: User }) {
   const [resetConfirmText, setResetConfirmText] = useState('');
   const [resetting, setResetting] = useState(false);
   const [resetResult, setResetResult] = useState<string | null>(null);
+  const [showFullResetConfirm, setShowFullResetConfirm] = useState(false);
+  const [fullResetConfirmText, setFullResetConfirmText] = useState('');
+  const [fullResetting, setFullResetting] = useState(false);
+  const [fullResetResult, setFullResetResult] = useState<string | null>(null);
 
   // Apaga TODOS os documentos de uma coleção, em lotes de até 450 (limite do Firestore é
   // 500 operações por lote) — usado só pelo "zerar dados de teste", nunca em nenhum
@@ -174,6 +178,40 @@ export default function Settings({ user }: { user: User }) {
     setShowResetConfirm(false);
     setResetConfirmText('');
     showToast('Dados de teste zerados — pacientes e financeiro apagados');
+  };
+
+  // Zera o app INTEIRO — muito mais agressivo que o botão acima: além de
+  // pacientes/financeiro, também apaga estoque, promoções, portal do paciente e
+  // convites de ficha. Mesmo assim, NÃO apaga duas coisas de propósito:
+  // 1) system/authorized_admins e system/authorized_staff — apagar isso trancaria
+  //    todo mundo pra fora do próprio app, sem ninguém conseguir entrar de novo pra
+  //    corrigir (nem pelo Firebase Console seria trivial reverter rapidamente).
+  // 2) admin_security (senha do painel administrativo) — mesmo motivo.
+  // Fora essas duas exceções de segurança, é uma reinicialização completa mesmo.
+  const handleResetEntireApp = async () => {
+    if (fullResetConfirmText !== 'ZERAR O APP INTEIRO') return;
+    setFullResetting(true);
+    setFullResetResult(null);
+    const collections = [
+      'patients', 'appointments', 'busySlots', 'patientCpfIndex', 'patientPhoneIndex',
+      'signRequests', 'intakeSubmissions', 'intakeInvites', 'stockAlerts', 'procedureRevenue',
+      'transactions', 'fixedCosts', 'inventory', 'inventory_movements',
+      'promotions', 'portalSessions', 'portalAccounts',
+    ];
+    const results: string[] = [];
+    for (const c of collections) {
+      try {
+        const count = await deleteAllInCollection(c);
+        results.push(`${c}: ${count} apagado(s)`);
+      } catch (err: any) {
+        results.push(`${c}: ERRO — ${err?.message || 'falhou'}`);
+      }
+    }
+    setFullResetResult(results.join('\n'));
+    setFullResetting(false);
+    setShowFullResetConfirm(false);
+    setFullResetConfirmText('');
+    showToast('App zerado por completo — login e administradores continuam intactos');
   };
 
 
@@ -1519,6 +1557,57 @@ export default function Settings({ user }: { user: User }) {
             <pre className="text-[10px] text-[#4A433D] whitespace-pre-wrap font-mono">{resetResult}</pre>
           </div>
         )}
+
+        <div className="mt-10 pt-8 border-t-2 border-red-200">
+          <h4 className="serif text-xl text-red-600 mb-2">Zerar o App Completamente</h4>
+          <p className="text-xs text-red-500 font-light mb-6">
+            Muito mais agressivo que o botão acima: apaga <strong>tudo</strong> — pacientes, financeiro,
+            estoque, promoções e o Portal do Paciente. A única coisa que continua intacta é o login das
+            contas administradoras (senão ninguém mais conseguiria entrar no app pra usar de novo). Não
+            existe volta depois disso.
+          </p>
+          {!showFullResetConfirm ? (
+            <button
+              onClick={() => setShowFullResetConfirm(true)}
+              className="bg-red-700 text-white px-8 py-4 rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-red-800 transition-all"
+            >
+              Zerar o App Inteiro
+            </button>
+          ) : (
+            <div className="space-y-4">
+              <p className="text-xs text-red-600 font-bold">
+                Digite exatamente "ZERAR O APP INTEIRO" abaixo pra confirmar. Isso é irreversível.
+              </p>
+              <input
+                value={fullResetConfirmText}
+                onChange={e => setFullResetConfirmText(e.target.value)}
+                placeholder="ZERAR O APP INTEIRO"
+                className="w-full bg-white border border-red-300 rounded-2xl p-4 outline-none focus:border-red-500 transition-all text-sm"
+              />
+              <div className="flex gap-4">
+                <button
+                  onClick={() => { setShowFullResetConfirm(false); setFullResetConfirmText(''); }}
+                  className="flex-1 py-4 text-[#9CA3AF] font-bold text-[10px] uppercase"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleResetEntireApp}
+                  disabled={fullResetConfirmText !== 'ZERAR O APP INTEIRO' || fullResetting}
+                  className="flex-1 py-4 bg-red-700 text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-red-800 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {fullResetting ? 'Apagando tudo...' : 'Confirmar e Zerar Tudo'}
+                </button>
+              </div>
+            </div>
+          )}
+          {fullResetResult && (
+            <div className="mt-6 p-4 bg-white rounded-2xl">
+              <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2">Resultado:</p>
+              <pre className="text-[10px] text-[#4A433D] whitespace-pre-wrap font-mono">{fullResetResult}</pre>
+            </div>
+          )}
+        </div>
       </div>
       </>
       )}

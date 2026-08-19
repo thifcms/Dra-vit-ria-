@@ -554,7 +554,10 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/patientCpfIndex/$(incoming().cpfKey)).data.patientId == incoming().patientId
         && get(/databases/$(database)/documents/patientPhoneIndex/$(incoming().phoneKey)).data.patientId == incoming().patientId;
       allow update: if false;
-      allow delete: if isSignedIn() && request.auth.uid == uid;
+      // Admin também pode apagar (não só a própria pessoa dona da sessão) — necessário
+      // pro botão de "zerar o app inteiro" em Configurações → Gestão conseguir limpar
+      // essa coleção também.
+      allow delete: if isAdmin() || (isSignedIn() && request.auth.uid == uid);
     }
 
     // Senha do Portal do Paciente — criada no PRIMEIRO acesso, depois de CPF+telefone
@@ -564,11 +567,14 @@ service cloud.firestore {
     // dele depois) — troca de senha não é uma funcionalidade ainda, precisaria pedir
     // pro administrador resetar manualmente se o paciente esquecer.
     match /portalAccounts/{patientId} {
-      allow read: if isPortalPatientAccess(patientId);
+      allow read: if isPortalPatientAccess(patientId) || isAdmin();
       allow create: if isPortalPatientAccess(patientId)
         && incoming().passwordHash is string
         && !exists(/databases/$(database)/documents/portalAccounts/$(patientId));
-      allow update, delete: if false;
+      allow update: if false;
+      // Admin pode apagar (útil pro reset completo em Configurações → Gestão, e também
+      // se um dia precisar resetar a senha de um paciente manualmente)
+      allow delete: if isAdmin();
     }
 
     // Promoções — criadas só por admin (mesmo controle já usado na aba Promoções em
