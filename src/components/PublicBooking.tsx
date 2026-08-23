@@ -599,7 +599,7 @@ export default function PublicBooking() {
         className="w-full max-w-md bg-white p-10 rounded-[32px] shadow-sm border border-[#F5F2F0]"
       >
         <div className="text-center mb-8">
-          <img src="/logo/logo-full-v2.png" alt={config.clinicName} className="h-16 w-auto mx-auto mb-6 object-contain" />
+          <img src="/logo/logo-full-v3.png" alt={config.clinicName} className="h-16 w-auto mx-auto mb-6 object-contain" />
           <h1 className="text-2xl font-bold text-[#4A433D] serif">{selectedProfessionalName || config.professionalName || config.clinicName}</h1>
           <p className="text-[#9CA3AF] mt-2 font-light">Agende seu horário</p>
         </div>

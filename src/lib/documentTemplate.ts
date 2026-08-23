@@ -21,7 +21,12 @@ export function buildLetterheadHtml({
   // (a janela em branco pode não herdar a origem direito em todo navegador/celular),
   // o que fazia o logo aparecer quebrado. Caminho absoluto resolve isso de vez.
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const logoUrl = `${origin}/logo/logo-full-v2.png`;
+  const logoUrl = `${origin}/logo/logo-full-v3.png`;
+  // A marca d'água usa a versão SEM o texto "Dra. Vitória Oliveira" — só o símbolo —
+  // já que ela aparece espalhada e repetida ao fundo do documento inteiro; o texto
+  // repetido várias vezes ficaria poluído, o símbolo sozinho funciona melhor como
+  // textura de fundo.
+  const watermarkUrl = `${origin}/logo/logo-mark-v3.png`;
 
   return `
     <!DOCTYPE html>
@@ -141,7 +146,7 @@ export function buildLetterheadHtml({
       <div class="print-footer-fixed">
         ${footerHtml || ''}
       </div>
-      <img class="watermark" src="${logoUrl}" alt="" />
+      <img class="watermark" src="${watermarkUrl}" alt="" />
     </body>
     </html>
   `;

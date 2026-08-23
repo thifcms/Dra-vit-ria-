@@ -563,20 +563,40 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
             resolve(canvas.toDataURL('image/png'));
           };
           img.onerror = reject;
-          img.src = '/logo/logo-full-v2.png';
+          img.src = '/logo/logo-full-v3.png';
         });
         const logoWidth = 55;
         const props = docPdf.getImageProperties(logoDataUrl);
         const ratioHeight = (logoWidth * props.height) / props.width;
 
-        // Guarda o logo pra desenhar a marca d'água por cima de tudo, no final —
-        // desenhar agora deixaria ela por baixo do resto do conteúdo, que ainda nem
-        // existe nesse ponto
-        watermarkLogoUrl = logoDataUrl;
-        watermarkLogoProps = { width: props.width, height: props.height };
-
         docPdf.addImage(logoDataUrl, 'PNG', (pageWidth - logoWidth) / 2, y, logoWidth, ratioHeight);
         y += ratioHeight + 8;
+
+        // Marca d'água usa a versão SEM texto (só o símbolo) — carregada à parte do
+        // logo do cabeçalho, já que agora são dois arquivos diferentes
+        try {
+          const watermarkDataUrl: string = await new Promise((resolve, reject) => {
+            const wmImg = new Image();
+            wmImg.crossOrigin = 'anonymous';
+            wmImg.onload = () => {
+              const wmCanvas = document.createElement('canvas');
+              wmCanvas.width = wmImg.width;
+              wmCanvas.height = wmImg.height;
+              wmCanvas.getContext('2d')!.drawImage(wmImg, 0, 0);
+              resolve(wmCanvas.toDataURL('image/png'));
+            };
+            wmImg.onerror = reject;
+            wmImg.src = '/logo/logo-mark-v3.png';
+          });
+          const wmProps = docPdf.getImageProperties(watermarkDataUrl);
+          watermarkLogoUrl = watermarkDataUrl;
+          watermarkLogoProps = { width: wmProps.width, height: wmProps.height };
+        } catch {
+          // Se a marca d'água sem texto falhar ao carregar por algum motivo, cai pro
+          // logo completo mesmo, em vez de não ter marca d'água nenhuma
+          watermarkLogoUrl = logoDataUrl;
+          watermarkLogoProps = { width: props.width, height: props.height };
+        }
       } catch {
         // Se a logo não carregar por algum motivo, segue sem travar a geração do PDF
         y += 4;

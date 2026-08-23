@@ -265,7 +265,7 @@ export default function PatientPortal() {
       <div className="min-h-screen bg-[#FDFBF9] flex flex-col items-center relative overflow-hidden">
         <PortalWatermark />
         <div className="w-full flex justify-center pt-10 pb-4 relative z-10">
-          <img src="/logo/logo-full-v2.png" alt="Dra. Vitória Oliveira" className="h-16 w-auto object-contain" />
+          <img src="/logo/logo-full-v3.png" alt="Dra. Vitória Oliveira" className="h-16 w-auto object-contain" />
         </div>
         <div className="flex-1 w-full flex items-center justify-center p-6 relative z-10">
         <motion.div
@@ -405,7 +405,7 @@ export default function PatientPortal() {
     <div className="min-h-screen bg-[#FDFBF9] pb-20 relative overflow-hidden">
       <PortalWatermark />
       <div className="w-full flex justify-center pt-8 pb-2 bg-[#FDFBF9] relative z-10">
-        <img src="/logo/logo-full-v2.png" alt="Dra. Vitória Oliveira" className="h-12 w-auto object-contain" />
+        <img src="/logo/logo-full-v3.png" alt="Dra. Vitória Oliveira" className="h-12 w-auto object-contain" />
       </div>
       <div className="bg-white border-b border-[#F5F2F0] p-6 flex items-center justify-between sticky top-0 z-10">
         <div>
@@ -592,7 +592,7 @@ function EmptyState({ text }: { text: string }) {
 function PortalWatermark() {
   return (
     <img
-      src="/logo/logo-full-v2.png"
+      src="/logo/logo-mark-v3.png"
       alt=""
       className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[95%] max-w-[600px] opacity-[0.06] pointer-events-none select-none z-0"
     />

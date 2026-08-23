@@ -290,7 +290,7 @@ function ProcedureDetailPage({ slug }: { slug: string }) {
     <div className="bg-[#FDFBF9] text-[#4A433D] min-h-screen" style={{ fontFamily: 'Inter, sans-serif' }}>
       <header className="fixed top-0 left-0 right-0 z-40 bg-[#FDFBF9]/85 backdrop-blur-md border-b border-[#EADFD4]/30">
         <div className="max-w-3xl mx-auto px-6 md:px-10 h-20 flex items-center">
-          <img src="/logo/logo-mark-v2.png" alt="" className="h-9 w-auto" />
+          <img src="/logo/logo-mark-v3.png" alt="" className="h-9 w-auto" />
         </div>
       </header>
 
@@ -374,7 +374,7 @@ function HomePage() {
       <section className="relative md:min-h-[85vh] flex items-center overflow-hidden pt-28 pb-16">
         {/* Marca d'água — símbolo da harmonização orofacial, sutil, atrás do texto */}
         <img
-          src="/logo/logo-mark-v2.png"
+          src="/logo/logo-mark-v3.png"
           alt=""
           aria-hidden="true"
           className="hidden md:block absolute right-[2%] top-1/2 -translate-y-1/2 w-[32%] max-w-[380px] opacity-[0.07] pointer-events-none select-none"
@@ -391,7 +391,7 @@ function HomePage() {
           </div>
 
           <div className="md:col-span-7 text-center md:text-left order-1 md:order-2">
-            <img src="/logo/logo-full-v2.png" alt="Dra. Vitória Oliveira" className="h-24 md:h-32 w-auto object-contain mb-10 mx-auto md:mx-0" />
+            <img src="/logo/logo-full-v3.png" alt="Dra. Vitória Oliveira" className="h-24 md:h-32 w-auto object-contain mb-10 mx-auto md:mx-0" />
             <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-[#B8846E] mb-6">
               Cirurgia Buco-Maxilo-Facial &amp; Estética
             </p>

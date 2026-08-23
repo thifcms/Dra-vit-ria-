@@ -114,7 +114,7 @@ export default function RemoteSign() {
   return (
     <div className="min-h-screen bg-[#FDFBF9]" style={{ fontFamily: 'Inter, sans-serif' }}>
       <div className="text-center pt-10 pb-6 px-6">
-        <img src="/logo/logo-full-v2.png" alt="" className="h-16 w-auto mx-auto object-contain" />
+        <img src="/logo/logo-full-v3.png" alt="" className="h-16 w-auto mx-auto object-contain" />
       </div>
       <div className="bg-[#EADFD4] py-3 px-6 text-center mb-8">
         <p className="text-white text-[10px] font-bold uppercase tracking-[0.2em]">{request.templateTitle}</p>

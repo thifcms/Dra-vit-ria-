@@ -371,7 +371,7 @@ function AuthenticatedApp() {
     {loading ? (
       <motion.div key="loading" {...PAGE_FADE} className="h-screen w-screen flex items-center justify-center bg-white">
         <motion.img
-          src="/logo/logo-full-v2.png"
+          src="/logo/logo-full-v3.png"
           alt="Dra. Vitória Oliveira — Estética Orofacial"
           className="h-24 w-auto object-contain"
           initial={{ opacity: 0 }}

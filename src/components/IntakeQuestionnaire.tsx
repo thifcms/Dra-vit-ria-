@@ -304,7 +304,7 @@ export default function IntakeQuestionnaire({ appointmentId, patientId, patientN
   return (
     <div className="min-h-screen bg-[#FDFBF9] pb-16" style={{ fontFamily: 'Inter, sans-serif' }}>
       <div className="text-center pt-10 pb-6 px-6">
-        <img src="/logo/logo-full-v2.png" alt="Dra. Vitória Oliveira" className="h-20 w-auto mx-auto object-contain" />
+        <img src="/logo/logo-full-v3.png" alt="Dra. Vitória Oliveira" className="h-20 w-auto mx-auto object-contain" />
       </div>
       <div className="bg-[#EADFD4] py-3 px-6 text-center mb-8">
         <p className="text-white text-xs font-bold uppercase tracking-[0.2em]">Ficha Clínica do Paciente</p>

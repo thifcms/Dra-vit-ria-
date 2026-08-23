@@ -8,7 +8,7 @@ export default function ComingSoon() {
   return (
     <div className="h-screen w-screen flex flex-col items-center justify-center bg-white p-6 text-center overflow-hidden">
       <motion.img
-        src="/logo/logo-full-v2.png"
+        src="/logo/logo-full-v3.png"
         alt="Dra. Vitória Oliveira — Estética Orofacial"
         className="h-28 w-auto object-contain mb-10"
         initial={{ opacity: 0 }}
