@@ -498,7 +498,7 @@ export default function PublicBooking() {
           </div>
           <h1 className="text-2xl font-light text-[#4A433D] mb-3 serif">Agendamento confirmado!</h1>
           <p className="text-[#9CA3AF] font-light mb-8">
-            {name}, seu horário na {config.clinicName}{selectedProfessionalName ? ` com ${selectedProfessionalName}` : ''} está marcado para{' '}
+            {name}, seu horário na {config.clinicName}{selectedProfessionalName && selectedProfessionalName !== config.clinicName ? ` com ${selectedProfessionalName}` : ''} está marcado para{' '}
             <span className="text-[#4A433D] font-medium">
               {new Date(selectedDate + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })} às {selectedTime}
             </span>. Até lá!

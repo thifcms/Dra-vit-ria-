@@ -23,7 +23,7 @@ export function buildReminderMessage(params: {
 }): string {
   const { patientName, clinicName, professionalName, address, dateLabel, time, checkinUrl, cancelUrl, intakeUrl } = params;
   const lines = [
-    `Olá, ${patientName}! Este é um lembrete da sua consulta na ${clinicName}${professionalName ? ` com ${professionalName}` : ''}.`,
+    `Olá, ${patientName}! Este é um lembrete da sua consulta na ${clinicName}${professionalName && professionalName !== clinicName ? ` com ${professionalName}` : ''}.`,
     '',
     `📅 ${dateLabel} às ${time}`,
     address ? `📍 ${address}` : '',
