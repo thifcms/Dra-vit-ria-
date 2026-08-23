@@ -180,6 +180,16 @@ export default function IntakeQuestionnaire({ appointmentId, patientId, patientN
   const [hasDiabetes, setHasDiabetes] = useState<boolean | null>(null); // Q20
   const [hasAnemia, setHasAnemia] = useState<boolean | null>(null); // Q21
 
+  // Condições médicas extras — não fazem parte das 21 perguntas da ficha impressa nova,
+  // mas o administrador pediu pra manter mesmo assim (além da pergunta 11, que já cobre
+  // "outra condição não mencionada" em texto livre — isso aqui é mais rápido de marcar
+  // pra quem já sabe que tem uma dessas condições específicas)
+  const [hasExtraConditions, setHasExtraConditions] = useState<boolean | null>(null);
+  const [extraConditions, setExtraConditions] = useState({
+    hypertension: false, heartProblems: false, cancerHistory: false, epilepsy: false,
+    hivHepatitis: false, pacemaker: false, anticoagulant: false, isotretinoin: false,
+  });
+
   // Estilo de vida — sobra só o que não virou pergunta própria acima (fumar/álcool já
   // são Q6/Q7 agora)
   const [lifestyle, setLifestyle] = useState<Omit<Lifestyle, 'smoking' | 'alcohol'>>({ exercise: false, sunExposure: false, sunscreen: false });
@@ -266,6 +276,8 @@ export default function IntakeQuestionnaire({ appointmentId, patientId, patientN
         hadHemorrhage: !!hadHemorrhage,
         hasDiabetes: !!hasDiabetes,
         hasAnemia: !!hasAnemia,
+        hasExtraConditions: Object.values(extraConditions).some(Boolean),
+        extraConditions,
         lifestyle: { smoking: !!isSmoker, alcohol: !!consumesAlcohol, ...lifestyle },
         mainComplaint,
         photoDocumentationConsent: photoConsent,
@@ -411,6 +423,21 @@ export default function IntakeQuestionnaire({ appointmentId, patientId, patientN
           <Question label="Já teve hemorragia?" value={hadHemorrhage} onChange={setHadHemorrhage} />
           <Question label="Diabetes?" value={hasDiabetes} onChange={setHasDiabetes} />
           <Question label="Anemia?" value={hasAnemia} onChange={setHasAnemia} />
+
+          <div className="py-4 mt-2 border-t-2 border-[#F5F2F0]">
+            <p className="text-sm text-[#4A433D] mb-1">Possui alguma dessas outras condições?</p>
+            <p className="text-[10px] text-[#9CA3AF] mb-3">Opcional — marque todas que se aplicam</p>
+            <div className="grid grid-cols-2 gap-2">
+              <CheckPill active={extraConditions.hypertension} onClick={() => setExtraConditions({ ...extraConditions, hypertension: !extraConditions.hypertension })} label="Hipertensão" />
+              <CheckPill active={extraConditions.heartProblems} onClick={() => setExtraConditions({ ...extraConditions, heartProblems: !extraConditions.heartProblems })} label="Problemas Cardíacos" />
+              <CheckPill active={extraConditions.cancerHistory} onClick={() => setExtraConditions({ ...extraConditions, cancerHistory: !extraConditions.cancerHistory })} label="Histórico de Câncer" />
+              <CheckPill active={extraConditions.epilepsy} onClick={() => setExtraConditions({ ...extraConditions, epilepsy: !extraConditions.epilepsy })} label="Epilepsia" />
+              <CheckPill active={extraConditions.hivHepatitis} onClick={() => setExtraConditions({ ...extraConditions, hivHepatitis: !extraConditions.hivHepatitis })} label="HIV/Hepatite" />
+              <CheckPill active={extraConditions.pacemaker} onClick={() => setExtraConditions({ ...extraConditions, pacemaker: !extraConditions.pacemaker })} label="Marca-passo" />
+              <CheckPill active={extraConditions.anticoagulant} onClick={() => setExtraConditions({ ...extraConditions, anticoagulant: !extraConditions.anticoagulant })} label="Anticoagulante" />
+              <CheckPill active={extraConditions.isotretinoin} onClick={() => setExtraConditions({ ...extraConditions, isotretinoin: !extraConditions.isotretinoin })} label="Isotretinoína (Roacutan)" />
+            </div>
+          </div>
 
           <div className="mt-4 pt-4 border-t border-[#F5F2F0] flex items-start gap-3">
             <input type="checkbox" checked={attestTruth} onChange={e => setAttestTruth(e.target.checked)} className="mt-1 accent-[#8BA888] w-4 h-4 shrink-0" />

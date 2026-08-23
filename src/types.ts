@@ -259,6 +259,14 @@ export interface Patient {
       hasDiabetes?: boolean; // Q20 (nova como pergunta própria)
       hasAnemia: boolean; // Q21
 
+      // Condições médicas extras, fora das 21 oficiais — pedido do administrador pra
+      // manter mesmo não estando na ficha impressa nova. Opcional, não bloqueia envio.
+      hasExtraConditions?: boolean;
+      extraConditions?: {
+        hypertension: boolean; heartProblems: boolean; cancerHistory: boolean; epilepsy: boolean;
+        hivHepatitis: boolean; pacemaker: boolean; anticoagulant: boolean; isotretinoin: boolean;
+      };
+
       // Campos do modelo antigo — mantidos só pra não quebrar a leitura de fichas já
       // enviadas antes da mudança (15/08/2026). O formulário novo não pergunta mais
       // isso separadamente.

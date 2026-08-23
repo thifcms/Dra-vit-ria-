@@ -1453,7 +1453,6 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
               ...(currentAnamnesis.conditions || {}),
               pregnant: currentAnamnesis.conditions?.pregnant || !!s.isPregnant,
               breastfeeding: currentAnamnesis.conditions?.breastfeeding || !!s.isBreastfeeding,
-              anticoagulant: currentAnamnesis.conditions?.anticoagulant || !!s.medicalConditions?.anticoagulant,
               // Perguntas que viraram próprias na ficha nova (15/08/2026) — cada uma
               // bate direto com o campo estruturado correspondente. Nunca sobrescreve
               // um "sim" que já existia, só adiciona o que o paciente marcou.
@@ -1461,15 +1460,18 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
               herpes: currentAnamnesis.conditions?.herpes || !!s.hasHerpes || !!s.medicalConditions?.herpes,
               autoimmune: currentAnamnesis.conditions?.autoimmune || !!s.hasAutoimmuneDisease || !!s.medicalConditions?.autoimmune,
               keloid: currentAnamnesis.conditions?.keloid || s.scarType === 'keloid' || !!s.medicalConditions?.keloid,
-              // Essas não existem mais como pergunta própria na ficha nova — só ficam
-              // aqui se já tivessem vindo de uma ficha antiga (formato anterior)
-              hypertension: currentAnamnesis.conditions?.hypertension || !!s.medicalConditions?.hypertension,
-              heartProblems: currentAnamnesis.conditions?.heartProblems || !!s.medicalConditions?.heartProblems,
-              cancerHistory: currentAnamnesis.conditions?.cancerHistory || !!s.medicalConditions?.cancerHistory,
-              epilepsy: currentAnamnesis.conditions?.epilepsy || !!s.medicalConditions?.epilepsy,
-              hivHepatitis: currentAnamnesis.conditions?.hivHepatitis || !!s.medicalConditions?.hivHepatitis,
-              pacemaker: currentAnamnesis.conditions?.pacemaker || !!s.medicalConditions?.pacemaker,
-              isotretinoin: currentAnamnesis.conditions?.isotretinoin || !!s.medicalConditions?.isotretinoin,
+              // "extraConditions" é o formato novo (ficha de 15/08/2026 em diante,
+              // mantidas por pedido do administrador mesmo fora das 21 oficiais);
+              // "medicalConditions" é o formato antigo (fichas anteriores) — os dois
+              // são conferidos, sem sobrescrever um "sim" que já existia
+              hypertension: currentAnamnesis.conditions?.hypertension || !!s.extraConditions?.hypertension || !!s.medicalConditions?.hypertension,
+              heartProblems: currentAnamnesis.conditions?.heartProblems || !!s.extraConditions?.heartProblems || !!s.medicalConditions?.heartProblems,
+              cancerHistory: currentAnamnesis.conditions?.cancerHistory || !!s.extraConditions?.cancerHistory || !!s.medicalConditions?.cancerHistory,
+              epilepsy: currentAnamnesis.conditions?.epilepsy || !!s.extraConditions?.epilepsy || !!s.medicalConditions?.epilepsy,
+              hivHepatitis: currentAnamnesis.conditions?.hivHepatitis || !!s.extraConditions?.hivHepatitis || !!s.medicalConditions?.hivHepatitis,
+              pacemaker: currentAnamnesis.conditions?.pacemaker || !!s.extraConditions?.pacemaker || !!s.medicalConditions?.pacemaker,
+              anticoagulant: currentAnamnesis.conditions?.anticoagulant || !!s.extraConditions?.anticoagulant || !!s.medicalConditions?.anticoagulant,
+              isotretinoin: currentAnamnesis.conditions?.isotretinoin || !!s.extraConditions?.isotretinoin || !!s.medicalConditions?.isotretinoin,
             },
             // Cicatrização — pergunta nova, própria (fora do bloco de condições)
             scarType: currentAnamnesis.scarType || s.scarType || undefined,
@@ -2674,6 +2676,7 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
                               ['Já teve hemorragia', yn(q.hadHemorrhage)],
                               ['Diabetes', yn(q.hasDiabetes)],
                               ['Anemia', yn(q.hasAnemia)],
+                              ['Outras condições (extra)', q.extraConditions ? (Object.entries(q.extraConditions).filter(([, v]) => v).map(([k]) => ({ hypertension: 'Hipertensão', heartProblems: 'Problemas Cardíacos', cancerHistory: 'Histórico de Câncer', epilepsy: 'Epilepsia', hivHepatitis: 'HIV/Hepatite', pacemaker: 'Marca-passo', anticoagulant: 'Anticoagulante', isotretinoin: 'Isotretinoína' } as any)[k]).join(', ') || 'Nenhuma marcada') : '—'],
                             ];
                             return rows.map(([label, value]) => (
                               <p key={label}><strong>{label}:</strong> {value}</p>
