@@ -423,8 +423,10 @@ export default function PublicBooking() {
       if (selectedProfessionalName) payload.professionalName = selectedProfessionalName;
       if (selectedProfessional?.id) payload.professionalId = selectedProfessional.id;
       await setDoc(apptRef, payload);
-      setCheckinUrl(checkinLink(apptRef.id, token, selectedDate, selectedTime));
-      setCancelUrl(cancelLink(apptRef.id, token, selectedDate, selectedTime, config.ownerId, selectedProfessional?.id));
+      const newCheckinUrl = checkinLink(apptRef.id, token, selectedDate, selectedTime);
+      const newCancelUrl = cancelLink(apptRef.id, token, selectedDate, selectedTime, config.ownerId, selectedProfessional?.id);
+      setCheckinUrl(newCheckinUrl);
+      setCancelUrl(newCancelUrl);
       setBookedPatientId(patientId);
       setBookedAppointmentId(apptRef.id);
       setSubmitted(true);
@@ -436,7 +438,18 @@ export default function PublicBooking() {
       fetch(`${EMAIL_SERVICE_URL}/api/send-confirmation-email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ appointmentId: apptRef.id }),
+        body: JSON.stringify({
+          appointmentId: apptRef.id,
+          patientEmail: email || undefined,
+          patientName: name,
+          clinicName: config.clinicName,
+          professionalName: selectedProfessionalName || config.professionalName,
+          clinicAddress: config.clinicAddress,
+          date: selectedDate,
+          time: selectedTime,
+          checkinUrl: newCheckinUrl,
+          cancelUrl: newCancelUrl,
+        }),
       }).catch(() => {});
     } catch (err: any) {
       await deleteDoc(doc(db, 'busySlots', slotDocId)).catch(() => {});

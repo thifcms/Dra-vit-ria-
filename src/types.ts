@@ -669,6 +669,7 @@ export interface PublicBookingConfig {
   agendaBlocked?: boolean;
   blockedDates?: string[];
   bookingFeeAmount?: number;
+  clinicAddress?: string;
 }
 
 // Cada profissional tem agenda própria — horários de atendimento, dias da semana e

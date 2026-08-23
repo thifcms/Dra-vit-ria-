@@ -639,6 +639,7 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
           <AddAppointmentModal 
             user={user}
             ownerId={ownerId}
+            clinicSettings={clinicSettings}
             onClose={() => { setIsAdding(false); setPrefillTime(null); }} 
             patients={patients}
             appointments={appointments}
@@ -650,6 +651,7 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
           <AddAppointmentModal 
             user={user}
             ownerId={ownerId}
+            clinicSettings={clinicSettings}
             onClose={() => setEditingAppointment(null)} 
             patients={patients}
             appointments={appointments}
@@ -714,7 +716,7 @@ function MenuOption({ onClick, label, color }: any) {
   );
 }
 
-function AddAppointmentModal({ user, ownerId, onClose, patients, appointments, initialDate, initialTime, appointment }: any) {
+function AddAppointmentModal({ user, ownerId, clinicSettings, onClose, patients, appointments, initialDate, initialTime, appointment }: any) {
   const [patientId, setPatientId] = useState(appointment?.patientId || '');
   const [date, setDate] = useState(appointment?.date || initialDate);
   const [time, setTime] = useState(appointment?.time || initialTime || '08:00');
@@ -779,6 +781,7 @@ function AddAppointmentModal({ user, ownerId, onClose, patients, appointments, i
         }
         showToast('Agendamento atualizado');
       } else if (recurrence === 'none') {
+        const newCheckinToken = crypto.randomUUID();
         const ref = await addDoc(collection(db, 'appointments'), {
           userId: user.uid,
           patientId,
@@ -788,7 +791,7 @@ function AddAppointmentModal({ user, ownerId, onClose, patients, appointments, i
           notes,
           value: numericValue,
           status: 'scheduled',
-          checkinToken: crypto.randomUUID(),
+          checkinToken: newCheckinToken,
           createdAt: new Date().toISOString(),
           professionalId,
           professionalName,
@@ -798,7 +801,18 @@ function AddAppointmentModal({ user, ownerId, onClose, patients, appointments, i
           fetch(`${EMAIL_SERVICE_URL}/api/send-confirmation-email`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ appointmentId: ref.id }),
+            body: JSON.stringify({
+              appointmentId: ref.id,
+              patientEmail: patient.email,
+              patientName: patient?.name || 'Unknown',
+              clinicName: clinicSettings?.clinicName || clinicSettings?.professionalName || 'Clínica',
+              professionalName: professionalName || clinicSettings?.professionalName,
+              clinicAddress: clinicSettings?.clinicAddress,
+              date,
+              time,
+              checkinUrl: checkinLink(ref.id, newCheckinToken, date, time),
+              cancelUrl: cancelLink(ref.id, newCheckinToken, date, time, ownerId || user.uid, professionalId),
+            }),
           }).catch(() => {});
         }
         showToast('Agendamento realizado');

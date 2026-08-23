@@ -399,6 +399,7 @@ export default function Settings({ user }: { user: User }) {
             agendaBlocked: data.agendaBlocked || false,
             blockedDates: data.blockedDates || [],
             bookingFeeAmount: data.bookingFeeAmount ?? null,
+            clinicAddress: data.clinicAddress || null,
           }).catch(() => {});
         }
       } catch (err) {
@@ -694,6 +695,7 @@ export default function Settings({ user }: { user: User }) {
         agendaBlocked: settings.agendaBlocked || false,
         blockedDates: settings.blockedDates || [],
         bookingFeeAmount: settings.bookingFeeAmount ?? null,
+        clinicAddress: settings.clinicAddress || null,
       });
       showToast('Configurações atualizadas');
     } catch (err) {
