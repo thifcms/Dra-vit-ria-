@@ -31,10 +31,10 @@ export default defineConfig(() => {
           background_color: '#FDFBF9',
           theme_color: '#EADFD4',
           icons: [
-            { src: '/icons/icon-192-v3.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
-            { src: '/icons/icon-512-v3.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
-            { src: '/icons/icon-192-maskable-v3.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
-            { src: '/icons/icon-512-maskable-v3.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+            { src: '/icons/icon-192-v4.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+            { src: '/icons/icon-512-v4.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+            { src: '/icons/icon-192-maskable-v4.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
+            { src: '/icons/icon-512-maskable-v4.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
           ],
         },
         workbox: {
