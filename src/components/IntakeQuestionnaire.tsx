@@ -10,19 +10,9 @@ import { Patient } from '../types';
 const PHOTO_CONSENT_TEXT = 'Autorizo a realização de documentação fotográfica referente ao procedimento realizado, que poderá ser utilizada para fins de acompanhamento do procedimento e para uso do médico em atividades científicas.';
 const IMAGE_DISCLOSURE_TEXT = 'Autorizo divulgação de autorretrato (selfies) e imagens relativas ao "antes e depois" do procedimento, nos perfis pessoais nas redes sociais da CONTRATADA, conforme permissão da Resolução nº 196/2019 do Conselho Federal de Odontologia (CFO), desde que a divulgação contenha o nome da CONTRATADA, acompanhado do número de inscrição junto ao Conselho Regional de Odontologia (CRO).';
 
-interface MedicalConditions {
-  diabetes: boolean; hypertension: boolean; heartProblems: boolean; autoimmune: boolean;
-  cancerHistory: boolean; keloid: boolean; herpes: boolean; epilepsy: boolean;
-  hivHepatitis: boolean; pacemaker: boolean; anticoagulant: boolean; isotretinoin: boolean;
-}
 interface Lifestyle {
   smoking: boolean; alcohol: boolean; exercise: boolean; sunExposure: boolean; sunscreen: boolean;
 }
-const emptyConditions: MedicalConditions = {
-  diabetes: false, hypertension: false, heartProblems: false, autoimmune: false,
-  cancerHistory: false, keloid: false, herpes: false, epilepsy: false,
-  hivHepatitis: false, pacemaker: false, anticoagulant: false, isotretinoin: false,
-};
 const emptyLifestyle: Lifestyle = {
   smoking: false, alcohol: false, exercise: false, sunExposure: false, sunscreen: false,
 };
@@ -153,34 +143,46 @@ export default function IntakeQuestionnaire({ appointmentId, patientId, patientN
     setEmergencyContactPhone(prev => prev || patient.emergencyContactPhone || '');
   }, [patient]);
 
-  // Questionário de saúde
-  const [usedToxinBefore, setUsedToxinBefore] = useState<boolean | null>(null);
-  const [lastToxinDate, setLastToxinDate] = useState('');
-  const [toxinTimes, setToxinTimes] = useState('');
-  const [usedPMMA, setUsedPMMA] = useState<boolean | null>(null);
-  const [hadPastComplications, setHadPastComplications] = useState<boolean | null>(null);
-  const [pastComplicationsDetail, setPastComplicationsDetail] = useState('');
-  const [hasFoodAllergy, setHasFoodAllergy] = useState<boolean | null>(null);
+  // Questionário de saúde — 21 perguntas, na mesma ordem da ficha impressa (atualizada
+  // em 15/08/2026)
+  const [allergyMedication, setAllergyMedication] = useState<boolean | null>(null); // Q1
+  const [allergyMedicationDetail, setAllergyMedicationDetail] = useState('');
+  const [hasFoodAllergy, setHasFoodAllergy] = useState<boolean | null>(null); // Q2
   const [foodAllergyDetail, setFoodAllergyDetail] = useState('');
-  const [hasInsectAllergy, setHasInsectAllergy] = useState<boolean | null>(null);
-  const [insectAllergyDetail, setInsectAllergyDetail] = useState('');
-  const [hadFillerBefore, setHadFillerBefore] = useState<boolean | null>(null);
-  const [fillerProduct, setFillerProduct] = useState('');
-  const [isBreastfeeding, setIsBreastfeeding] = useState<boolean | null>(null);
-  const [isPregnant, setIsPregnant] = useState<boolean | null>(null);
-  const [hasMedicalConditions, setHasMedicalConditions] = useState<boolean | null>(null);
-  const [medicalConditions, setMedicalConditions] = useState<MedicalConditions>(emptyConditions);
-  const [hasCoagulationDisease, setHasCoagulationDisease] = useState<boolean | null>(null);
-  const [coagulationDiseaseDetail, setCoagulationDiseaseDetail] = useState('');
-  const [bleedsEasily, setBleedsEasily] = useState<boolean | null>(null);
-  const [hadHemorrhageOrHerpes, setHadHemorrhageOrHerpes] = useState<boolean | null>(null);
-  const [hemorrhageOrHerpesDetail, setHemorrhageOrHerpesDetail] = useState('');
-  const [hasAnemia, setHasAnemia] = useState<boolean | null>(null);
-  const [hasMedicationAllergy, setHasMedicationAllergy] = useState<boolean | null>(null);
-  const [medicationAllergyDetail, setMedicationAllergyDetail] = useState('');
-  const [usesContinuousMedication, setUsesContinuousMedication] = useState<boolean | null>(null);
+  const [scarType, setScarType] = useState<'normal' | 'keloid' | 'hypertrophic' | 'other' | null>(null); // Q3
+  const [scarTypeOther, setScarTypeOther] = useState('');
+  const [usedPMMA, setUsedPMMA] = useState<boolean | null>(null); // Q4
+  const [hasHerpes, setHasHerpes] = useState<boolean | null>(null); // Q5
+  const [herpesFrequency, setHerpesFrequency] = useState('');
+  const [isSmoker, setIsSmoker] = useState<boolean | null>(null); // Q6
+  const [consumesAlcohol, setConsumesAlcohol] = useState<boolean | null>(null); // Q7
+  const [hadPastComplications, setHadPastComplications] = useState<boolean | null>(null); // Q8
+  const [pastComplicationsDetail, setPastComplicationsDetail] = useState('');
+  const [recentFacialSurgery, setRecentFacialSurgery] = useState<boolean | null>(null); // Q9
+  const [recentFacialSurgeryDetail, setRecentFacialSurgeryDetail] = useState('');
+  const [usesContinuousMedication, setUsesContinuousMedication] = useState<boolean | null>(null); // Q10
   const [continuousMedicationDetail, setContinuousMedicationDetail] = useState('');
-  const [lifestyle, setLifestyle] = useState<Lifestyle>(emptyLifestyle);
+  const [otherHealthCondition, setOtherHealthCondition] = useState<boolean | null>(null); // Q11
+  const [otherHealthConditionDetail, setOtherHealthConditionDetail] = useState('');
+  const [usedToxinBefore, setUsedToxinBefore] = useState<boolean | null>(null); // Q12
+  const [usedToxinDetail, setUsedToxinDetail] = useState('');
+  const [lastToxinDate, setLastToxinDate] = useState('');
+  const [hadFillerBefore, setHadFillerBefore] = useState<boolean | null>(null); // Q13
+  const [fillerProduct, setFillerProduct] = useState('');
+  const [isBreastfeeding, setIsBreastfeeding] = useState<boolean | null>(null); // Q14
+  const [isPregnant, setIsPregnant] = useState<boolean | null>(null); // Q15
+  const [hasCoagulationDisease, setHasCoagulationDisease] = useState<boolean | null>(null); // Q16
+  const [coagulationDiseaseDetail, setCoagulationDiseaseDetail] = useState('');
+  const [hasAutoimmuneDisease, setHasAutoimmuneDisease] = useState<boolean | null>(null); // Q17
+  const [autoimmuneDiseaseDetail, setAutoimmuneDiseaseDetail] = useState('');
+  const [bleedsEasily, setBleedsEasily] = useState<boolean | null>(null); // Q18
+  const [hadHemorrhage, setHadHemorrhage] = useState<boolean | null>(null); // Q19
+  const [hasDiabetes, setHasDiabetes] = useState<boolean | null>(null); // Q20
+  const [hasAnemia, setHasAnemia] = useState<boolean | null>(null); // Q21
+
+  // Estilo de vida — sobra só o que não virou pergunta própria acima (fumar/álcool já
+  // são Q6/Q7 agora)
+  const [lifestyle, setLifestyle] = useState<Omit<Lifestyle, 'smoking' | 'alcohol'>>({ exercise: false, sunExposure: false, sunscreen: false });
 
   const [mainComplaint, setMainComplaint] = useState('');
   const [photoConsent, setPhotoConsent] = useState(false);
@@ -207,10 +209,10 @@ export default function IntakeQuestionnaire({ appointmentId, patientId, patientN
   // então o valor ficava sempre null), travando o envio mesmo com tudo preenchido.
   const isMale = patient?.sex === 'M';
   const allHealthAnswered = [
-    usedToxinBefore, usedPMMA, hadPastComplications, hasFoodAllergy, hasInsectAllergy,
-    hadFillerBefore, hasMedicalConditions,
-    hasCoagulationDisease, bleedsEasily, hadHemorrhageOrHerpes,
-    hasAnemia, hasMedicationAllergy, usesContinuousMedication,
+    allergyMedication, hasFoodAllergy, scarType, usedPMMA, hasHerpes, isSmoker, consumesAlcohol,
+    hadPastComplications, recentFacialSurgery, usesContinuousMedication, otherHealthCondition,
+    usedToxinBefore, hadFillerBefore, hasCoagulationDisease, hasAutoimmuneDisease,
+    bleedsEasily, hadHemorrhage, hasDiabetes, hasAnemia,
     ...(isMale ? [] : [isBreastfeeding, isPregnant]),
   ].every(v => v !== null);
 
@@ -243,23 +245,28 @@ export default function IntakeQuestionnaire({ appointmentId, patientId, patientN
         mergedIntoRecord: false,
         birthDate, address, email, profession, maritalStatus, howHeardAboutClinic: howHeard,
         emergencyContactName, emergencyContactPhone,
-        usedToxinBefore, lastToxinDate, toxinTimes,
-        usedPMMA: !!usedPMMA,
-        hadPastComplications: !!hadPastComplications, pastComplicationsDetail,
+        allergyMedication: !!allergyMedication, allergyMedicationDetail,
         hasFoodAllergy: !!hasFoodAllergy, foodAllergyDetail,
-        hasInsectAllergy: !!hasInsectAllergy, insectAllergyDetail,
+        scarType: scarType || 'normal', scarTypeOther,
+        usedPMMA: !!usedPMMA,
+        hasHerpes: !!hasHerpes, herpesFrequency,
+        isSmoker: !!isSmoker,
+        consumesAlcohol: !!consumesAlcohol,
+        hadPastComplications: !!hadPastComplications, pastComplicationsDetail,
+        recentFacialSurgery: !!recentFacialSurgery, recentFacialSurgeryDetail,
+        usesContinuousMedication: !!usesContinuousMedication, continuousMedicationDetail,
+        otherHealthCondition: !!otherHealthCondition, otherHealthConditionDetail,
+        usedToxinBefore: !!usedToxinBefore, usedToxinDetail, lastToxinDate,
         hadFillerBefore: !!hadFillerBefore, fillerProduct,
         isPregnant: !!isPregnant,
         isBreastfeeding: !!isBreastfeeding,
         hasCoagulationDisease: !!hasCoagulationDisease, coagulationDiseaseDetail,
+        hasAutoimmuneDisease: !!hasAutoimmuneDisease, autoimmuneDiseaseDetail,
         bleedsEasily: !!bleedsEasily,
-        hadHemorrhageOrHerpes: !!hadHemorrhageOrHerpes, hemorrhageOrHerpesDetail,
+        hadHemorrhage: !!hadHemorrhage,
+        hasDiabetes: !!hasDiabetes,
         hasAnemia: !!hasAnemia,
-        hasMedicationAllergy: !!hasMedicationAllergy, medicationAllergyDetail,
-        usesContinuousMedication: !!usesContinuousMedication, continuousMedicationDetail,
-        hasMedicalConditions: !!hasMedicalConditions,
-        medicalConditions: hasMedicalConditions ? medicalConditions : emptyConditions,
-        lifestyle,
+        lifestyle: { smoking: !!isSmoker, alcohol: !!consumesAlcohol, ...lifestyle },
         mainComplaint,
         photoDocumentationConsent: photoConsent,
         imageDisclosureConsent: imageDisclosureConsent,
@@ -345,62 +352,65 @@ export default function IntakeQuestionnaire({ appointmentId, patientId, patientN
           <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-1">Questionário de Saúde</p>
           <p className="text-[10px] text-[#9CA3AF] font-light mb-2">Para sua segurança, responda corretamente as perguntas abaixo</p>
 
-          <Question label="Você já utilizou toxina botulínica (Botox, Dysport, Xeomim, Prosigne, etc.)?" value={usedToxinBefore} onChange={setUsedToxinBefore}>
-            <div className="grid grid-cols-2 gap-3">
-              <TextField label="Quando foi a última aplicação?" value={lastToxinDate} onChange={setLastToxinDate} />
-              <TextField label="Quantas vezes?" value={toxinTimes} onChange={setToxinTimes} />
+          <Question label="Alergia a medicamentos, látex ou anestésicos locais?" value={allergyMedication} onChange={setAllergyMedication}>
+            <TextField label="Quais?" value={allergyMedicationDetail} onChange={setAllergyMedicationDetail} />
+          </Question>
+          <Question label="Alergia a algum alimento?" value={hasFoodAllergy} onChange={setHasFoodAllergy}>
+            <TextField label="Quais?" value={foodAllergyDetail} onChange={setFoodAllergyDetail} />
+          </Question>
+          <div className="py-4 border-b border-[#F5F2F0]">
+            <p className="text-sm text-[#4A433D] mb-3">Como é a sua cicatrização?</p>
+            <div className="grid grid-cols-2 gap-2">
+              <CheckPill active={scarType === 'normal'} onClick={() => setScarType('normal')} label="Normal" />
+              <CheckPill active={scarType === 'keloid'} onClick={() => setScarType('keloid')} label="Queloide" />
+              <CheckPill active={scarType === 'hypertrophic'} onClick={() => setScarType('hypertrophic')} label="Cicatriz hipertrófica" />
+              <CheckPill active={scarType === 'other'} onClick={() => setScarType('other')} label="Outra" />
+            </div>
+            {scarType === 'other' && <div className="mt-3"><TextField label="Qual?" value={scarTypeOther} onChange={setScarTypeOther} /></div>}
+          </div>
+          <Question label="Já realizou procedimentos com PMMA?" value={usedPMMA} onChange={setUsedPMMA} />
+          <Question label="Herpes?" value={hasHerpes} onChange={setHasHerpes}>
+            <TextField label="Qual a frequência?" value={herpesFrequency} onChange={setHerpesFrequency} />
+          </Question>
+          <Question label="Tabagista?" value={isSmoker} onChange={setIsSmoker} />
+          <Question label="Consumo de bebida alcoólica / etilismo?" value={consumesAlcohol} onChange={setConsumesAlcohol} />
+          <Question label="Já apresentou intercorrências como: Nódulo, Edema Tardio Intermitente Persistente (ETIP) ou outras?" value={hadPastComplications} onChange={setHadPastComplications}>
+            <TextField label="Quais?" value={pastComplicationsDetail} onChange={setPastComplicationsDetail} />
+          </Question>
+          <Question label="Realizou cirurgias ou procedimentos faciais recentes como: Bichectomia, Rinoplastia, Lifting ou Peelings Químicos?" value={recentFacialSurgery} onChange={setRecentFacialSurgery}>
+            <TextField label="Quais?" value={recentFacialSurgeryDetail} onChange={setRecentFacialSurgeryDetail} />
+          </Question>
+          <Question label="Faz uso de alguma medicação?" value={usesContinuousMedication} onChange={setUsesContinuousMedication}>
+            <TextField label="Quais?" value={continuousMedicationDetail} onChange={setContinuousMedicationDetail} />
+          </Question>
+          <Question label="Possui condição de saúde, doença pré-existente ou informação relevante não mencionada acima?" value={otherHealthCondition} onChange={setOtherHealthCondition}>
+            <TextField label="Qual?" value={otherHealthConditionDetail} onChange={setOtherHealthConditionDetail} />
+          </Question>
+          <Question label="Já utilizou toxina botulínica (Botox, Dysport, Xeomim, entre outras marcas)?" value={usedToxinBefore} onChange={setUsedToxinBefore}>
+            <div className="space-y-3">
+              <TextField label="Quais?" value={usedToxinDetail} onChange={setUsedToxinDetail} />
+              <TextField label="Quando foi a última aplicação?" value={lastToxinDate} onChange={setLastToxinDate} placeholder="DD/MM/AAAA" />
             </div>
           </Question>
-          <Question label="Já fez procedimento com uso de PMMA?" value={usedPMMA} onChange={setUsedPMMA} />
-          <Question label="Já teve intercorrências passadas (nódulo, edema tardio intermitente persistente - ETIPE)?" value={hadPastComplications} onChange={setHadPastComplications}>
-            <TextField label="Descreva a intercorrência" value={pastComplicationsDetail} onChange={setPastComplicationsDetail} />
-          </Question>
-          <Question label="Possui alergia a algum alimento?" value={hasFoodAllergy} onChange={setHasFoodAllergy}>
-            <TextField label="Qual alimento?" value={foodAllergyDetail} onChange={setFoodAllergyDetail} />
-          </Question>
-          <Question label="Possui alergia a picada de inseto?" value={hasInsectAllergy} onChange={setHasInsectAllergy}>
-            <TextField label="Qual inseto / qual reação?" value={insectAllergyDetail} onChange={setInsectAllergyDetail} />
-          </Question>
           <Question label="Já realizou preenchimento facial?" value={hadFillerBefore} onChange={setHadFillerBefore}>
-            <TextField label="Qual produto?" value={fillerProduct} onChange={setFillerProduct} />
+            <TextField label="Qual o produto?" value={fillerProduct} onChange={setFillerProduct} />
           </Question>
           {!isMale && (
             <>
-              <Question label="(Mulheres) Está amamentando?" value={isBreastfeeding} onChange={setIsBreastfeeding} />
-              <Question label="(Mulheres) Está grávida?" value={isPregnant} onChange={setIsPregnant} />
+              <Question label="Está amamentando?" value={isBreastfeeding} onChange={setIsBreastfeeding} />
+              <Question label="Está grávida?" value={isPregnant} onChange={setIsPregnant} />
             </>
           )}
-          <Question label="Tem alguma condição médica?" value={hasMedicalConditions} onChange={setHasMedicalConditions}>
-            <p className="text-[10px] text-[#9CA3AF] mb-2">Marque todas que se aplicam:</p>
-            <div className="grid grid-cols-2 gap-2">
-              <CheckPill active={medicalConditions.diabetes} onClick={() => setMedicalConditions({ ...medicalConditions, diabetes: !medicalConditions.diabetes })} label="Diabetes" />
-              <CheckPill active={medicalConditions.hypertension} onClick={() => setMedicalConditions({ ...medicalConditions, hypertension: !medicalConditions.hypertension })} label="Hipertensão" />
-              <CheckPill active={medicalConditions.heartProblems} onClick={() => setMedicalConditions({ ...medicalConditions, heartProblems: !medicalConditions.heartProblems })} label="Problemas Cardíacos" />
-              <CheckPill active={medicalConditions.autoimmune} onClick={() => setMedicalConditions({ ...medicalConditions, autoimmune: !medicalConditions.autoimmune })} label="Doença Autoimune" />
-              <CheckPill active={medicalConditions.cancerHistory} onClick={() => setMedicalConditions({ ...medicalConditions, cancerHistory: !medicalConditions.cancerHistory })} label="Histórico de Câncer" />
-              <CheckPill active={medicalConditions.keloid} onClick={() => setMedicalConditions({ ...medicalConditions, keloid: !medicalConditions.keloid })} label="Queloide" />
-              <CheckPill active={medicalConditions.herpes} onClick={() => setMedicalConditions({ ...medicalConditions, herpes: !medicalConditions.herpes })} label="Herpes" />
-              <CheckPill active={medicalConditions.epilepsy} onClick={() => setMedicalConditions({ ...medicalConditions, epilepsy: !medicalConditions.epilepsy })} label="Epilepsia" />
-              <CheckPill active={medicalConditions.hivHepatitis} onClick={() => setMedicalConditions({ ...medicalConditions, hivHepatitis: !medicalConditions.hivHepatitis })} label="HIV/Hepatite" />
-              <CheckPill active={medicalConditions.pacemaker} onClick={() => setMedicalConditions({ ...medicalConditions, pacemaker: !medicalConditions.pacemaker })} label="Marca-passo" />
-              <CheckPill active={medicalConditions.anticoagulant} onClick={() => setMedicalConditions({ ...medicalConditions, anticoagulant: !medicalConditions.anticoagulant })} label="Anticoagulante" />
-              <CheckPill active={medicalConditions.isotretinoin} onClick={() => setMedicalConditions({ ...medicalConditions, isotretinoin: !medicalConditions.isotretinoin })} label="Isotretinoína (Roacutan)" />
-            </div>
-          </Question>
           <Question label="Tem alguma doença que interfira na coagulação?" value={hasCoagulationDisease} onChange={setHasCoagulationDisease}>
-            <TextField label="Qual doença?" value={coagulationDiseaseDetail} onChange={setCoagulationDiseaseDetail} />
+            <TextField label="Qual?" value={coagulationDiseaseDetail} onChange={setCoagulationDiseaseDetail} />
           </Question>
-          <Question label="Sangra muito depois de ferido?" value={bleedsEasily} onChange={setBleedsEasily} />
-          <Question label="Já teve hemorragia ou herpes?" value={hadHemorrhageOrHerpes} onChange={setHadHemorrhageOrHerpes}>
-            <TextField label="Descreva" value={hemorrhageOrHerpesDetail} onChange={setHemorrhageOrHerpesDetail} />
+          <Question label="Tem alguma doença autoimune?" value={hasAutoimmuneDisease} onChange={setHasAutoimmuneDisease}>
+            <TextField label="Qual?" value={autoimmuneDiseaseDetail} onChange={setAutoimmuneDiseaseDetail} />
           </Question>
+          <Question label="Sangra muito após ferimentos?" value={bleedsEasily} onChange={setBleedsEasily} />
+          <Question label="Já teve hemorragia?" value={hadHemorrhage} onChange={setHadHemorrhage} />
+          <Question label="Diabetes?" value={hasDiabetes} onChange={setHasDiabetes} />
           <Question label="Anemia?" value={hasAnemia} onChange={setHasAnemia} />
-          <Question label="Já teve reação alérgica a algum medicamento ou substância?" value={hasMedicationAllergy} onChange={setHasMedicationAllergy}>
-            <TextField label="Se sim, quais?" value={medicationAllergyDetail} onChange={setMedicationAllergyDetail} />
-          </Question>
-          <Question label="Você está fazendo uso de alguma medicação?" value={usesContinuousMedication} onChange={setUsesContinuousMedication}>
-            <TextField label="Qual?" value={continuousMedicationDetail} onChange={setContinuousMedicationDetail} />
-          </Question>
 
           <div className="mt-4 pt-4 border-t border-[#F5F2F0] flex items-start gap-3">
             <input type="checkbox" checked={attestTruth} onChange={e => setAttestTruth(e.target.checked)} className="mt-1 accent-[#8BA888] w-4 h-4 shrink-0" />
@@ -413,8 +423,6 @@ export default function IntakeQuestionnaire({ appointmentId, patientId, patientN
           <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-1">Estilo de Vida</p>
           <p className="text-[10px] text-[#9CA3AF] font-light mb-4">Marque o que se aplica</p>
           <div className="grid grid-cols-2 gap-2">
-            <CheckPill active={lifestyle.smoking} onClick={() => setLifestyle({ ...lifestyle, smoking: !lifestyle.smoking })} label="Fuma" />
-            <CheckPill active={lifestyle.alcohol} onClick={() => setLifestyle({ ...lifestyle, alcohol: !lifestyle.alcohol })} label="Consome álcool" />
             <CheckPill active={lifestyle.exercise} onClick={() => setLifestyle({ ...lifestyle, exercise: !lifestyle.exercise })} label="Pratica exercícios" />
             <CheckPill active={lifestyle.sunExposure} onClick={() => setLifestyle({ ...lifestyle, sunExposure: !lifestyle.sunExposure })} label="Exposição solar frequente" />
             <CheckPill active={lifestyle.sunscreen} onClick={() => setLifestyle({ ...lifestyle, sunscreen: !lifestyle.sunscreen })} label="Usa protetor solar" />

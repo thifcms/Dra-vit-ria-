@@ -1454,54 +1454,87 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
               pregnant: currentAnamnesis.conditions?.pregnant || !!s.isPregnant,
               breastfeeding: currentAnamnesis.conditions?.breastfeeding || !!s.isBreastfeeding,
               anticoagulant: currentAnamnesis.conditions?.anticoagulant || !!s.medicalConditions?.anticoagulant,
-              // As demais condições médicas (diabetes, hipertensão, autoimune, etc.) vêm
-              // todas do checklist único "Tem alguma condição médica?" da ficha — nunca
-              // sobrescreve um "sim" que já existia, só adiciona o que o paciente marcou
-              diabetes: currentAnamnesis.conditions?.diabetes || !!s.medicalConditions?.diabetes,
+              // Perguntas que viraram próprias na ficha nova (15/08/2026) — cada uma
+              // bate direto com o campo estruturado correspondente. Nunca sobrescreve
+              // um "sim" que já existia, só adiciona o que o paciente marcou.
+              diabetes: currentAnamnesis.conditions?.diabetes || !!s.hasDiabetes || !!s.medicalConditions?.diabetes,
+              herpes: currentAnamnesis.conditions?.herpes || !!s.hasHerpes || !!s.medicalConditions?.herpes,
+              autoimmune: currentAnamnesis.conditions?.autoimmune || !!s.hasAutoimmuneDisease || !!s.medicalConditions?.autoimmune,
+              keloid: currentAnamnesis.conditions?.keloid || s.scarType === 'keloid' || !!s.medicalConditions?.keloid,
+              // Essas não existem mais como pergunta própria na ficha nova — só ficam
+              // aqui se já tivessem vindo de uma ficha antiga (formato anterior)
               hypertension: currentAnamnesis.conditions?.hypertension || !!s.medicalConditions?.hypertension,
               heartProblems: currentAnamnesis.conditions?.heartProblems || !!s.medicalConditions?.heartProblems,
-              autoimmune: currentAnamnesis.conditions?.autoimmune || !!s.medicalConditions?.autoimmune,
               cancerHistory: currentAnamnesis.conditions?.cancerHistory || !!s.medicalConditions?.cancerHistory,
-              keloid: currentAnamnesis.conditions?.keloid || !!s.medicalConditions?.keloid,
-              herpes: currentAnamnesis.conditions?.herpes || !!s.medicalConditions?.herpes,
               epilepsy: currentAnamnesis.conditions?.epilepsy || !!s.medicalConditions?.epilepsy,
               hivHepatitis: currentAnamnesis.conditions?.hivHepatitis || !!s.medicalConditions?.hivHepatitis,
               pacemaker: currentAnamnesis.conditions?.pacemaker || !!s.medicalConditions?.pacemaker,
               isotretinoin: currentAnamnesis.conditions?.isotretinoin || !!s.medicalConditions?.isotretinoin,
             },
-            hasAllergies: currentAnamnesis.hasAllergies || !!s.hasMedicationAllergy,
-            allergiesDetails: currentAnamnesis.allergiesDetails || s.medicationAllergyDetail || '',
+            // Cicatrização — pergunta nova, própria (fora do bloco de condições)
+            scarType: currentAnamnesis.scarType || s.scarType || undefined,
+            scarTypeOther: currentAnamnesis.scarTypeOther || s.scarTypeOther || '',
+            // "Alergia a medicamentos, látex ou anestésicos locais" é a pergunta nova
+            // mais específica — substitui a antiga "reação alérgica a medicamento",
+            // mas ainda cai no mesmo campo estruturado hasAllergies/allergiesDetails
+            hasAllergies: currentAnamnesis.hasAllergies || !!s.allergyMedication || !!s.hasMedicationAllergy,
+            allergiesDetails: currentAnamnesis.allergiesDetails || s.allergyMedicationDetail || s.medicationAllergyDetail || '',
             hasContinuousMedication: currentAnamnesis.hasContinuousMedication || !!s.usesContinuousMedication,
             medicationsDetails: currentAnamnesis.medicationsDetails || s.continuousMedicationDetail || '',
             habits: {
               ...(currentAnamnesis.habits || {}),
-              smoking: currentAnamnesis.habits?.smoking || !!s.lifestyle?.smoking,
-              alcohol: currentAnamnesis.habits?.alcohol || !!s.lifestyle?.alcohol,
+              smoking: currentAnamnesis.habits?.smoking || !!s.isSmoker || !!s.lifestyle?.smoking,
+              alcohol: currentAnamnesis.habits?.alcohol || !!s.consumesAlcohol || !!s.lifestyle?.alcohol,
               exercise: currentAnamnesis.habits?.exercise || !!s.lifestyle?.exercise,
               sunExposure: currentAnamnesis.habits?.sunExposure || !!s.lifestyle?.sunExposure,
               sunscreen: currentAnamnesis.habits?.sunscreen || !!s.lifestyle?.sunscreen,
             },
             intakeQuestionnaire: {
-              usedToxinBefore: !!s.usedToxinBefore,
-              lastToxinDate: s.lastToxinDate || '',
-              toxinTimes: s.toxinTimes || '',
-              usedPMMA: !!s.usedPMMA,
-              hadPastComplications: !!s.hadPastComplications,
-              pastComplicationsDetail: s.pastComplicationsDetail || '',
+              allergyMedication: !!s.allergyMedication,
+              allergyMedicationDetail: s.allergyMedicationDetail || '',
               hasFoodAllergy: !!s.hasFoodAllergy,
               foodAllergyDetail: s.foodAllergyDetail || '',
-              hasInsectAllergy: !!s.hasInsectAllergy,
-              insectAllergyDetail: s.insectAllergyDetail || '',
+              scarType: s.scarType || undefined,
+              scarTypeOther: s.scarTypeOther || '',
+              usedPMMA: !!s.usedPMMA,
+              hasHerpes: !!s.hasHerpes,
+              herpesFrequency: s.herpesFrequency || '',
+              isSmoker: !!s.isSmoker,
+              consumesAlcohol: !!s.consumesAlcohol,
+              hadPastComplications: !!s.hadPastComplications,
+              pastComplicationsDetail: s.pastComplicationsDetail || '',
+              recentFacialSurgery: !!s.recentFacialSurgery,
+              recentFacialSurgeryDetail: s.recentFacialSurgeryDetail || '',
+              usesContinuousMedication: !!s.usesContinuousMedication,
+              continuousMedicationDetail: s.continuousMedicationDetail || '',
+              otherHealthCondition: !!s.otherHealthCondition,
+              otherHealthConditionDetail: s.otherHealthConditionDetail || '',
+              usedToxinBefore: !!s.usedToxinBefore,
+              usedToxinDetail: s.usedToxinDetail || '',
+              lastToxinDate: s.lastToxinDate || '',
               hadFillerBefore: !!s.hadFillerBefore,
               fillerProduct: s.fillerProduct || '',
+              isBreastfeeding: !!s.isBreastfeeding,
+              isPregnant: !!s.isPregnant,
               hasCoagulationDisease: !!s.hasCoagulationDisease,
               coagulationDiseaseDetail: s.coagulationDiseaseDetail || '',
+              hasAutoimmuneDisease: !!s.hasAutoimmuneDisease,
+              autoimmuneDiseaseDetail: s.autoimmuneDiseaseDetail || '',
               bleedsEasily: !!s.bleedsEasily,
-              hadHemorrhageOrHerpes: !!s.hadHemorrhageOrHerpes,
-              hemorrhageOrHerpesDetail: s.hemorrhageOrHerpesDetail || '',
+              hadHemorrhage: !!s.hadHemorrhage,
+              hasDiabetes: !!s.hasDiabetes,
               hasAnemia: !!s.hasAnemia,
-              hasMedicalConditions: !!s.hasMedicalConditions,
+              // Campos do formato antigo — só ficam preenchidos se essa ficha
+              // específica foi enviada antes da mudança de 15/08/2026
+              toxinTimes: s.toxinTimes || undefined,
+              hasInsectAllergy: s.hasInsectAllergy,
+              insectAllergyDetail: s.insectAllergyDetail || undefined,
+              hasMedicationAllergy: s.hasMedicationAllergy,
+              medicationAllergyDetail: s.medicationAllergyDetail || undefined,
+              hasMedicalConditions: s.hasMedicalConditions,
               medicalConditions: s.medicalConditions || undefined,
+              hadHemorrhageOrHerpes: s.hadHemorrhageOrHerpes,
+              hemorrhageOrHerpesDetail: s.hemorrhageOrHerpesDetail || undefined,
               lifestyle: s.lifestyle || undefined,
               emergencyContactName: s.emergencyContactName || '',
               emergencyContactPhone: s.emergencyContactPhone || '',
@@ -2575,6 +2608,21 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
                         <ConditionToggle label="Anticoncepcional" active={anamnesis.conditions.contraceptive} onClick={() => setAnamnesis({...anamnesis, conditions: {...anamnesis.conditions, contraceptive: !anamnesis.conditions.contraceptive}})} />
                       </div>
                     </div>
+
+                    <div className="bg-[#FDFBF9] p-5 md:p-8 rounded-[32px] border border-[#F5F2F0] mb-5 md:mb-8">
+                      <p className="text-[9px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-4 md:mb-6">Cicatrização</p>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <ConditionToggle label="Normal" active={anamnesis.scarType === 'normal'} onClick={() => setAnamnesis({...anamnesis, scarType: 'normal'})} />
+                        <ConditionToggle label="Queloide" active={anamnesis.scarType === 'keloid'} onClick={() => setAnamnesis({...anamnesis, scarType: 'keloid'})} />
+                        <ConditionToggle label="Cicatriz Hipertrófica" active={anamnesis.scarType === 'hypertrophic'} onClick={() => setAnamnesis({...anamnesis, scarType: 'hypertrophic'})} />
+                        <ConditionToggle label="Outra" active={anamnesis.scarType === 'other'} onClick={() => setAnamnesis({...anamnesis, scarType: 'other'})} />
+                      </div>
+                      {anamnesis.scarType === 'other' && (
+                        <div className="mt-4">
+                          <FormField label="Qual?" value={anamnesis.scarTypeOther || ''} onChange={v => setAnamnesis({...anamnesis, scarTypeOther: v})} />
+                        </div>
+                      )}
+                    </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8 mb-5 md:mb-8">
                       <div className="space-y-4">
@@ -2590,6 +2638,55 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
                         )}
                       </div>
                     </div>
+
+                    {anamnesis.intakeQuestionnaire && (
+                      <div className="bg-[#FDFBF9] p-5 md:p-8 rounded-[32px] border border-[#F5F2F0] mb-5 md:mb-8">
+                        <p className="text-[9px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-1">
+                          Respostas do Questionário de Saúde
+                        </p>
+                        <p className="text-[10px] text-[#9CA3AF] font-light mb-4">
+                          Enviado pelo próprio paciente — só leitura, os campos marcáveis acima já refletem essas respostas
+                        </p>
+                        <div className="space-y-2 text-xs text-[#4A433D]">
+                          {(() => {
+                            const q = anamnesis.intakeQuestionnaire!;
+                            const yn = (v?: boolean) => v ? 'Sim' : 'Não';
+                            const scarLabel = { normal: 'Normal', keloid: 'Queloide', hypertrophic: 'Cicatriz hipertrófica', other: q.scarTypeOther || 'Outra' };
+                            const rows: [string, string][] = [
+                              ['Alergia a medicamentos/látex/anestésicos', `${yn(q.allergyMedication)}${q.allergyMedication ? ` — ${q.allergyMedicationDetail || ''}` : ''}`],
+                              ['Alergia a alimento', `${yn(q.hasFoodAllergy)}${q.hasFoodAllergy ? ` — ${q.foodAllergyDetail || ''}` : ''}`],
+                              ['Cicatrização', q.scarType ? scarLabel[q.scarType] : '—'],
+                              ['Já realizou procedimentos com PMMA', yn(q.usedPMMA)],
+                              ['Herpes', `${yn(q.hasHerpes)}${q.hasHerpes ? ` — ${q.herpesFrequency || ''}` : ''}`],
+                              ['Tabagista', yn(q.isSmoker)],
+                              ['Consumo de álcool/etilismo', yn(q.consumesAlcohol)],
+                              ['Intercorrências (nódulo, ETIP, outras)', `${yn(q.hadPastComplications)}${q.hadPastComplications ? ` — ${q.pastComplicationsDetail || ''}` : ''}`],
+                              ['Cirurgia/procedimento facial recente', `${yn(q.recentFacialSurgery)}${q.recentFacialSurgery ? ` — ${q.recentFacialSurgeryDetail || ''}` : ''}`],
+                              ['Uso de medicação', `${yn(q.usesContinuousMedication)}${q.usesContinuousMedication ? ` — ${q.continuousMedicationDetail || ''}` : ''}`],
+                              ['Outra condição não mencionada', `${yn(q.otherHealthCondition)}${q.otherHealthCondition ? ` — ${q.otherHealthConditionDetail || ''}` : ''}`],
+                              ['Já utilizou toxina botulínica', `${yn(q.usedToxinBefore)}${q.usedToxinBefore ? ` — ${q.usedToxinDetail || ''}${q.lastToxinDate ? ` (última aplicação: ${q.lastToxinDate})` : ''}` : ''}`],
+                              ['Já realizou preenchimento facial', `${yn(q.hadFillerBefore)}${q.hadFillerBefore ? ` — ${q.fillerProduct || ''}` : ''}`],
+                              ['Amamentando', yn(q.isBreastfeeding)],
+                              ['Grávida', yn(q.isPregnant)],
+                              ['Doença que interfere na coagulação', `${yn(q.hasCoagulationDisease)}${q.hasCoagulationDisease ? ` — ${q.coagulationDiseaseDetail || ''}` : ''}`],
+                              ['Doença autoimune', `${yn(q.hasAutoimmuneDisease)}${q.hasAutoimmuneDisease ? ` — ${q.autoimmuneDiseaseDetail || ''}` : ''}`],
+                              ['Sangra muito após ferimentos', yn(q.bleedsEasily)],
+                              ['Já teve hemorragia', yn(q.hadHemorrhage)],
+                              ['Diabetes', yn(q.hasDiabetes)],
+                              ['Anemia', yn(q.hasAnemia)],
+                            ];
+                            return rows.map(([label, value]) => (
+                              <p key={label}><strong>{label}:</strong> {value}</p>
+                            ));
+                          })()}
+                          {anamnesis.intakeQuestionnaire.submittedAt && (
+                            <p className="text-[10px] text-[#9CA3AF] pt-2 border-t border-[#F5F2F0] mt-3">
+                              Enviado em {new Date(anamnesis.intakeQuestionnaire.submittedAt).toLocaleString('pt-BR')}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
                       <FormField label="Outras Condições" value={anamnesis.otherConditions} onChange={v => setAnamnesis({...anamnesis, otherConditions: v})} textarea />

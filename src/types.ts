@@ -166,6 +166,11 @@ export interface Patient {
       isotretinoin: boolean;
       contraceptive: boolean;
     };
+    // Como é a cicatrização do paciente — pergunta própria do questionário de saúde
+    // (Normal / Queloide / Cicatriz hipertrófica / Outra), sem ser exatamente a mesma
+    // coisa que o "keloid" de conditions (que é só sim/não pra ter tido queloide antes)
+    scarType?: 'normal' | 'keloid' | 'hypertrophic' | 'other';
+    scarTypeOther?: string;
     otherConditions: string;
     
     // Alergias e Medicações (Estruturadas)
@@ -214,30 +219,63 @@ export interface Patient {
     // condições médicas e estilo de vida direto nos campos de sempre da anamnese
     // (conditions/habits) — dá pra ver dos dois jeitos.
     intakeQuestionnaire?: {
-      usedToxinBefore: boolean;
-      lastToxinDate: string;
-      toxinTimes: string;
-      usedPMMA: boolean;
-      hadPastComplications: boolean;
-      pastComplicationsDetail: string;
-      hasFoodAllergy: boolean;
+      // As 21 perguntas do Questionário de Saúde impresso, na mesma ordem — atualizado
+      // em 15/08/2026 pra bater exatamente com o modelo novo. Campos com "?" no final
+      // do nome (opcionais) não existiam no modelo antigo — fichas enviadas antes
+      // dessa data não vão ter esses campos preenchidos, e tudo bem, o resto continua
+      // funcionando normalmente.
+      allergyMedication?: boolean; // Q1 — medicamentos, látex ou anestésicos locais
+      allergyMedicationDetail?: string;
+      hasFoodAllergy: boolean; // Q2
       foodAllergyDetail: string;
-      hasInsectAllergy: boolean;
-      insectAllergyDetail: string;
-      hadFillerBefore: boolean;
+      scarType?: 'normal' | 'keloid' | 'hypertrophic' | 'other'; // Q3 (nova)
+      scarTypeOther?: string;
+      usedPMMA: boolean; // Q4
+      hasHerpes?: boolean; // Q5 (nova — antes só existia junto com hemorragia)
+      herpesFrequency?: string;
+      isSmoker?: boolean; // Q6 (nova como pergunta própria — antes só existia em "lifestyle")
+      consumesAlcohol?: boolean; // Q7 (nova como pergunta própria)
+      hadPastComplications: boolean; // Q8
+      pastComplicationsDetail: string;
+      recentFacialSurgery?: boolean; // Q9 (nova) — Bichectomia, Rinoplastia, Lifting, Peelings
+      recentFacialSurgeryDetail?: string;
+      usesContinuousMedication: boolean; // Q10
+      continuousMedicationDetail: string;
+      otherHealthCondition?: boolean; // Q11 (nova) — pergunta "coringa"
+      otherHealthConditionDetail?: string;
+      usedToxinBefore: boolean; // Q12
+      usedToxinDetail?: string; // "Quais?" — novo, além da data
+      lastToxinDate: string;
+      hadFillerBefore: boolean; // Q13
       fillerProduct: string;
-      hasCoagulationDisease: boolean;
+      isBreastfeeding: boolean; // Q14
+      isPregnant: boolean; // Q15
+      hasCoagulationDisease: boolean; // Q16
       coagulationDiseaseDetail: string;
-      bleedsEasily: boolean;
-      hadHemorrhageOrHerpes: boolean;
-      hemorrhageOrHerpesDetail: string;
-      hasAnemia: boolean;
-      hasMedicalConditions: boolean;
+      hasAutoimmuneDisease?: boolean; // Q17 (nova como pergunta própria)
+      autoimmuneDiseaseDetail?: string;
+      bleedsEasily: boolean; // Q18
+      hadHemorrhage?: boolean; // Q19 (nova — antes vinha junto com herpes)
+      hasDiabetes?: boolean; // Q20 (nova como pergunta própria)
+      hasAnemia: boolean; // Q21
+
+      // Campos do modelo antigo — mantidos só pra não quebrar a leitura de fichas já
+      // enviadas antes da mudança (15/08/2026). O formulário novo não pergunta mais
+      // isso separadamente.
+      toxinTimes?: string;
+      hasInsectAllergy?: boolean;
+      insectAllergyDetail?: string;
+      hasMedicationAllergy?: boolean;
+      medicationAllergyDetail?: string;
+      hasMedicalConditions?: boolean;
       medicalConditions?: {
         diabetes: boolean; hypertension: boolean; heartProblems: boolean; autoimmune: boolean;
         cancerHistory: boolean; keloid: boolean; herpes: boolean; epilepsy: boolean;
         hivHepatitis: boolean; pacemaker: boolean; anticoagulant: boolean; isotretinoin: boolean;
       };
+      hadHemorrhageOrHerpes?: boolean;
+      hemorrhageOrHerpesDetail?: string;
+
       lifestyle?: {
         smoking: boolean; alcohol: boolean; exercise: boolean; sunExposure: boolean; sunscreen: boolean;
       };
