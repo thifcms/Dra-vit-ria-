@@ -238,6 +238,37 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
     }
   };
 
+  // Chama o mesmo endpoint já usado automaticamente depois do check-in — o serviço
+  // confere sozinho se o paciente tem e-mail cadastrado e se a ficha já foi preenchida
+  // antes de mandar, então não precisa repetir essas checagens aqui
+  const handleSendFichaEmail = async (appt: Appointment) => {
+    if (!appt.patientId) {
+      showToast('Esse agendamento não tem paciente vinculado ainda', 'error');
+      setOpenMenuId(null);
+      return;
+    }
+    try {
+      const response = await fetch(`${EMAIL_SERVICE_URL}/api/send-ficha-clinica-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appointmentId: appt.id }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (data.status === 'sent') {
+        showToast('Ficha enviada por e-mail');
+      } else if (data.status === 'no_email') {
+        showToast('Este paciente não tem e-mail cadastrado', 'error');
+      } else if (data.status === 'already_submitted') {
+        showToast('Esse paciente já preencheu a ficha — nada enviado', 'error');
+      } else {
+        showToast('Não foi possível enviar — tente de novo em instantes', 'error');
+      }
+    } catch (err) {
+      showToast('Não foi possível enviar — tente de novo em instantes', 'error');
+    }
+    setOpenMenuId(null);
+  };
+
   const ensureCheckinToken = async (appt: Appointment): Promise<string> => {
     if (appt.checkinToken) return appt.checkinToken;
     const token = crypto.randomUUID();
@@ -594,11 +625,13 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
                                   className="absolute right-0 top-12 z-20 bg-white rounded-2xl border border-[#F5F2F0] shadow-xl py-3 w-52 overflow-hidden"
                                 >
                                   <MenuOption onClick={() => { handleOpenPatient(appt); setOpenMenuId(null); }} label="Abrir Prontuário" color="text-[#EADFD4]" />
+                                  <MenuOption onClick={() => { handleOpenPatient(appt); setOpenMenuId(null); }} label="Ver Ficha Clínica" color="text-[#EADFD4]" />
                                   <MenuOption onClick={() => { setEditingAppointment(appt); setOpenMenuId(null); }} label="Editar" color="text-[#4A433D]" />
                                   {!appt.checkedInAt && appt.status !== 'completed' && appt.status !== 'cancelled' && (
                                     <>
                                       <MenuOption onClick={() => handleCheckIn(appt.id!)} label="Fazer Check-in Manual" color="text-amber-500" />
                                       <MenuOption onClick={() => handleSendIntakeForm(appt)} label="Enviar Ficha via WhatsApp" color="text-[#8BA888]" />
+                                      <MenuOption onClick={() => handleSendFichaEmail(appt)} label="Enviar Ficha por E-mail" color="text-[#8BA888]" />
                                       <MenuOption onClick={() => handleCopyCheckinLink(appt)} label="Copiar Link de Check-in" color="text-[#EADFD4]" />
                                       <MenuOption onClick={() => handleSendReminder(appt, 'whatsapp')} label="Lembrete por WhatsApp" color="text-[#8BA888]" />
                                       <MenuOption onClick={() => handleSendReminder(appt, 'email')} label="Lembrete por E-mail" color="text-[#8BA888]" />
