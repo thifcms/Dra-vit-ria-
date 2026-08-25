@@ -188,6 +188,13 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
     try {
       await updateDoc(doc(db, 'appointments', id), { checkedInAt: new Date().toISOString() });
       showToast('Check-in realizado');
+      // Dispara o e-mail com a ficha clínica — best-effort, o serviço já confere
+      // sozinho se a ficha já foi preenchida antes de mandar (não manda duas vezes)
+      fetch(`${EMAIL_SERVICE_URL}/api/send-ficha-clinica-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appointmentId: id }),
+      }).catch(() => {});
     } catch (err) {
       showToast('Erro ao fazer check-in', 'error');
     } finally {

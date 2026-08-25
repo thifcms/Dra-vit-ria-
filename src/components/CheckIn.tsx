@@ -4,6 +4,7 @@ import { db } from '../lib/firebase';
 import { motion } from 'motion/react';
 import { CheckCircle2, XCircle, Clock } from 'lucide-react';
 import IntakeQuestionnaire from './IntakeQuestionnaire';
+import { EMAIL_SERVICE_URL } from '../lib/slots';
 
 // Página de check-in do próprio paciente — acessada por um link único (com token secreto)
 // que a clínica entrega no momento do agendamento. Não lê nenhum dado do agendamento pra
@@ -44,6 +45,14 @@ export default function CheckIn() {
         }
         if (data.intakeSubmittedAt) {
           setAlreadySubmittedIntake(true);
+        } else {
+          // Manda também por e-mail, pra quem preferir preencher depois em vez de na
+          // hora — best-effort, o serviço confere sozinho antes de mandar
+          fetch(`${EMAIL_SERVICE_URL}/api/send-ficha-clinica-email`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ appointmentId: apt }),
+          }).catch(() => {});
         }
       }
     } catch (err: any) {
