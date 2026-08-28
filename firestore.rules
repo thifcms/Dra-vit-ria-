@@ -577,6 +577,16 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Assinatura de notificação push — um documento por administrador (uid), guardando
+    // o objeto de assinatura do navegador. Só o próprio dono cria/apaga/lê a própria; o
+    // serviço de e-mail (que dispara o envio) usa credencial administrativa própria
+    // (Firebase Admin SDK), não passa por essas regras.
+    match /pushSubscriptions/{uid} {
+      allow read, delete: if isSignedIn() && request.auth.uid == uid;
+      allow create, update: if isSignedIn() && request.auth.uid == uid && isAdmin()
+        && incoming().subscription is map;
+    }
+
     // Promoções — criadas só por admin (mesmo controle já usado na aba Promoções em
     // si), mas a LEITURA é pública: tanto o portal do paciente (mostra as ativas)
     // quanto qualquer pessoa logada precisam conseguir ver, já que não é informação

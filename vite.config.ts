@@ -13,6 +13,18 @@ export default defineConfig(() => {
       VitePWA({
         registerType: 'autoUpdate', // atualiza o app sozinho a cada novo deploy, sem cache velho travando
         injectRegister: false, // registro manual em main.tsx, pra poder mostrar aviso de nova versão
+        // injectManifest (não generateSW): precisa de um service worker próprio (src/sw.ts)
+        // pra poder adicionar os eventos "push"/"notificationclick" — o modo automático
+        // (generateSW) não permite código customizado desse tipo.
+        strategies: 'injectManifest',
+        srcDir: 'src',
+        filename: 'sw.ts',
+        injectManifest: {
+          // Módulos grandes (visualizador 3D, gráficos) não precisam entrar no precache do
+          // service worker — só ficam pesando o manifesto à toa, já que são baixados sob
+          // demanda de qualquer forma
+          maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+        },
         // Ícones/logo saíram daqui de propósito — ver o runtimeCaching de imagens abaixo.
         // O precache "empacotado" (includeAssets) tem um bug conhecido no Safari/iOS com
         // arquivos de imagem maiores (o Safari faz pedidos parciais/"Range" que esse tipo de
@@ -35,63 +47,6 @@ export default defineConfig(() => {
             { src: '/icons/icon-512-v4.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
             { src: '/icons/icon-192-maskable-v4.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
             { src: '/icons/icon-512-maskable-v4.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
-          ],
-        },
-        workbox: {
-          // Faz o app instalado (PWA) atualizar sozinho assim que abrir, em vez de ficar
-          // preso numa versão antiga em cache até fechar e abrir de novo várias vezes.
-          skipWaiting: true,
-          clientsClaim: true,
-          cleanupOutdatedCaches: true, // apaga sozinho o cache de versões antigas do app
-          navigateFallbackDenylist: [/^\/#agendar/, /^\/#checkin/],
-          runtimeCaching: [
-            {
-              urlPattern: ({url}) =>
-                url.hostname.includes('firestore.googleapis.com') ||
-                url.hostname.includes('firebasestorage.googleapis.com') ||
-                url.hostname.includes('identitytoolkit.googleapis.com'),
-              handler: 'NetworkOnly',
-            },
-            {
-              // Estratégia própria pra imagens (logo, ícones, favicon, diagramas): busca
-              // da rede normalmente e guarda em cache à parte do "app shell" — evita o bug
-              // do Safari com precache de imagens grandes, e ainda funciona offline depois
-              // do primeiro carregamento.
-              // StaleWhileRevalidate (não CacheFirst): mostra a versão em cache na hora,
-              // mas checa a rede em segundo plano e atualiza o cache pra próxima vez — sem
-              // isso, um arquivo com o mesmo nome que eu atualizasse (ex: o modelo 3D)
-              // nunca era rebaixado de novo, ficando preso na primeira versão baixada.
-              urlPattern: ({request}) => request.destination === 'image',
-              handler: 'StaleWhileRevalidate',
-              options: {
-                cacheName: 'images-cache',
-                expiration: {
-                  maxEntries: 40,
-                  maxAgeSeconds: 30 * 24 * 60 * 60,
-                },
-                cacheableResponse: {
-                  statuses: [0, 200],
-                },
-              },
-            },
-            {
-              // Modelos 3D (.glb) — mesma lógica acima, mas cobrindo explicitamente esse
-              // tipo de arquivo (o carregador do Three.js não marca esse pedido como
-              // "imagem", então precisa de uma regra própria pra não escapar do controle
-              // do service worker)
-              urlPattern: ({url}) => url.pathname.endsWith('.glb'),
-              handler: 'StaleWhileRevalidate',
-              options: {
-                cacheName: 'models-cache',
-                expiration: {
-                  maxEntries: 10,
-                  maxAgeSeconds: 30 * 24 * 60 * 60,
-                },
-                cacheableResponse: {
-                  statuses: [0, 200],
-                },
-              },
-            },
           ],
         },
       }),

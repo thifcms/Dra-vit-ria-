@@ -423,6 +423,13 @@ export default function PublicBooking() {
       if (selectedProfessionalName) payload.professionalName = selectedProfessionalName;
       if (selectedProfessional?.id) payload.professionalId = selectedProfessional.id;
       await setDoc(apptRef, payload);
+      // Avisa a equipe (notificação push) que chegou um agendamento novo — best-effort,
+      // nunca deve travar nem mostrar erro pro paciente se isso falhar
+      fetch(`${EMAIL_SERVICE_URL}/api/notify-new-appointment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appointmentId: apptRef.id, ownerId: config.ownerId }),
+      }).catch(() => {});
       const newCheckinUrl = checkinLink(apptRef.id, token, selectedDate, selectedTime);
       const newCancelUrl = cancelLink(apptRef.id, token, selectedDate, selectedTime, config.ownerId, selectedProfessional?.id);
       setCheckinUrl(newCheckinUrl);

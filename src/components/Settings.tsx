@@ -38,6 +38,7 @@ import { hashPin, isValidPinFormat } from '../lib/pin';
 import { getClinicOwnerId, parseCurrencyInput } from '../lib/slots';
 import { isPlatformAuthenticatorAvailable, registerBiometric } from '../lib/webauthn';
 import AdminPanel from './AdminPanel';
+import PushNotificationToggle from './PushNotificationToggle';
 import ProfessionalScheduleManager from './ProfessionalScheduleManager';
 import PatientBackup from './PatientBackup';
 
@@ -1041,6 +1042,14 @@ export default function Settings({ user }: { user: User }) {
                 <p className="text-[10px] text-[#9CA3AF] font-light mt-2 ml-1">
                   Ao editar o preço de um procedimento que já tem Kit de Insumos, o sistema não deixa salvar um
                   valor que dê uma margem de lucro menor que essa, considerando o custo dos insumos.
+                </p>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2 block ml-1">Notificações</label>
+                <PushNotificationToggle user={user} />
+                <p className="text-[10px] text-[#9CA3AF] font-light mt-2 ml-1">
+                  Avisa você (nesse aparelho) sempre que um agendamento novo chegar na Agenda — mesmo com o app
+                  fechado. Cada administrador ativa a própria, no próprio celular/computador.
                 </p>
               </div>
               <div>
