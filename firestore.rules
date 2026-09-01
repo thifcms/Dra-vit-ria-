@@ -583,7 +583,12 @@ service cloud.firestore {
     // (Firebase Admin SDK), não passa por essas regras.
     match /pushSubscriptions/{uid} {
       allow read, delete: if isSignedIn() && request.auth.uid == uid;
-      allow create, update: if isSignedIn() && request.auth.uid == uid && isAdmin()
+      // Qualquer funcionário autorizado pode ativar a própria notificação — não só quem
+      // está na lista restrita de administrador (isAdmin() é mais estrito, usada pra
+      // coisas como financeiro; aqui o pedido original foi "avisar o usuário", não só
+      // avisar administradores)
+      allow create, update: if isSignedIn() && request.auth.uid == uid
+        && (isAuthorizedStaff() || isAdmin())
         && incoming().subscription is map;
     }
 

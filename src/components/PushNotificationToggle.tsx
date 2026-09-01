@@ -40,8 +40,9 @@ export default function PushNotificationToggle({ user }: { user: User }) {
         setStatus('subscribed');
         showToast('Notificações ativadas — você vai ser avisado quando chegar agendamento novo');
       }
-    } catch (err) {
-      showToast('Erro ao configurar notificações', 'error');
+    } catch (err: any) {
+      console.error('Erro ao configurar notificações:', err);
+      showToast(`Erro ao configurar notificações: ${err?.code || err?.message || 'desconhecido'}`, 'error');
     }
     setBusy(false);
   };
