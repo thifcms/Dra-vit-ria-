@@ -311,25 +311,6 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
       const cancelUrl = cancelLink(appt.id!, token, appt.date, appt.time, user.uid);
       const dateLabel = new Date(appt.date + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
 
-      // Ficha clínica (questionário) agora vai junto nessa mesma mensagem de
-      // confirmação/lembrete — antes só era enviada depois do check-in, o que
-      // deixava pouco tempo pro paciente preencher com calma antes da consulta
-      let intakeUrl: string | undefined;
-      if (appt.patientId) {
-        try {
-          const inviteRef = doc(collection(db, 'intakeInvites'));
-          await setDoc(inviteRef, {
-            userId: user.uid,
-            patientId: appt.patientId,
-            patientName: appt.patientName,
-            ownerId: ownerId || user.uid,
-            appointmentId: appt.id,
-            createdAt: new Date().toISOString(),
-          });
-          intakeUrl = intakeInviteLink(inviteRef.id);
-        } catch { /* mensagem principal continua indo mesmo se isso falhar */ }
-      }
-
       const message = buildReminderMessage({
         patientName: appt.patientName,
         clinicName: clinicSettings?.clinicName || clinicSettings?.professionalName || 'Clínica',
@@ -339,7 +320,6 @@ export default function Schedule({ user, onOpenPatient }: { user: FirebaseUser, 
         time: appt.time,
         checkinUrl,
         cancelUrl,
-        intakeUrl,
       });
       const url = channel === 'whatsapp' ? whatsappLink(phone!, message) : emailLink(email!, clinicSettings?.clinicName || 'Clínica', message);
       window.open(url, '_blank');
