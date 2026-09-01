@@ -598,10 +598,15 @@ service cloud.firestore {
     // sensível — é justamente conteúdo pensado pra divulgação.
     match /promotions/{promotionId} {
       allow read: if true;
+      // Criar/editar continua só admin (pedido explícito antes, não mexo nisso).
       allow create: if isAdmin()
         && incoming().message is string
         && incoming().expiresAt is string;
-      allow update, delete: if isAdmin();
+      allow update: if isAdmin();
+      // Apagar afrouxado pra isAuthorizedStaff() também — sem isso, o botão de "Zerar o
+      // App Inteiro" não conseguia limpar promoções de teste se quem clicasse não
+      // estivesse na lista restrita de admin
+      allow delete: if isAuthorizedStaff() || isAdmin();
     }
 
     // Configurações da clínica — documento único e compartilhado (settings/{ownerId}).
