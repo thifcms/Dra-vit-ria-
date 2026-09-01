@@ -157,7 +157,7 @@ export default function Settings({ user }: { user: User }) {
   // referenciando pacientes que não existem mais, e os índices de CPF/telefone
   // impediriam recadastrar o mesmo CPF/telefone de teste de novo.
   const handleResetTestData = async () => {
-    if (resetConfirmText !== 'APAGAR TUDO') return;
+    if (resetConfirmText.trim().toUpperCase() !== 'APAGAR TUDO') return;
     setResetting(true);
     setResetResult(null);
     const collections = [
@@ -190,7 +190,7 @@ export default function Settings({ user }: { user: User }) {
   // 2) admin_security (senha do painel administrativo) — mesmo motivo.
   // Fora essas duas exceções de segurança, é uma reinicialização completa mesmo.
   const handleResetEntireApp = async () => {
-    if (fullResetConfirmText !== 'ZERAR O APP INTEIRO') return;
+    if (fullResetConfirmText.trim().toUpperCase() !== 'ZERAR O APP INTEIRO') return;
     setFullResetting(true);
     setFullResetResult(null);
     const collections = [
@@ -1554,7 +1554,7 @@ export default function Settings({ user }: { user: User }) {
               </button>
               <button
                 onClick={handleResetTestData}
-                disabled={resetConfirmText !== 'APAGAR TUDO' || resetting}
+                disabled={resetConfirmText.trim().toUpperCase() !== 'APAGAR TUDO' || resetting}
                 className="flex-1 py-4 bg-red-500 text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-red-600 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {resetting ? 'Apagando...' : 'Confirmar e Apagar Permanentemente'}
@@ -1604,7 +1604,7 @@ export default function Settings({ user }: { user: User }) {
                 </button>
                 <button
                   onClick={handleResetEntireApp}
-                  disabled={fullResetConfirmText !== 'ZERAR O APP INTEIRO' || fullResetting}
+                  disabled={fullResetConfirmText.trim().toUpperCase() !== 'ZERAR O APP INTEIRO' || fullResetting}
                   className="flex-1 py-4 bg-red-700 text-white rounded-2xl font-bold text-[10px] uppercase shadow-md hover:bg-red-800 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {fullResetting ? 'Apagando tudo...' : 'Confirmar e Zerar Tudo'}
