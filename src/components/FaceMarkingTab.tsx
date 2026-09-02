@@ -193,6 +193,10 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
     setPoints(prev => prev.map((p, i) => (i === idx ? { ...p, label } : p)));
   };
 
+  const updatePointNote = (idx: number, note: string) => {
+    setPoints(prev => prev.map((p, i) => (i === idx ? { ...p, note } : p)));
+  };
+
   const updatePointInventory = (idx: number, itemId: string | undefined, itemName: string | undefined, quantity: number) => {
     setPoints(prev => prev.map((p, i) => (i === idx ? {
       ...p,
@@ -576,6 +580,13 @@ export default function FaceMarkingTab({ patient, user }: { patient: Patient; us
                         </button>
                       </div>
                     )}
+                    <textarea
+                      value={p.note || ''}
+                      onChange={e => updatePointNote(i, e.target.value)}
+                      placeholder="Observação sobre este ponto (opcional)"
+                      rows={2}
+                      className="w-full text-[10px] bg-white border border-[#F5F2F0] rounded-lg px-2 py-1.5 outline-none text-[#4A433D] placeholder:text-[#C4BEB8] resize-none mt-1.5"
+                    />
                   </div>
                 ))}
               </div>

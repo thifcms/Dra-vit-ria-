@@ -1164,7 +1164,6 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
       h.diet ? `Dieta e Suplementação: ${h.diet}` : '',
       '— AVALIAÇÃO —',
       anamnesis.fitzpatrickType ? `Fototipo (Fitzpatrick): ${anamnesis.fitzpatrickType}` : '',
-      `Avaliação da Pele: ${anamnesis.skinEvaluation || '—'}`,
       `Avaliação Facial: ${anamnesis.faceEvaluation || '—'}`,
       '— CONDUTA —',
       `Conduta / Plano de Tratamento: ${anamnesis.conduct || '—'}`,
@@ -1605,7 +1604,6 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
         ${s.familyHistory ? `<p><strong>Histórico Familiar:</strong> ${s.familyHistory}</p>` : ''}
         <p><strong>Estilo de Vida:</strong> ${activeHabits.length ? activeHabits.map(k => lifestyleLabels[k] || k).join(', ') : 'Nenhum marcado'}</p>
         ${s.fitzpatrickType ? `<p><strong>Fototipo:</strong> ${s.fitzpatrickType}</p>` : ''}
-        <p><strong>Avaliação da Pele:</strong> ${s.skinEvaluation || '—'}</p>
         <p><strong>Avaliação Facial:</strong> ${s.faceEvaluation || '—'}</p>
         <p><strong>Conduta:</strong> ${s.conduct || '—'}</p>
         ${(s.plannedProcedures || []).length > 0 ? `<p><strong>Procedimentos Planejados:</strong> ${s.plannedProcedures.join(', ')}</p>` : ''}
@@ -2641,55 +2639,6 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
                       </div>
                     </div>
 
-                    {anamnesis.intakeQuestionnaire && (
-                      <div className="bg-[#FDFBF9] p-5 md:p-8 rounded-[32px] border border-[#F5F2F0] mb-5 md:mb-8">
-                        <p className="text-[9px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-1">
-                          Respostas do Questionário de Saúde
-                        </p>
-                        <p className="text-[10px] text-[#9CA3AF] font-light mb-4">
-                          Enviado pelo próprio paciente — só leitura, os campos marcáveis acima já refletem essas respostas
-                        </p>
-                        <div className="space-y-2 text-xs text-[#4A433D]">
-                          {(() => {
-                            const q = anamnesis.intakeQuestionnaire!;
-                            const yn = (v?: boolean) => v ? 'Sim' : 'Não';
-                            const scarLabel = { normal: 'Normal', keloid: 'Queloide', hypertrophic: 'Cicatriz hipertrófica', other: q.scarTypeOther || 'Outra' };
-                            const rows: [string, string][] = [
-                              ['Alergia a medicamentos/látex/anestésicos', `${yn(q.allergyMedication)}${q.allergyMedication ? ` — ${q.allergyMedicationDetail || ''}` : ''}`],
-                              ['Alergia a alimento', `${yn(q.hasFoodAllergy)}${q.hasFoodAllergy ? ` — ${q.foodAllergyDetail || ''}` : ''}`],
-                              ['Cicatrização', q.scarType ? scarLabel[q.scarType] : '—'],
-                              ['Já realizou procedimentos com PMMA', yn(q.usedPMMA)],
-                              ['Herpes', `${yn(q.hasHerpes)}${q.hasHerpes ? ` — ${q.herpesFrequency || ''}` : ''}`],
-                              ['Tabagista', yn(q.isSmoker)],
-                              ['Consumo de álcool/etilismo', yn(q.consumesAlcohol)],
-                              ['Intercorrências (nódulo, ETIP, outras)', `${yn(q.hadPastComplications)}${q.hadPastComplications ? ` — ${q.pastComplicationsDetail || ''}` : ''}`],
-                              ['Cirurgia/procedimento facial recente', `${yn(q.recentFacialSurgery)}${q.recentFacialSurgery ? ` — ${q.recentFacialSurgeryDetail || ''}` : ''}`],
-                              ['Uso de medicação', `${yn(q.usesContinuousMedication)}${q.usesContinuousMedication ? ` — ${q.continuousMedicationDetail || ''}` : ''}`],
-                              ['Outra condição não mencionada', `${yn(q.otherHealthCondition)}${q.otherHealthCondition ? ` — ${q.otherHealthConditionDetail || ''}` : ''}`],
-                              ['Já utilizou toxina botulínica', `${yn(q.usedToxinBefore)}${q.usedToxinBefore ? ` — ${q.usedToxinDetail || ''}${q.lastToxinDate ? ` (última aplicação: ${q.lastToxinDate})` : ''}` : ''}`],
-                              ['Já realizou preenchimento facial', `${yn(q.hadFillerBefore)}${q.hadFillerBefore ? ` — ${q.fillerProduct || ''}` : ''}`],
-                              ['Amamentando', yn(q.isBreastfeeding)],
-                              ['Grávida', yn(q.isPregnant)],
-                              ['Doença que interfere na coagulação', `${yn(q.hasCoagulationDisease)}${q.hasCoagulationDisease ? ` — ${q.coagulationDiseaseDetail || ''}` : ''}`],
-                              ['Doença autoimune', `${yn(q.hasAutoimmuneDisease)}${q.hasAutoimmuneDisease ? ` — ${q.autoimmuneDiseaseDetail || ''}` : ''}`],
-                              ['Sangra muito após ferimentos', yn(q.bleedsEasily)],
-                              ['Já teve hemorragia', yn(q.hadHemorrhage)],
-                              ['Diabetes', yn(q.hasDiabetes)],
-                              ['Anemia', yn(q.hasAnemia)],
-                              ['Outras condições (extra)', q.extraConditions ? (Object.entries(q.extraConditions).filter(([, v]) => v).map(([k]) => ({ hypertension: 'Hipertensão', heartProblems: 'Problemas Cardíacos', cancerHistory: 'Histórico de Câncer', epilepsy: 'Epilepsia', hivHepatitis: 'HIV/Hepatite', pacemaker: 'Marca-passo', anticoagulant: 'Anticoagulante', isotretinoin: 'Isotretinoína' } as any)[k]).join(', ') || 'Nenhuma marcada') : '—'],
-                            ];
-                            return rows.map(([label, value]) => (
-                              <p key={label}><strong>{label}:</strong> {value}</p>
-                            ));
-                          })()}
-                          {anamnesis.intakeQuestionnaire.submittedAt && (
-                            <p className="text-[10px] text-[#9CA3AF] pt-2 border-t border-[#F5F2F0] mt-3">
-                              Enviado em {new Date(anamnesis.intakeQuestionnaire.submittedAt).toLocaleString('pt-BR')}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    )}
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
                       <FormField label="Outras Condições" value={anamnesis.otherConditions} onChange={v => setAnamnesis({...anamnesis, otherConditions: v})} textarea />
@@ -2709,26 +2658,47 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
                           </p>
                         )}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          {[
-                            { label: 'Já utilizou toxina botulínica?', value: anamnesis.intakeQuestionnaire.usedToxinBefore, detail: [anamnesis.intakeQuestionnaire.lastToxinDate, anamnesis.intakeQuestionnaire.toxinTimes].filter(Boolean).join(' · ') },
-                            { label: 'Já fez procedimento com PMMA?', value: anamnesis.intakeQuestionnaire.usedPMMA },
-                            { label: 'Intercorrências passadas (nódulo/ETIPE)?', value: anamnesis.intakeQuestionnaire.hadPastComplications, detail: anamnesis.intakeQuestionnaire.pastComplicationsDetail },
-                            { label: 'Possui alergia a algum alimento?', value: anamnesis.intakeQuestionnaire.hasFoodAllergy, detail: anamnesis.intakeQuestionnaire.foodAllergyDetail },
-                            { label: 'Possui alergia a picada de inseto?', value: anamnesis.intakeQuestionnaire.hasInsectAllergy, detail: anamnesis.intakeQuestionnaire.insectAllergyDetail },
-                            { label: 'Já realizou preenchimento facial?', value: anamnesis.intakeQuestionnaire.hadFillerBefore, detail: anamnesis.intakeQuestionnaire.fillerProduct },
-                            { label: 'Doença que interfira na coagulação?', value: anamnesis.intakeQuestionnaire.hasCoagulationDisease, detail: anamnesis.intakeQuestionnaire.coagulationDiseaseDetail },
-                            { label: 'Sangra muito depois de ferido?', value: anamnesis.intakeQuestionnaire.bleedsEasily },
-                            { label: 'Já teve hemorragia ou herpes?', value: anamnesis.intakeQuestionnaire.hadHemorrhageOrHerpes, detail: anamnesis.intakeQuestionnaire.hemorrhageOrHerpesDetail },
-                            { label: 'Anemia?', value: anamnesis.intakeQuestionnaire.hasAnemia },
-                          ].map((item, i) => (
+                          {(() => {
+                            const q = anamnesis.intakeQuestionnaire;
+                            const scarLabel = { normal: 'Normal', keloid: 'Queloide', hypertrophic: 'Cicatriz hipertrófica', other: q.scarTypeOther || 'Outra' };
+                            const extraConditionsLabel = q.extraConditions
+                              ? Object.entries(q.extraConditions).filter(([, v]) => v).map(([k]) => ({ hypertension: 'Hipertensão', heartProblems: 'Problemas Cardíacos', cancerHistory: 'Histórico de Câncer', epilepsy: 'Epilepsia', hivHepatitis: 'HIV/Hepatite', pacemaker: 'Marca-passo', anticoagulant: 'Anticoagulante', isotretinoin: 'Isotretinoína' } as any)[k]).join(', ')
+                              : '';
+                            return [
+                              { label: 'Alergia a medicamentos, látex ou anestésicos locais?', value: q.allergyMedication, detail: q.allergyMedicationDetail },
+                              { label: 'Alergia a algum alimento?', value: q.hasFoodAllergy, detail: q.foodAllergyDetail },
+                              { label: 'Cicatrização', value: true, detail: q.scarType ? scarLabel[q.scarType] : '—', hideBadge: true },
+                              { label: 'Já realizou procedimentos com PMMA?', value: q.usedPMMA },
+                              { label: 'Herpes?', value: q.hasHerpes, detail: q.herpesFrequency },
+                              { label: 'Tabagista?', value: q.isSmoker },
+                              { label: 'Consumo de bebida alcoólica / etilismo?', value: q.consumesAlcohol },
+                              { label: 'Intercorrências (nódulo, ETIP, outras)?', value: q.hadPastComplications, detail: q.pastComplicationsDetail },
+                              { label: 'Cirurgia/procedimento facial recente?', value: q.recentFacialSurgery, detail: q.recentFacialSurgeryDetail },
+                              { label: 'Faz uso de alguma medicação?', value: q.usesContinuousMedication, detail: q.continuousMedicationDetail },
+                              { label: 'Outra condição de saúde não mencionada?', value: q.otherHealthCondition, detail: q.otherHealthConditionDetail },
+                              { label: 'Já utilizou toxina botulínica?', value: q.usedToxinBefore, detail: [q.usedToxinDetail, q.lastToxinDate ? `última aplicação: ${q.lastToxinDate}` : ''].filter(Boolean).join(' · ') },
+                              { label: 'Já realizou preenchimento facial?', value: q.hadFillerBefore, detail: q.fillerProduct },
+                              { label: 'Está amamentando?', value: q.isBreastfeeding },
+                              { label: 'Está grávida?', value: q.isPregnant },
+                              { label: 'Doença que interfere na coagulação?', value: q.hasCoagulationDisease, detail: q.coagulationDiseaseDetail },
+                              { label: 'Doença autoimune?', value: q.hasAutoimmuneDisease, detail: q.autoimmuneDiseaseDetail },
+                              { label: 'Sangra muito após ferimentos?', value: q.bleedsEasily },
+                              { label: 'Já teve hemorragia?', value: q.hadHemorrhage },
+                              { label: 'Diabetes?', value: q.hasDiabetes },
+                              { label: 'Anemia?', value: q.hasAnemia },
+                              ...(extraConditionsLabel ? [{ label: 'Outras condições', value: true, detail: extraConditionsLabel, hideBadge: true }] : []),
+                            ];
+                          })().map((item, i) => (
                             <div key={i} className="flex items-start justify-between gap-3 py-2 border-b border-[#E5EFE5] last:border-0 sm:border-0">
                               <div>
                                 <p className="text-xs text-[#4A433D]">{item.label}</p>
                                 {item.detail && <p className="text-[10px] text-[#9CA3AF] mt-0.5">{item.detail}</p>}
                               </div>
-                              <span className={`text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full shrink-0 ${item.value ? 'bg-[#8BA888] text-white' : 'bg-white text-[#9CA3AF] border border-[#E5EFE5]'}`}>
-                                {item.value ? 'Sim' : 'Não'}
-                              </span>
+                              {!item.hideBadge && (
+                                <span className={`text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full shrink-0 ${item.value ? 'bg-[#8BA888] text-white' : 'bg-white text-[#9CA3AF] border border-[#E5EFE5]'}`}>
+                                  {item.value ? 'Sim' : 'Não'}
+                                </span>
+                              )}
                             </div>
                           ))}
                         </div>
@@ -2759,8 +2729,7 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
                     <h4 className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-[0.2em] mb-4 md:mb-6 flex items-center gap-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-[#EADFD4]" /> Avaliação Física
                     </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
-                      <FormField label="Avaliação da Pele" value={anamnesis.skinEvaluation} onChange={v => setAnamnesis({...anamnesis, skinEvaluation: v})} textarea />
+                    <div className="grid grid-cols-1 gap-4 md:gap-8">
                       <FormField label="Avaliação Facial" value={anamnesis.faceEvaluation} onChange={v => setAnamnesis({...anamnesis, faceEvaluation: v})} textarea />
                     </div>
                   </section>
@@ -2982,9 +2951,8 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
                 {isAddingEvolution && (
                   <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} className="p-8 bg-[#FDFBF9] rounded-[32px] border border-[#F5F2F0] space-y-6 shadow-sm">
                     <h4 className="serif text-xl text-[#4A433D]">{editingEvolutionIndex !== null ? 'Editar Registro' : 'Novo Acompanhamento'}</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="grid grid-cols-1 gap-8">
                       <FormField label="Procedimento / Técnica" value={newEvolution.procedure} onChange={v => setNewEvolution({...newEvolution, procedure: v})} />
-                      <FormField label="Medida / Valor (Opcional)" value={newEvolution.numericValue} onChange={v => setNewEvolution({...newEvolution, numericValue: v})} />
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       <FormField label="Notas Gerais" value={newEvolution.notes} onChange={v => setNewEvolution({...newEvolution, notes: v})} textarea />
@@ -3119,7 +3087,15 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
                   <div>
                     <h3 className="serif text-2xl text-[#4A433D]">Galeria Clínica</h3>
                     {(() => {
-                      const authorized = (patient.consentTerms || []).some(t => t.templateTitle === 'Autorização para Uso de Dados, Imagem e Voz');
+                      const authorized = (patient.consentTerms || []).some(t =>
+                        t.templateTitle === 'Autorização para Uso de Dados e Imagem'
+                        || t.templateTitle === 'Autorização para Uso de Dados, Imagem e Voz'
+                        // Se o paciente já marcou a autorização de divulgação de imagem no
+                        // próprio questionário de saúde (com assinatura), isso já vale como
+                        // consentimento — não precisa assinar de novo um termo formal
+                        // separado na aba Termos
+                        || t.templateTitle === 'Autorização de Divulgação de Imagens (Ficha Clínica)'
+                      );
                       return (
                         <p className={`text-[10px] font-bold uppercase tracking-widest mt-2 flex items-center gap-2 ${authorized ? 'text-[#8BA888]' : 'text-red-400'}`}>
                           {authorized ? <CheckCircle2 size={12} /> : <AlertTriangle size={12} />}
@@ -3568,7 +3544,6 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
                     {s.familyHistory && <p><strong>Histórico Familiar:</strong> {s.familyHistory}</p>}
                     <p><strong>Estilo de Vida:</strong> {activeHabits.length ? activeHabits.map(k => lifestyleLabels[k] || k).join(', ') : 'Nenhum marcado'}{s.habits?.diet ? ` — ${s.habits.diet}` : ''}</p>
                     {s.fitzpatrickType && <p><strong>Fototipo:</strong> {s.fitzpatrickType}</p>}
-                    <p><strong>Avaliação da Pele:</strong> {s.skinEvaluation || '—'}</p>
                     <p><strong>Avaliação Facial:</strong> {s.faceEvaluation || '—'}</p>
                     <p><strong>Conduta:</strong> {s.conduct || '—'}</p>
                     {(s.plannedProcedures || []).length > 0 && <p><strong>Procedimentos Planejados:</strong> {s.plannedProcedures.join(', ')}</p>}
@@ -4916,7 +4891,7 @@ function PrescriptionModule({ user, patient }: { user: User, patient: Patient })
                 <div key={i} className="bg-white p-8 rounded-3xl border border-[#F5F2F0] relative group shadow-sm">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <FormField label="Nome do Medicamento" value={med.name} onChange={v => updateMedicine(i, 'name', v)} />
-                    <FormField label="Dosagem / Frequência" value={med.dosage} onChange={v => updateMedicine(i, 'dosage', v)} />
+                    <FormField label="Dosagem" value={med.dosage} onChange={v => updateMedicine(i, 'dosage', v)} />
                   </div>
                   <div className="mt-4">
                     <FormField label="Instruções de Uso" value={med.instructions} onChange={v => updateMedicine(i, 'instructions', v)} textarea />

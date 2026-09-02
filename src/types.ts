@@ -764,6 +764,10 @@ export interface FaceMarkingPoint {
   // esse é usado pra calcular o custo/orçamento, não pra dar baixa física. Um ponto pode
   // ter mais de uma substância aplicada nele (ex: toxina + preenchedor no mesmo local).
   substances?: { substanceId: string; substanceName: string; ml: number }[];
+  // Observação livre sobre esse ponto específico (ex: "paciente sentiu mais sensível
+  // aqui", "reduzir na próxima sessão") — opcional, aparece como um campo de texto
+  // abaixo de cada ponto marcado
+  note?: string;
 }
 
 // Resumo de quanto de cada substância foi usado numa sessão de marcação inteira — soma

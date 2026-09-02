@@ -44,8 +44,8 @@ Especificamente sobre o tratamento planejado, estou ciente de que:
 Em manifestação autônoma de consentimento, de forma livre e esclarecida, firmo o presente, na forma da Lei 13.709/2018 (Lei Geral de Proteção de Dados).`,
   },
   {
-    title: 'Autorização para Uso de Dados, Imagem e Voz',
-    content: `Eu, [NOME DO PACIENTE], CPF [CPF DO PACIENTE], venho por meio deste termo, espontânea e livremente, AUTORIZAR o uso de dados do meu prontuário, de minhas imagens, áudios e vídeos, relativos ao tratamento a que me submeto com [NOME DO PROFISSIONAL] / [NOME DA CLINICA], para fins de divulgação de assuntos odontológicos/estéticos (redes sociais, site, materiais educativos), abdicando de qualquer direito ou remuneração pelo uso destes registros.
+    title: 'Autorização para Uso de Dados e Imagem',
+    content: `Eu, [NOME DO PACIENTE], CPF [CPF DO PACIENTE], venho por meio deste termo, espontânea e livremente, AUTORIZAR o uso de dados do meu prontuário, de minhas imagens e vídeos, relativos ao tratamento a que me submeto com [NOME DO PROFISSIONAL] / [NOME DA CLINICA], para fins de divulgação de assuntos odontológicos/estéticos (redes sociais, site, materiais educativos), abdicando de qualquer direito ou remuneração pelo uso destes registros.
 
 Fica o profissional/clínica obrigado a não mais usar os dados e, sendo aplicável e possível, a remover eventuais publicações já feitas, caso eu venha, a qualquer tempo, a revogar esta autorização.
 
