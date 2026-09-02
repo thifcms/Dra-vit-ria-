@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ToastHost, showToast } from './lib/toast';
 import { hashPin, isValidPinFormat } from './lib/pin';
 import { verifyBiometric } from './lib/webauthn';
-import { getClinicOwnerId, hasFinanceAccess } from './lib/slots';
+import { getClinicOwnerId, hasFinanceAccess, professionalCouncilLabel } from './lib/slots';
 import type { ClinicSettings, Patient } from './types';
 import { 
   Users, 
@@ -649,7 +649,7 @@ function AuthenticatedApp() {
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-[#4A433D] truncate">{professionalName}</p>
-                    <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest">{clinicSettings?.registrationNumber ? `CRO/CRM ${clinicSettings.registrationNumber}` : 'Especialista'}</p>
+                    <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-widest">{clinicSettings?.registrationNumber ? `${professionalCouncilLabel(clinicSettings?.professionalSpecialty)} ${clinicSettings.registrationNumber}` : 'Especialista'}</p>
                   </div>
                 </div>
                 <button 

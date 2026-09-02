@@ -164,3 +164,18 @@ export async function getNextBudgetNumber(db: Firestore): Promise<number> {
     return next;
   });
 }
+
+// Cada especialidade profissional tem seu próprio conselho de classe — usado em
+// Configurações (rótulo do campo de registro) e em todos os documentos impressos que
+// mostram o número de registro (orçamento, receituário, termos, atestado, evolução).
+export const PROFESSIONAL_COUNCIL_LABELS: Record<string, string> = {
+  medico: 'CRM',
+  cirurgiao_dentista: 'CRO',
+  biomedico: 'CRBM',
+  fisioterapeuta: 'CREFITO',
+  enfermagem: 'COREN',
+};
+
+export function professionalCouncilLabel(specialty?: string): string {
+  return (specialty && PROFESSIONAL_COUNCIL_LABELS[specialty]) || 'CRO';
+}

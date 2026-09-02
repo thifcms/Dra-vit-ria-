@@ -620,6 +620,10 @@ export interface FixedCost {
 
 export interface ClinicSettings {
   professionalName: string;
+  // Define automaticamente qual conselho aparece no campo abaixo (CRM pra médico, CRO
+  // pra cirurgião dentista, etc.) — sem esse campo definido, mostra "CRM/CRO" genérico
+  // (comportamento de antes, mantido pra não confundir quem já tinha preenchido).
+  professionalSpecialty?: 'medico' | 'cirurgiao_dentista' | 'biomedico' | 'fisioterapeuta' | 'enfermagem';
   registrationNumber: string;
   // Assinatura do profissional, cadastrada uma vez (foto ou desenhada) — usada
   // automaticamente sempre que um documento é liberado, sem precisar assinar com o

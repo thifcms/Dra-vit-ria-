@@ -5,7 +5,7 @@ import { compressImage } from '../lib/imageCompress';
 import { db, storage } from '../lib/firebase';
 import { Patient, ClinicSettings, InventoryItem } from '../types';
 import { daysUntil } from '../lib/inventoryBatches';
-import { phoneIndexKey, cpfIndexKey, getClinicOwnerId, todayLocalStr, remoteSignLink, intakeInviteLink, parseCurrencyInput, getNextBudgetNumber } from '../lib/slots';
+import { phoneIndexKey, cpfIndexKey, getClinicOwnerId, todayLocalStr, remoteSignLink, intakeInviteLink, parseCurrencyInput, getNextBudgetNumber, professionalCouncilLabel } from '../lib/slots';
 import { whatsappLink, genericEmailLink, openWhatsApp } from '../lib/reminders';
 import { buildLetterheadHtml } from '../lib/documentTemplate';
 import { User } from 'firebase/auth';
@@ -961,7 +961,7 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
         <p style="margin: 0 0 4px; font-size: 13px; color: #9CA3AF;">${clinicName} — ${todayLabel}</p>
         <p style="margin: 40px 0 6px;">
           <span style="display: inline-block; border-top: 1px solid #4A433D; padding-top: 8px; min-width: 280px;">
-            ${professionalName ? `${professionalName}<br/>` : ''}${registrationNumber ? `CRO nº ${registrationNumber}` : clinicName}
+            ${professionalName ? `${professionalName}<br/>` : ''}${registrationNumber ? `${professionalCouncilLabel(clinicSettingsForInvoice?.professionalSpecialty)} nº ${registrationNumber}` : clinicName}
           </span>
         </p>
       </div>
@@ -1620,7 +1620,7 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
         <div class="box-label">Assinatura do Profissional</div>
         <img src="${clinicSettingsForInvoice.professionalSignatureUrl}" alt="Assinatura do Profissional" style="max-height: 80px; margin: 10px auto; display: block; mix-blend-mode: multiply;" />
         <p style="font-size: 12px; color: #4A433D; margin-top: 4px;">
-          ${clinicSettingsForInvoice?.professionalName || ''}${clinicSettingsForInvoice?.registrationNumber ? ` — CRO nº ${clinicSettingsForInvoice.registrationNumber}` : ''}
+          ${clinicSettingsForInvoice?.professionalName || ''}${clinicSettingsForInvoice?.registrationNumber ? ` — ${professionalCouncilLabel(clinicSettingsForInvoice?.professionalSpecialty)} nº ${clinicSettingsForInvoice.registrationNumber}` : ''}
         </p>
       </div>
       ` : ''}
@@ -1666,7 +1666,7 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
       <div class="box" style="text-align: center;">
         <img src="${clinicSettingsForInvoice.professionalSignatureUrl}" alt="Assinatura do Profissional" style="max-height: 80px; margin: 10px auto; display: block; mix-blend-mode: multiply;" />
         <p style="font-size: 12px; color: #4A433D; margin-top: 4px;">
-          ${clinicSettingsForInvoice?.professionalName || ''}${clinicSettingsForInvoice?.registrationNumber ? ` — CRO nº ${clinicSettingsForInvoice.registrationNumber}` : ''}
+          ${clinicSettingsForInvoice?.professionalName || ''}${clinicSettingsForInvoice?.registrationNumber ? ` — ${professionalCouncilLabel(clinicSettingsForInvoice?.professionalSpecialty)} nº ${clinicSettingsForInvoice.registrationNumber}` : ''}
         </p>
       </div>
       ` : ''}
@@ -1704,7 +1704,7 @@ function PatientDetail({ user, patient, onBack, onReturnToSchedule }: { user: Us
       <div class="box" style="text-align: center;">
         <img src="${clinicSettingsForInvoice.professionalSignatureUrl}" alt="Assinatura" style="max-height: 80px; margin: 10px auto; display: block; mix-blend-mode: multiply;" />
         <p style="font-size: 12px; color: #4A433D; margin-top: 4px;">
-          ${clinicSettingsForInvoice?.professionalName || ''}${clinicSettingsForInvoice?.registrationNumber ? ` — CRO nº ${clinicSettingsForInvoice.registrationNumber}` : ''}
+          ${clinicSettingsForInvoice?.professionalName || ''}${clinicSettingsForInvoice?.registrationNumber ? ` — ${professionalCouncilLabel(clinicSettingsForInvoice?.professionalSpecialty)} nº ${clinicSettingsForInvoice.registrationNumber}` : ''}
         </p>
       </div>
       ` : ''}
@@ -3850,7 +3850,7 @@ function AtestadoModule({ user, patient, getReleaserName }: { user: User, patien
         ${clinicSettings?.professionalSignatureUrl ? `<img src="${clinicSettings.professionalSignatureUrl}" alt="Assinatura" style="max-height: 80px; margin: 30px auto 4px; display: block; mix-blend-mode: multiply;" />` : ''}
         <p style="margin: ${clinicSettings?.professionalSignatureUrl ? '0' : '40px'} 0 6px;">
           <span style="display: inline-block; border-top: 1px solid #4A433D; padding-top: 8px; min-width: 280px;">
-            ${professionalName ? `${professionalName}<br/>` : ''}${registrationNumber ? `CRO nº ${registrationNumber}` : 'Cirurgião(ã)-Dentista'}
+            ${professionalName ? `${professionalName}<br/>` : ''}${registrationNumber ? `${professionalCouncilLabel(clinicSettings?.professionalSpecialty)} nº ${registrationNumber}` : 'Cirurgião(ã)-Dentista'}
           </span>
         </p>
       </div>
@@ -4123,7 +4123,7 @@ function ConsentTermsModule({ user, patient, onPrintAnamnesisHistory, onPrintBud
         <div class="box-label">Assinatura do Profissional</div>
         <img src="${clinicSettings.professionalSignatureUrl}" alt="Assinatura do Profissional" style="max-height: 80px; margin: 10px auto; display: block; mix-blend-mode: multiply;" />
         <p style="font-size: 12px; color: #4A433D; margin-top: 4px;">
-          ${clinicSettings?.professionalName || ''}${clinicSettings?.registrationNumber ? ` — CRO nº ${clinicSettings.registrationNumber}` : ''}
+          ${clinicSettings?.professionalName || ''}${clinicSettings?.registrationNumber ? ` — ${professionalCouncilLabel(clinicSettings?.professionalSpecialty)} nº ${clinicSettings.registrationNumber}` : ''}
         </p>
       </div>
       ` : ''}
@@ -4798,7 +4798,7 @@ function PrescriptionModule({ user, patient }: { user: User, patient: Patient })
           <img src="${prescription.signatureUrl}" alt="Assinatura" style="max-height: 90px; margin: 20px auto 6px; display: block; mix-blend-mode: multiply;" />
           <p style="margin: 0 0 6px;">
             <span style="display: inline-block; border-top: 1px solid #4A433D; padding-top: 8px; min-width: 280px;">
-              ${professionalName ? `${professionalName}<br/>` : ''}${registrationNumber ? `CRO nº ${registrationNumber}` : 'Assinatura e Carimbo Profissional'}
+              ${professionalName ? `${professionalName}<br/>` : ''}${registrationNumber ? `${professionalCouncilLabel(clinicSettings?.professionalSpecialty)} nº ${registrationNumber}` : 'Assinatura e Carimbo Profissional'}
             </span>
           </p>
         ` : `

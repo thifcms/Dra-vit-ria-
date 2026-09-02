@@ -35,7 +35,7 @@ import {
 } from 'lucide-react';
 import { showToast } from '../lib/toast';
 import { hashPin, isValidPinFormat } from '../lib/pin';
-import { getClinicOwnerId, parseCurrencyInput } from '../lib/slots';
+import { getClinicOwnerId, parseCurrencyInput, professionalCouncilLabel } from '../lib/slots';
 import { isPlatformAuthenticatorAvailable, registerBiometric } from '../lib/webauthn';
 import AdminPanel from './AdminPanel';
 import PushNotificationToggle from './PushNotificationToggle';
@@ -841,8 +841,23 @@ export default function Settings({ user }: { user: User }) {
               onChange={v => setSettings({...settings, professionalName: v})}
               icon={<UserIcon size={18} />}
             />
+            <div>
+              <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-2">Especialidade</label>
+              <select
+                value={settings.professionalSpecialty || ''}
+                onChange={e => setSettings({...settings, professionalSpecialty: (e.target.value || undefined) as any})}
+                className="w-full bg-white border border-[#F5F2F0] rounded-2xl p-4 outline-none focus:border-[#EADFD4]/30 transition-all text-sm"
+              >
+                <option value="">Selecione...</option>
+                <option value="medico">Médico</option>
+                <option value="cirurgiao_dentista">Cirurgião Dentista</option>
+                <option value="biomedico">Biomédico</option>
+                <option value="fisioterapeuta">Fisioterapeuta</option>
+                <option value="enfermagem">Enfermagem</option>
+              </select>
+            </div>
             <SettingField 
-              label="CRM / CRO" 
+              label={settings.professionalSpecialty ? professionalCouncilLabel(settings.professionalSpecialty) : 'CRM / CRO'} 
               value={settings.registrationNumber} 
               onChange={v => setSettings({...settings, registrationNumber: v})}
               icon={<Hash size={18} />}

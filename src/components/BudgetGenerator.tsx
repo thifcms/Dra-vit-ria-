@@ -5,7 +5,7 @@ import { Patient, ClinicSettings, InventoryItem } from '../types';
 import { User } from 'firebase/auth';
 import { Plus, Trash2, FileDown, CheckCircle2, MessageCircle, History, X, Eye, Clock, Printer, QrCode, Copy } from 'lucide-react';
 import { showToast } from '../lib/toast';
-import { getClinicOwnerId, parseCurrencyInput, remoteSignLink } from '../lib/slots';
+import { getClinicOwnerId, parseCurrencyInput, remoteSignLink, professionalCouncilLabel } from '../lib/slots';
 import { whatsappLink, genericEmailLink, openWhatsApp } from '../lib/reminders';
 import { deductFromBatchesFEFO } from '../lib/inventoryBatches';
 import { buildPixPayload } from '../lib/pix';
@@ -744,7 +744,7 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
         docPdf.setFont('helvetica', 'normal');
         docPdf.setTextColor(154, 144, 132);
         docPdf.setFontSize(9);
-        if (registrationNumber) docPdf.text(`CRO nº ${registrationNumber}`, margin, y + (professionalName ? 5 : 0));
+        if (registrationNumber) docPdf.text(`${professionalCouncilLabel(settings?.professionalSpecialty)} nº ${registrationNumber}`, margin, y + (professionalName ? 5 : 0));
       }
 
       drawFooter();
@@ -1082,7 +1082,7 @@ export default function BudgetGenerator({ patient, user, liveAnamnesis, availabl
                         <p className="text-[9px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-1">Assinatura do Profissional</p>
                         <img src={settings.professionalSignatureUrl} alt="Assinatura do Profissional" style={{ maxHeight: 60, margin: '0 auto', mixBlendMode: 'multiply' }} />
                         <p className="text-[10px] text-[#4A433D] mt-1">
-                          {settings?.professionalName || ''}{settings?.registrationNumber ? ` — CRO nº ${settings.registrationNumber}` : ''}
+                          {settings?.professionalName || ''}{settings?.registrationNumber ? ` — ${professionalCouncilLabel(settings?.professionalSpecialty)} nº ${settings.registrationNumber}` : ''}
                         </p>
                       </div>
                     )}
