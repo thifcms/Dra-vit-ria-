@@ -297,6 +297,7 @@ export default function Dashboard({ user, onNavigate, onOpenPatient, professiona
           value={stats.totalPatients} 
           icon={<Users className="text-[#EADFD4]" size={20} />} 
           trend="+4 novos"
+          onClick={() => onNavigate('patients')}
         />
         {hasFinanceAccess(user?.email) && (
           <StatCard 
@@ -304,12 +305,14 @@ export default function Dashboard({ user, onNavigate, onOpenPatient, professiona
             value={`R$ ${stats.monthRevenue.toLocaleString('pt-BR')}`} 
             icon={<TrendingUp className="text-[#8BA888]" size={20} />} 
             trend="Estável"
+            onClick={() => onNavigate('finance')}
           />
         )}
         <StatCard 
           label="Consultas Hoje" 
           value={stats.todayAppointments} 
           icon={<Calendar className="text-[#9CA3AF]" size={20} />} 
+          onClick={() => onNavigate('schedule')}
         />
         <StatCard 
           label="Alerta de Estoque" 
@@ -317,7 +320,7 @@ export default function Dashboard({ user, onNavigate, onOpenPatient, professiona
           icon={<AlertCircle className={stats.lowStock > 0 ? "text-red-400" : "text-[#9CA3AF]"} size={20} />} 
           variant={stats.lowStock > 0 ? "danger" : "default"}
           trend={stats.lowStock > 0 ? "Revisar" : "Normal"}
-          onClick={stats.lowStock > 0 ? () => setShowLowStockModal(true) : undefined}
+          onClick={stats.lowStock > 0 ? () => setShowLowStockModal(true) : () => onNavigate('inventory')}
         />
       </div>
 
